@@ -31,6 +31,7 @@ from ..proto.dwarf_messages import (
     ReqStopGoto,
     ReqStopManualContinuFocus,
     ReqsetMasterLock,
+    ResNotifyFocus,
     ResNotifyHostSlaveMode,
     ResNotifyParam,
 )
@@ -90,6 +91,7 @@ class FocuserState:
     connected: bool = False
     position: int = 0
     is_moving: bool = False
+    last_update: float | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +117,8 @@ class DwarfSession:
             minor_version=2,
             client_id=settings.dwarf_ws_client_id,
         )
+        self._focus_update_event = asyncio.Event()
+        self._ws_client.register_notification_handler(self._handle_notification)
         self._http_client = DwarfHttpClient(
             settings.dwarf_ap_ip,
             api_port=settings.dwarf_http_port,
@@ -235,6 +239,39 @@ class DwarfSession:
             await asyncio.sleep(0.2)
 
         self._ws_bootstrapped = True
+
+    async def _handle_notification(self, packet: Message) -> None:
+        module_id = getattr(packet, "module_id", None)
+        if module_id != protocol_pb2.ModuleId.MODULE_NOTIFY:
+            return
+        command_id = getattr(packet, "cmd", None)
+        if command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_FOCUS:
+            self._handle_focus_notification(packet)
+
+    def _handle_focus_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = ResNotifyFocus()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.debug(
+                "dwarf.focus.notification.decode_failed",
+                error=str(exc),
+            )
+            return
+        focus_value = getattr(message, "focus", None)
+        if focus_value is None:
+            return
+        position = max(0, min(int(focus_value), 20000))
+        state = self.focuser_state
+        if state.position != position:
+            logger.debug("dwarf.focus.notification", position=position)
+        state.position = position
+        state.connected = True
+        state.last_update = time.time()
+        self._focus_update_event.set()
 
     async def _send_and_check(
         self,
@@ -1768,50 +1805,101 @@ class DwarfSession:
         state.connected = False
         state.is_moving = False
 
-    async def focuser_move(self, delta: int) -> None:
+    async def focuser_move(self, delta: int, *, target: int | None = None) -> None:
         state = self.focuser_state
         state.is_moving = True
+        start_position = state.position
+        desired_target = start_position + delta if target is None else target
+        target = max(0, min(desired_target, 20000))
+        delta = target - start_position
+        if delta == 0:
+            state.is_moving = False
+            return
+
+        direction = 1 if delta > 0 else -1
+        steps = abs(delta)
+
         if self.simulation:
             await self._simulate_focus_move(delta)
+            state.position = target
+            state.last_update = time.time()
             state.is_moving = False
             return
 
         await self._ensure_ws()
-        direction = 1 if delta > 0 else 0
-        steps = abs(delta)
-        if steps == 0:
-            state.is_moving = False
-            return
-        if steps <= 10:
-            for _ in range(steps):
+        received_update = False
+        try:
+            if steps <= 10:
                 request = ReqManualSingleStepFocus()
-                request.direction = direction
+                request.direction = 1 if direction > 0 else 0
+                for _ in range(steps):
+                    self._focus_update_event.clear()
+                    await self._send_and_check(
+                        protocol_pb2.ModuleId.MODULE_FOCUS,
+                        protocol_pb2.DwarfCMD.CMD_FOCUS_MANUAL_SINGLE_STEP_FOCUS,
+                        request,
+                    )
+                    try:
+                        await asyncio.wait_for(self._focus_update_event.wait(), timeout=0.8)
+                        received_update = True
+                    except asyncio.TimeoutError:
+                        state.position = max(0, min(state.position + direction, 20000))
+                    finally:
+                        self._focus_update_event.clear()
+                    await asyncio.sleep(0.02)
+            else:
+                start_request = ReqManualContinuFocus()
+                start_request.direction = 1 if direction > 0 else 0
+                self._focus_update_event.clear()
                 await self._send_and_check(
                     protocol_pb2.ModuleId.MODULE_FOCUS,
-                    protocol_pb2.DwarfCMD.CMD_FOCUS_MANUAL_SINGLE_STEP_FOCUS,
-                    request,
+                    protocol_pb2.DwarfCMD.CMD_FOCUS_START_MANUAL_CONTINU_FOCUS,
+                    start_request,
                 )
-                state.position += 1 if delta > 0 else -1
-                state.position = max(0, min(state.position, 20000))
-                await asyncio.sleep(0.02)
+                deadline = time.monotonic() + min(max(steps * 0.015, 1.5), 15.0)
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    try:
+                        await asyncio.wait_for(
+                            self._focus_update_event.wait(),
+                            timeout=min(0.8, max(0.05, remaining)),
+                        )
+                        received_update = True
+                    except asyncio.TimeoutError:
+                        break
+                    finally:
+                        self._focus_update_event.clear()
+                    position = self.focuser_state.position
+                    if direction > 0 and position >= target:
+                        break
+                    if direction < 0 and position <= target:
+                        break
+
+                stop_request = ReqStopManualContinuFocus()
+                self._focus_update_event.clear()
+                await self._send_and_check(
+                    protocol_pb2.ModuleId.MODULE_FOCUS,
+                    protocol_pb2.DwarfCMD.CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS,
+                    stop_request,
+                )
+                try:
+                    await asyncio.wait_for(self._focus_update_event.wait(), timeout=0.8)
+                    received_update = True
+                except asyncio.TimeoutError:
+                    pass
+                finally:
+                    self._focus_update_event.clear()
+        except Exception:
+            state.is_moving = False
+            raise
         else:
-            request = ReqManualContinuFocus()
-            request.direction = direction
-            await self._send_and_check(
-                protocol_pb2.ModuleId.MODULE_FOCUS,
-                protocol_pb2.DwarfCMD.CMD_FOCUS_START_MANUAL_CONTINU_FOCUS,
-                request,
-            )
-            await asyncio.sleep(min(steps * 0.01, 5))
-            stop = ReqStopManualContinuFocus()
-            await self._send_and_check(
-                protocol_pb2.ModuleId.MODULE_FOCUS,
-                protocol_pb2.DwarfCMD.CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS,
-                stop,
-            )
-            state.position += delta
+            if not received_update:
+                state.position = target
+                state.last_update = time.time()
             state.position = max(0, min(state.position, 20000))
-        state.is_moving = False
+            state.is_moving = False
 
     async def focuser_halt(self) -> None:
         state = self.focuser_state
@@ -1835,6 +1923,8 @@ class DwarfSession:
         for _ in range(steps):
             self.focuser_state.position += direction
             self.focuser_state.position = max(0, min(self.focuser_state.position, 20000))
+            self.focuser_state.last_update = time.time()
+            self._focus_update_event.set()
             await asyncio.sleep(0.005)
 
 

@@ -43,6 +43,11 @@ def get_interface_version():
     return alpaca_response(value=3)
 
 
+@router.get("/driverinfo")
+def get_driver_info():
+    return alpaca_response(value="DWARF 3 focuser controller")
+
+
 @router.get("/absolute")
 def get_absolute():
     return alpaca_response(value=True)
@@ -101,32 +106,54 @@ async def put_connected(
     return alpaca_response()
 
 
+@router.get("/supportedactions")
+def get_supported_actions():
+    return alpaca_response(value=[])
+
+
 @router.get("/ismoving")
-def get_is_moving():
+async def get_is_moving():
+    session = await get_session()
+    runtime = session.focuser_state
+    state.is_moving = runtime.is_moving
+    state.position = runtime.position
+    state.connected = runtime.connected
     return alpaca_response(value=state.is_moving)
 
 
 @router.get("/position")
-def get_position():
+async def get_position():
+    session = await get_session()
+    runtime = session.focuser_state
+    state.position = runtime.position
+    state.is_moving = runtime.is_moving
+    state.connected = runtime.connected
     return alpaca_response(value=state.position)
 
 
 @router.put("/move")
-async def move(Position: int = Query(...)):
+async def move(
+    request: Request,
+    Position_query: int | None = Query(None, alias="Position"),
+):
     if not state.connected:
         raise HTTPException(status_code=400, detail="Focuser not connected")
-    if Position < 0 or Position > state.max_step:
+    target_position = await resolve_parameter(request, "Position", int, Position_query)
+    if target_position < 0 or target_position > state.max_step:
         raise HTTPException(status_code=400, detail="Position out of range")
 
     session = await get_session()
     runtime = session.focuser_state
+    state.position = runtime.position
+    state.is_moving = runtime.is_moving
+    state.connected = runtime.connected
     current_position = runtime.position
-    delta = Position - current_position
+    delta = target_position - current_position
     if delta == 0:
         return alpaca_response()
 
     state.is_moving = True
-    await session.focuser_move(delta)
+    await session.focuser_move(delta, target=target_position)
     runtime = session.focuser_state
     state.position = runtime.position
     state.is_moving = runtime.is_moving
