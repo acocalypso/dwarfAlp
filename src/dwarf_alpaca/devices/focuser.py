@@ -138,6 +138,37 @@ async def move(
 ):
     if not state.connected:
         raise HTTPException(status_code=400, detail="Focuser not connected")
+    delta_steps = await resolve_parameter(request, "Position", int, Position_query)
+    if abs(delta_steps) > state.max_increment:
+        raise HTTPException(status_code=400, detail="Move exceeds max increment")
+
+    session = await get_session()
+    runtime = session.focuser_state
+    state.position = runtime.position
+    state.is_moving = runtime.is_moving
+    state.connected = runtime.connected
+    new_position = runtime.position + delta_steps
+    if new_position < 0 or new_position > state.max_step:
+        raise HTTPException(status_code=400, detail="Target position out of range")
+    if delta_steps == 0:
+        return alpaca_response()
+
+    state.is_moving = True
+    await session.focuser_move(delta_steps)
+    runtime = session.focuser_state
+    state.position = runtime.position
+    state.is_moving = runtime.is_moving
+    state.connected = runtime.connected
+    return alpaca_response()
+
+
+@router.put("/moveabsolute")
+async def move_absolute(
+    request: Request,
+    Position_query: int | None = Query(None, alias="Position"),
+):
+    if not state.connected:
+        raise HTTPException(status_code=400, detail="Focuser not connected")
     target_position = await resolve_parameter(request, "Position", int, Position_query)
     if target_position < 0 or target_position > state.max_step:
         raise HTTPException(status_code=400, detail="Position out of range")
@@ -147,8 +178,7 @@ async def move(
     state.position = runtime.position
     state.is_moving = runtime.is_moving
     state.connected = runtime.connected
-    current_position = runtime.position
-    delta = target_position - current_position
+    delta = target_position - runtime.position
     if delta == 0:
         return alpaca_response()
 

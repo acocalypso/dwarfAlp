@@ -267,7 +267,7 @@ class DwarfSession:
         position = max(0, min(int(focus_value), 20000))
         state = self.focuser_state
         if state.position != position:
-            logger.debug("dwarf.focus.notification", position=position)
+            logger.info("dwarf.focus.notification", position=position)
         state.position = position
         state.connected = True
         state.last_update = time.time()
@@ -1829,7 +1829,22 @@ class DwarfSession:
         await self._ensure_ws()
         received_update = False
         try:
-            if steps <= 10:
+            last_update_age = None if state.last_update is None else time.time() - state.last_update
+            prefer_single_step = steps <= 10
+            fallback_reason = None
+            if steps > 10 and (last_update_age is None or last_update_age > 5.0):
+                fallback_reason = "stale_focus_telemetry" if last_update_age is not None else "no_focus_telemetry"
+            logger.info(
+                "dwarf.focus.move.dispatch",
+                start=start_position,
+                target=target,
+                delta=delta,
+                steps=steps,
+                prefer_single_step=prefer_single_step,
+                last_update_age=last_update_age,
+                fallback_reason=fallback_reason,
+            )
+            if prefer_single_step:
                 request = ReqManualSingleStepFocus()
                 request.direction = 1 if direction > 0 else 0
                 for _ in range(steps):
@@ -1844,8 +1859,15 @@ class DwarfSession:
                         received_update = True
                     except asyncio.TimeoutError:
                         state.position = max(0, min(state.position + direction, 20000))
+                        state.last_update = time.time()
+                        received_update = True
                     finally:
                         self._focus_update_event.clear()
+                    current = state.position
+                    if direction > 0 and current >= target:
+                        break
+                    if direction < 0 and current <= target:
+                        break
                     await asyncio.sleep(0.02)
             else:
                 start_request = ReqManualContinuFocus()
@@ -1861,16 +1883,18 @@ class DwarfSession:
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
                         break
+                    timeout = min(0.8, max(0.05, remaining))
                     try:
-                        await asyncio.wait_for(
-                            self._focus_update_event.wait(),
-                            timeout=min(0.8, max(0.05, remaining)),
-                        )
-                        received_update = True
+                        await asyncio.wait_for(self._focus_update_event.wait(), timeout=timeout)
                     except asyncio.TimeoutError:
-                        break
+                        timed_out = True
+                    else:
+                        timed_out = False
+                        received_update = True
                     finally:
                         self._focus_update_event.clear()
+                    if timed_out:
+                        continue
                     position = self.focuser_state.position
                     if direction > 0 and position >= target:
                         break
@@ -1900,6 +1924,11 @@ class DwarfSession:
                 state.last_update = time.time()
             state.position = max(0, min(state.position, 20000))
             state.is_moving = False
+            logger.info(
+                "dwarf.focus.move.completed",
+                position=state.position,
+                received_update=received_update,
+            )
 
     async def focuser_halt(self) -> None:
         state = self.focuser_state
