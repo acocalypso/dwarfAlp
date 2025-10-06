@@ -13,6 +13,7 @@ from ..dwarf.session import get_session
 from .utils import alpaca_response, bind_request_context, resolve_parameter
 router = APIRouter(dependencies=[Depends(bind_request_context)])
 
+_MAX_MANUAL_AXIS_RATE = 4.0
 
 @dataclass
 class TelescopeState:
@@ -39,6 +40,7 @@ class TelescopeState:
     using_simulation: bool = True
     custom_utc_offset_seconds: float | None = None
     slew_task: asyncio.Task[None] | None = field(default=None, repr=False)
+    motion_update_time: float = field(default_factory=time.time, repr=False)
 
 
 state = TelescopeState()
@@ -106,6 +108,12 @@ async def put_connected(
         await session.acquire("telescope")
         state.using_simulation = session.is_simulated
     else:
+        state.motion_update_time = time.time()
+        if not session.is_simulated:
+            with contextlib.suppress(Exception):
+                await session.telescope_stop_axis(0)
+            with contextlib.suppress(Exception):
+                await session.telescope_stop_axis(1)
         if state.slew_task and not state.slew_task.done():
             state.slew_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -460,7 +468,7 @@ def get_can_unpark():
 
 @router.get("/canmoveaxis")
 def get_can_move_axis(Axis: int = Query(..., ge=0, le=2)):
-    return alpaca_response(value=False)
+    return alpaca_response(value=Axis in {0, 1})
 
 
 @router.get("/axisrates/{Axis}")
@@ -479,6 +487,56 @@ def get_axis_rates_query(
     Axis: int = Query(..., ge=0, le=2),
 ):
     return get_axis_rates(Axis)
+
+
+@router.put("/moveaxis")
+async def move_axis(
+    request: Request,
+    Axis_query: int | None = Query(None, alias="Axis", ge=0, le=2),
+    Rate_query: float | None = Query(None, alias="Rate"),
+):
+    if not state.connected:
+        raise HTTPException(status_code=400, detail="Telescope not connected")
+
+    axis = await resolve_parameter(request, "Axis", int, Axis_query)
+    if axis not in {0, 1}:
+        raise HTTPException(status_code=400, detail="Axis must be 0 or 1")
+
+    rate = await resolve_parameter(request, "Rate", float, Rate_query)
+    if not -_MAX_MANUAL_AXIS_RATE <= rate <= _MAX_MANUAL_AXIS_RATE:
+        raise HTTPException(status_code=400, detail="Rate exceeds supported range")
+
+    session = await get_session()
+    state.using_simulation = session.is_simulated
+    _process_motion()
+    state.motion_update_time = time.time()
+
+    if state.slew_task and not state.slew_task.done():
+        state.slew_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await state.slew_task
+    state.slew_task = None
+    state.target_ra = None
+    state.target_dec = None
+
+    if axis == 0:
+        state.right_ascension_rate = rate
+    else:
+        state.declination_rate = rate
+
+    has_motion = abs(state.right_ascension_rate) > 0.0 or abs(state.declination_rate) > 0.0
+    state.slewing = has_motion
+
+    if session.is_simulated:
+        _update_alt_az()
+        return alpaca_response()
+
+    if abs(rate) < 1e-6:
+        await session.telescope_stop_axis(axis)
+    else:
+        await session.telescope_move_axis(axis, rate)
+
+    return alpaca_response()
 
 
 @router.get("/trackingrates")
@@ -557,33 +615,32 @@ def _process_motion() -> None:
     if not state.using_simulation:
         _update_alt_az()
         return
-    if not state.slewing:
-        state.altitude = state.declination
-        state.azimuth = (state.right_ascension * 15.0) % 360.0
-        state.right_ascension_rate = 0.0
-        state.declination_rate = 0.0
-        return
-    if state.target_ra is None or state.target_dec is None:
-        state.slewing = False
-        state.altitude = state.declination
-        state.azimuth = (state.right_ascension * 15.0) % 360.0
-        state.right_ascension_rate = 0.0
-        state.declination_rate = 0.0
+
+    now = time.time()
+    delta = max(0.0, now - state.motion_update_time)
+    state.motion_update_time = now
+
+    if state.slewing and state.target_ra is not None and state.target_dec is not None:
+        duration = 2.0
+        elapsed = now - state.last_command_time
+        if elapsed >= duration:
+            state.right_ascension = state.target_ra
+            state.declination = state.target_dec
+            state.slewing = False
+            state.right_ascension_rate = 0.0
+            state.declination_rate = 0.0
+        else:
+            t = elapsed / duration
+            state.right_ascension = state.right_ascension + (state.target_ra - state.right_ascension) * t
+            state.declination = state.declination + (state.target_dec - state.declination) * t
+        _update_alt_az()
         return
 
-    # Simple easing simulation
-    elapsed = time.time() - state.last_command_time
-    duration = 2.0
-    if elapsed >= duration:
-        state.right_ascension = state.target_ra
-        state.declination = state.target_dec
-        state.slewing = False
-        state.right_ascension_rate = 0.0
-        state.declination_rate = 0.0
-    else:
-        t = elapsed / duration
-        state.right_ascension = state.right_ascension + (state.target_ra - state.right_ascension) * t
-        state.declination = state.declination + (state.target_dec - state.declination) * t
+    if delta > 0.0:
+        if abs(state.right_ascension_rate) > 0.0:
+            state.right_ascension = (state.right_ascension + (state.right_ascension_rate * delta) / 15.0) % 24.0
+        if abs(state.declination_rate) > 0.0:
+            state.declination = max(-90.0, min(90.0, state.declination + state.declination_rate * delta))
 
     state.altitude = state.declination
     state.azimuth = (state.right_ascension * 15.0) % 360.0

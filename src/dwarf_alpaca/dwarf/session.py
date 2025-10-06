@@ -22,6 +22,8 @@ from ..proto.dwarf_messages import (
     ReqGotoDSO,
     ReqManualContinuFocus,
     ReqManualSingleStepFocus,
+    ReqMotorRun,
+    ReqMotorStop,
     ReqPhotoRaw,
     ReqOpenCamera,
     ReqSetIrCut,
@@ -43,6 +45,21 @@ logger = structlog.get_logger(__name__)
 
 
 FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "Duo-Band Filter"]
+
+_MOTOR_RUN_ID_OPTIONS: dict[int, tuple[int, ...]] = {
+    0: (1, 0),  # Prefer documented rotation axis id, fallback to legacy id
+    1: (2, 1),  # Prefer documented pitch axis id, fallback to legacy id
+}
+
+_MOTOR_STOP_ID_OPTIONS: dict[int, tuple[int, ...]] = {
+    0: (0, 1),
+    1: (1, 2),
+}
+
+_STOP_ID_FROM_RUN = {0: 0, 1: 0, 2: 1}
+
+_MOTOR_RETRYABLE_CODES = {1, -3}
+_MOTOR_IGNORE_CODES = {1}
 
 
 def _canonical_filter_label(raw_label: str, index: int) -> str:
@@ -144,6 +161,8 @@ class DwarfSession:
         self._params_config: Optional[dict[str, Any]] = None
         self._filter_options: list[FilterOption] | None = None
         self._last_dark_check_code: int | None = None
+        self._axis_motor_id = {0: None, 1: None}
+        self._axis_direction_polarity = {0: 1, 1: 1}
 
     @property
     def is_simulated(self) -> bool:
@@ -483,6 +502,137 @@ class DwarfSession:
             return ra_hours, dec_degrees
 
         await self._ensure_ws()
+        await self._halt_manual_motion()
+        try:
+            await self._start_goto_command(ra_hours, dec_degrees, target_name)
+        except DwarfCommandError as exc:
+            if exc.code != -11501:  # CODE_ASTRO_FUNCTION_BUSY
+                raise
+            logger.info(
+                "dwarf.telescope.goto.busy",
+                ra_hours=ra_hours,
+                dec_degrees=dec_degrees,
+                code=exc.code,
+            )
+            await self.telescope_abort_slew()
+            await asyncio.sleep(0.2)
+            await self._halt_manual_motion()
+            await self._start_goto_command(ra_hours, dec_degrees, target_name)
+        return ra_hours, dec_degrees
+
+    async def telescope_move_axis(self, axis: int, rate: float) -> None:
+        if axis not in (0, 1):
+            raise ValueError(f"Unsupported axis {axis}")
+        if self.simulation:
+            return
+        if abs(rate) < 1e-6:
+            await self.telescope_stop_axis(axis)
+            return
+
+        await self._ensure_ws()
+        speed = min(max(abs(rate), 0.1), 30.0)
+        polarity_pref = self._axis_direction_polarity.get(axis, 1)
+        polarity_options = [polarity_pref]
+        fallback_polarity = -polarity_pref if polarity_pref in (-1, 1) else -1
+        if fallback_polarity not in polarity_options:
+            polarity_options.append(fallback_polarity)
+
+        base_motor_ids = list(_MOTOR_RUN_ID_OPTIONS.get(axis, ()))
+        cached_motor_id = self._axis_motor_id.get(axis)
+        motor_candidates: list[int] = []
+        if cached_motor_id is not None:
+            motor_candidates.append(cached_motor_id)
+        for candidate in base_motor_ids:
+            if candidate not in motor_candidates:
+                motor_candidates.append(candidate)
+
+        last_error: DwarfCommandError | None = None
+
+        for polarity in polarity_options:
+            direction_flag = bool((rate * polarity) > 0)
+            for motor_id in motor_candidates:
+                request = ReqMotorRun()
+                request.id = motor_id
+                request.speed = speed
+                request.direction = direction_flag
+                request.speed_ramping = 0
+                request.resolution_level = 0
+                try:
+                    await self._send_and_check(
+                        protocol_pb2.ModuleId.MODULE_MOTOR,
+                        protocol_pb2.DwarfCMD.CMD_STEP_MOTOR_RUN,
+                        request,
+                    )
+                except DwarfCommandError as exc:
+                    if exc.code in _MOTOR_RETRYABLE_CODES:
+                        last_error = exc
+                        continue
+                    raise
+                else:
+                    self._axis_motor_id[axis] = motor_id
+                    self._axis_direction_polarity[axis] = polarity
+                    return
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Unable to command DWARF motor for axis movement")
+
+    async def telescope_stop_axis(self, axis: int, *, ensure_ws: bool = True) -> None:
+        if axis not in (0, 1):
+            raise ValueError(f"Unsupported axis {axis}")
+        if self.simulation:
+            return
+        if ensure_ws:
+            await self._ensure_ws()
+        stop_candidates: list[int] = []
+        last_run = self._axis_motor_id.get(axis)
+        derived = _STOP_ID_FROM_RUN.get(last_run) if last_run is not None else None
+        if derived is not None:
+            stop_candidates.append(derived)
+        if last_run is not None and last_run not in stop_candidates:
+            stop_candidates.append(last_run)
+        for candidate in _MOTOR_STOP_ID_OPTIONS.get(axis, ()):
+            if candidate not in stop_candidates:
+                stop_candidates.append(candidate)
+
+        last_error: DwarfCommandError | None = None
+
+        for motor_id in stop_candidates:
+            request = ReqMotorStop()
+            request.id = motor_id
+            try:
+                await self._send_and_check(
+                    protocol_pb2.ModuleId.MODULE_MOTOR,
+                    protocol_pb2.DwarfCMD.CMD_STEP_MOTOR_STOP,
+                    request,
+                )
+            except DwarfCommandError as exc:
+                if exc.code in _MOTOR_IGNORE_CODES:
+                    return
+                if exc.code in _MOTOR_RETRYABLE_CODES:
+                    last_error = exc
+                    continue
+                raise
+            else:
+                return
+
+        if last_error is not None:
+            raise last_error
+
+    async def _halt_manual_motion(self) -> None:
+        if self.simulation:
+            return
+        await self._ensure_ws()
+        for axis in (0, 1):
+            with contextlib.suppress(Exception):
+                await self.telescope_stop_axis(axis, ensure_ws=False)
+
+    async def _start_goto_command(
+        self,
+        ra_hours: float,
+        dec_degrees: float,
+        target_name: str,
+    ) -> None:
         request = ReqGotoDSO()
         request.ra = ra_hours * 15.0  # DWARF expects degrees
         request.dec = dec_degrees
@@ -492,7 +642,6 @@ class DwarfSession:
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
             request,
         )
-        return ra_hours, dec_degrees
 
     async def telescope_abort_slew(self) -> None:
         if self.simulation:
@@ -504,6 +653,9 @@ class DwarfSession:
             protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO,
             request,
         )
+        for axis in (0, 1):
+            with contextlib.suppress(Exception):
+                await self.telescope_stop_axis(axis, ensure_ws=False)
 
     # --- Camera --------------------------------------------------------------------
 

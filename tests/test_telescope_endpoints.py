@@ -14,6 +14,16 @@ def _value(response):
     return payload.get("Value")
 
 
+def _connect_telescope():
+    resp = client.put("/api/v1/telescope/0/connected", json={"Connected": True})
+    assert resp.status_code == 200
+
+
+def _disconnect_telescope():
+    resp = client.put("/api/v1/telescope/0/connected", json={"Connected": False})
+    assert resp.status_code == 200
+
+
 def _parse_iso8601(value: str) -> datetime:
     if value.endswith("Z"):
         value = value[:-1] + "+00:00"
@@ -77,6 +87,58 @@ def test_axis_rates_endpoint_returns_ranges():
     rates = _value(resp)
     assert rates[0]["Minimum"] == -4.0
     assert rates[0]["Maximum"] == 4.0
+
+
+def test_move_axis_updates_rates_in_simulation():
+    _connect_telescope()
+    try:
+        resp = client.put("/api/v1/telescope/0/moveaxis", json={"Axis": 0, "Rate": 1.25})
+        assert resp.status_code == 200
+
+        resp = client.get("/api/v1/telescope/0/rightascensionrate")
+        assert resp.status_code == 200
+        assert abs(_value(resp) - 1.25) < 1e-6
+
+        resp = client.get("/api/v1/telescope/0/declinationrate")
+        assert resp.status_code == 200
+        assert _value(resp) == 0.0
+
+        resp = client.get("/api/v1/telescope/0/slewing")
+        assert resp.status_code == 200
+        assert _value(resp) is True
+    finally:
+        _disconnect_telescope()
+
+
+def test_move_axis_zero_rate_stops_motion():
+    _connect_telescope()
+    try:
+        start = client.put("/api/v1/telescope/0/moveaxis", json={"Axis": 1, "Rate": -2.0})
+        assert start.status_code == 200
+        stop = client.put("/api/v1/telescope/0/moveaxis", json={"Axis": 1, "Rate": 0.0})
+        assert stop.status_code == 200
+
+        resp = client.get("/api/v1/telescope/0/declinationrate")
+        assert resp.status_code == 200
+        assert abs(_value(resp)) < 1e-6
+
+        resp = client.get("/api/v1/telescope/0/slewing")
+        assert resp.status_code == 200
+        assert _value(resp) is False
+    finally:
+        _disconnect_telescope()
+
+
+def test_move_axis_rejects_invalid_input():
+    _connect_telescope()
+    try:
+        resp = client.put("/api/v1/telescope/0/moveaxis", json={"Axis": 2, "Rate": 1.0})
+        assert resp.status_code == 400
+
+        resp = client.put("/api/v1/telescope/0/moveaxis", json={"Axis": 0, "Rate": 6.0})
+        assert resp.status_code == 400
+    finally:
+        _disconnect_telescope()
 
 
 def test_site_parameters_accept_locale_decimal():
