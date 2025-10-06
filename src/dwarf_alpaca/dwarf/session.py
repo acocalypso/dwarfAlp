@@ -43,6 +43,13 @@ logger = structlog.get_logger(__name__)
 FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "Duo-Band Filter"]
 
 
+def _canonical_filter_label(raw_label: str, index: int) -> str:
+    cleaned = " ".join((raw_label or "").split())
+    if not cleaned:
+        return f"Filter {index}"
+    return cleaned
+
+
 def _message_to_log(message: Message) -> Dict[str, Any]:
     try:
         payload = MessageToDict(message, preserving_proto_field_name=True)
@@ -898,7 +905,12 @@ class DwarfSession:
             return self._filter_options
         if self.simulation:
             self._filter_options = [
-                FilterOption(parameter={}, mode_index=0, index=i, label=label)
+                FilterOption(
+                    parameter={},
+                    mode_index=0,
+                    index=i,
+                    label=_canonical_filter_label(label, i),
+                )
                 for i, label in enumerate(FALLBACK_FILTER_LABELS)
             ]
             return self._filter_options
@@ -907,7 +919,13 @@ class DwarfSession:
             if self._filter_options:
                 return self._filter_options
             self._filter_options = [
-                FilterOption(parameter=None, mode_index=0, index=i, label=label, controllable=False)
+                FilterOption(
+                    parameter=None,
+                    mode_index=0,
+                    index=i,
+                    label=_canonical_filter_label(label, i),
+                    controllable=False,
+                )
                 for i, label in enumerate(FALLBACK_FILTER_LABELS)
             ]
             logger.info(
@@ -927,10 +945,8 @@ class DwarfSession:
             label: str,
             continue_value: float | None,
         ) -> None:
-            resolved = (label or f"Filter {index}").strip()
-            if not resolved:
-                resolved = f"Filter {index}"
-            key = resolved.lower()
+            resolved = _canonical_filter_label(label, index)
+            key = resolved.strip().lower()
             if key in seen:
                 return
             seen.add(key)
@@ -978,7 +994,13 @@ class DwarfSession:
 
         if not options:
             self._filter_options = [
-                FilterOption(parameter=None, mode_index=0, index=i, label=label, controllable=False)
+                FilterOption(
+                    parameter=None,
+                    mode_index=0,
+                    index=i,
+                    label=_canonical_filter_label(label, i),
+                    controllable=False,
+                )
                 for i, label in enumerate(FALLBACK_FILTER_LABELS)
             ]
             logger.info(
