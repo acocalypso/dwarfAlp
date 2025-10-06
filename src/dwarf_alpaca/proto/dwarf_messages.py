@@ -114,6 +114,18 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
             fields=(),
         ),
         MessageSpec(
+            name="ResNotifyParam",
+            fields=(
+                (
+                    "param",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
+                    ".dwarf.CommonParam",
+                ),
+            ),
+        ),
+        MessageSpec(
             name="ReqPhoto",
             fields=(
                 ("x", 1, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
@@ -245,6 +257,7 @@ ReqOpenCamera = _prototype("ReqOpenCamera")
 ReqGetSystemWorkingState = _prototype("ReqGetSystemWorkingState")
 ReqSetFeatureParams = _prototype("ReqSetFeatureParams")
 ReqCloseCamera = _prototype("ReqCloseCamera")
+ResNotifyParam = _prototype("ResNotifyParam")
 ReqPhoto = _prototype("ReqPhoto")
 ReqPhotoRaw = _prototype("ReqPhotoRaw")
 ReqSetExpMode = _prototype("ReqSetExpMode")

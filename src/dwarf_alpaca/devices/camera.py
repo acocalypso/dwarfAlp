@@ -6,13 +6,16 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import numpy as np
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..dwarf.session import get_session
 from ..dwarf.ws_client import DwarfCommandError
 from ..proto import protocol_pb2
 from .utils import alpaca_response, bind_request_context, resolve_parameter
+
 router = APIRouter(dependencies=[Depends(bind_request_context)])
+logger = structlog.get_logger(__name__)
 
 CAMERA_STATE_IDLE = 0
 CAMERA_STATE_EXPOSING = 2
@@ -469,6 +472,26 @@ async def start_exposure(
     if duration_value <= 0.0:
         raise HTTPException(status_code=400, detail="Duration must be greater than zero")
     light_value = await resolve_parameter(request, "Light", bool, Light)
+    client = request.client
+    redacted_headers = [
+        (
+            name,
+            value if name.lower() not in {"authorization", "cookie"} else "***REDACTED***",
+        )
+        for name, value in request.headers.items()
+    ]
+    logger.info(
+        "alpaca.camera.start_exposure_request",
+        request_url=str(request.url),
+        client_host=getattr(client, "host", None),
+        client_port=getattr(client, "port", None),
+        raw_duration=Duration,
+        raw_light=Light,
+        resolved_duration=duration_value,
+        resolved_light=light_value,
+        query_params=dict(request.query_params),
+        headers=redacted_headers,
+    )
     try:
         await session.camera_start_exposure(duration_value, light_value)
     except DwarfCommandError as exc:

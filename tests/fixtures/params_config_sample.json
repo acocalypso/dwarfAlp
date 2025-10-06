@@ -1,0 +1,46 @@
+{
+  "data": {
+    "cameras": [
+      {
+        "id": 0,
+        "name": "Tele",
+        "supportParams": [
+          {
+            "id": 0,
+            "name": "Exposure",
+            "hasAuto": true,
+            "autoMode": 0,
+            "supportMode": [
+              { "index": 0, "name": "Gear Mode" }
+            ],
+            "gearMode": {
+              "defaultValueIndex": 120,
+              "values": [
+                { "index": 117, "name": "0.8" },
+                { "index": 120, "name": "1" },
+                { "index": 123, "name": "1.3" }
+              ]
+            }
+          },
+          {
+            "id": 8,
+            "name": "IR Cut",
+            "hasAuto": false,
+            "autoMode": 1,
+            "supportMode": [
+              { "index": 0, "name": "Gear Mode" }
+            ],
+            "gearMode": {
+              "defaultValueIndex": 0,
+              "values": [
+                { "index": 0, "name": "VIS Filter" },
+                { "index": 1, "name": "Astro Filter" }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "featureParams": []
+  }
+}

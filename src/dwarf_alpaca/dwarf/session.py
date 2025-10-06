@@ -4,10 +4,12 @@ import asyncio
 import contextlib
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Dict, Iterator, Optional, Tuple, Type
 
 import numpy as np
 import structlog
+from google.protobuf.message import Message
+from google.protobuf.json_format import MessageToDict
 
 from ..config.settings import Settings
 from ..proto import protocol_pb2
@@ -31,12 +33,21 @@ from ..proto.dwarf_messages import (
     ReqStopManualContinuFocus,
     ReqsetMasterLock,
     ResNotifyHostSlaveMode,
+    ResNotifyParam,
 )
 from .ftp_client import DwarfFtpClient, FtpPhotoEntry
 from .http_client import DwarfHttpClient
 from .ws_client import DwarfCommandError, DwarfWsClient, send_and_check
 
 logger = structlog.get_logger(__name__)
+
+
+def _message_to_log(message: Message) -> Dict[str, Any]:
+    try:
+        payload = MessageToDict(message, preserving_proto_field_name=True)
+    except Exception as exc:  # pragma: no cover - defensive logging helper
+        payload = {"_repr": repr(message), "_error": str(exc)}
+    return payload
 
 
 @dataclass
@@ -46,6 +57,8 @@ class CameraState:
     duration: float = 0.0
     light: bool = True
     capture_mode: str = "photo"
+    filter_name: str = ""
+    exposure_index: int | None = None
     image: Optional[np.ndarray] = field(default=None, repr=False)
     capture_task: asyncio.Task[None] | None = field(default=None, repr=False)
     last_start_time: float | None = None
@@ -98,6 +111,7 @@ class DwarfSession:
         self._master_lock_acquired = False
         self._master_lock_lock = asyncio.Lock()
         self._lock = asyncio.Lock()
+        self._ws_command_lock = asyncio.Lock()
         self._ws_bootstrapped = False
         self.camera_state = CameraState()
         self.focuser_state = FocuserState()
@@ -165,7 +179,7 @@ class DwarfSession:
                 message.binning = False
                 message.rtsp_encode_type = 0
             try:
-                response = await self._ws_client.send_command(
+                response = await self._send_command(
                     module_id,
                     command,
                     message,
@@ -198,6 +212,83 @@ class DwarfSession:
             await asyncio.sleep(0.2)
 
         self._ws_bootstrapped = True
+
+    async def _send_and_check(
+        self,
+        module_id: int,
+        command_id: int,
+        request: Message,
+        *,
+        timeout: float = 10.0,
+        expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
+    ) -> None:
+        async with self._ws_command_lock:
+            expected_summary = {
+                f"{mid}:{cid}": resp_cls.__name__
+                for (mid, cid), resp_cls in (expected_responses or {}).items()
+            }
+            logger.info(
+                "dwarf.ws.command.send_and_check",
+                module_id=module_id,
+                command_id=command_id,
+                timeout=timeout,
+                request_type=request.__class__.__name__,
+                request_payload=_message_to_log(request),
+                expected_responses=expected_summary,
+            )
+            await send_and_check(
+                self._ws_client,
+                module_id,
+                command_id,
+                request,
+                timeout=timeout,
+                expected_responses=expected_responses,
+            )
+            logger.info(
+                "dwarf.ws.command.send_and_check.completed",
+                module_id=module_id,
+                command_id=command_id,
+            )
+
+    async def _send_command(
+        self,
+        module_id: int,
+        command_id: int,
+        request: Message,
+        *,
+        timeout: float = 10.0,
+        expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
+    ) -> Message:
+        async with self._ws_command_lock:
+            expected_summary = {
+                f"{mid}:{cid}": resp_cls.__name__
+                for (mid, cid), resp_cls in (expected_responses or {}).items()
+            }
+            logger.info(
+                "dwarf.ws.command.send",
+                module_id=module_id,
+                command_id=command_id,
+                timeout=timeout,
+                request_type=request.__class__.__name__,
+                request_payload=_message_to_log(request),
+                expected_responses=expected_summary,
+            )
+            response = await self._ws_client.send_command(
+                module_id,
+                command_id,
+                request,
+                timeout=timeout,
+                expected_responses=expected_responses,
+            )
+            logger.info(
+                "dwarf.ws.command.response",
+                module_id=module_id,
+                command_id=command_id,
+                response_type=response.__class__.__name__,
+                response_payload=_message_to_log(response),
+                response_code=getattr(response, "code", None),
+            )
+            return response
 
     async def _ensure_master_lock(self) -> None:
         if self.simulation or self._master_lock_acquired:
@@ -315,8 +406,7 @@ class DwarfSession:
         request.ra = ra_hours * 15.0  # DWARF expects degrees
         request.dec = dec_degrees
         request.target_name = target_name
-        await send_and_check(
-            self._ws_client,
+        await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_ASTRO,
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
             request,
@@ -328,8 +418,7 @@ class DwarfSession:
             return
         await self._ensure_ws()
         request = ReqStopGoto()
-        await send_and_check(
-            self._ws_client,
+        await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_ASTRO,
             protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO,
             request,
@@ -345,8 +434,7 @@ class DwarfSession:
         request = ReqOpenCamera()
         request.binning = False
         request.rtsp_encode_type = 0
-        await send_and_check(
-            self._ws_client,
+        await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_OPEN_CAMERA,
             request,
@@ -365,8 +453,7 @@ class DwarfSession:
             return
         await self._ensure_ws()
         request = ReqCloseCamera()
-        await send_and_check(
-            self._ws_client,
+        await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_CLOSE_CAMERA,
             request,
@@ -392,13 +479,14 @@ class DwarfSession:
 
         await self._ensure_ws()
         await self._ensure_exposure_settings(duration)
+        await self._ensure_default_filter()
         command_timeout = max(duration + 10.0, 20.0)
         fallback_to_photo = False
 
         await self._configure_astro_capture(frames=1)
         await self._refresh_capture_baseline(capture_kind=state.capture_mode)
         try:
-            await self._start_astro_capture(timeout=command_timeout)
+            astro_code = await self._start_astro_capture(timeout=command_timeout)
         except DwarfCommandError as exc:
             log_fields = {
                 "duration": duration,
@@ -417,6 +505,16 @@ class DwarfSession:
                 state.last_error = f"command_error:{exc.code}"
                 logger.error("dwarf.camera.astro_capture_command_failed", **log_fields)
                 raise
+        else:
+            if astro_code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
+                logger.info(
+                    "dwarf.camera.astro_capture_goto_ignored",
+                    duration=duration,
+                    light=light,
+                )
+                if light:
+                    fallback_to_photo = True
+                    state.last_error = "astro_need_goto"
 
         if fallback_to_photo:
             state.capture_mode = "photo"
@@ -464,6 +562,7 @@ class DwarfSession:
     async def _ensure_exposure_settings(self, duration: float) -> None:
         if self.simulation:
             return
+        state = self.camera_state
         resolver = await self._get_exposure_resolver()
         index = resolver.choose_index(duration) if resolver else None
         if index is None:
@@ -472,13 +571,31 @@ class DwarfSession:
         try:
             await self._set_exposure_mode_manual()
             await self._set_exposure_index(index)
+        except DwarfCommandError as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.camera.exposure_config_failed",
+                error_code=getattr(exc, "code", None),
+                module_id=getattr(exc, "module_id", None),
+                command_id=getattr(exc, "command_id", None),
+                requested_duration=duration,
+                index=index,
+            )
+            if state.exposure_index is not None:
+                logger.info(
+                    "dwarf.camera.exposure_config_reusing_previous",
+                    index=state.exposure_index,
+                    requested_duration=duration,
+                )
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.warning(
                 "dwarf.camera.exposure_config_failed",
                 error=str(exc),
+                error_type=type(exc).__name__,
                 requested_duration=duration,
                 index=index,
             )
+        else:
+            state.exposure_index = index
 
     async def _ensure_params_config(self) -> Optional[dict[str, Any]]:
         if self._params_config is not None:
@@ -506,22 +623,283 @@ class DwarfSession:
         return resolver
 
     def _find_feature_param(self, name: str) -> dict[str, Any] | None:
-        if not self._params_config:
-            return None
-        data = self._params_config.get("data")
-        if not isinstance(data, dict):
-            return None
-        params = data.get("featureParams")
-        if not isinstance(params, list):
-            return None
         needle = name.strip().lower()
-        for entry in params:
-            if not isinstance(entry, dict):
-                continue
+        if not needle:
+            return None
+        for entry in self._iter_feature_params():
             entry_name = str(entry.get("name", "")).strip().lower()
             if entry_name == needle:
                 return entry
         return None
+
+    def _find_feature_param_contains(self, substring: str) -> dict[str, Any] | None:
+        haystack = substring.strip().lower()
+        if not haystack:
+            return None
+        for entry in self._iter_feature_params():
+            entry_name = str(entry.get("name", "")).strip().lower()
+            if haystack in entry_name:
+                return entry
+        return None
+
+    def _iter_feature_params(self) -> Iterator[dict[str, Any]]:
+        if not self._params_config:
+            return
+        data = self._params_config.get("data")
+        if not isinstance(data, dict):
+            return
+        params = data.get("featureParams")
+        if not isinstance(params, list):
+            return
+        for entry in params:
+            if isinstance(entry, dict):
+                yield entry
+
+    @staticmethod
+    def _tele_param_expected_responses() -> Dict[Tuple[int, int], Type[Message]]:
+        return {
+            (
+                protocol_pb2.ModuleId.MODULE_NOTIFY,
+                protocol_pb2.DwarfCMD.CMD_NOTIFY_TELE_SET_PARAM,
+            ): ResNotifyParam,
+        }
+
+    def _iter_camera_support_params(
+        self,
+        *,
+        camera_name: str | None = None,
+    ) -> Iterator[tuple[str, dict[str, Any]]]:
+        if not self._params_config:
+            return
+        data = self._params_config.get("data")
+        if not isinstance(data, dict):
+            return
+        cameras = data.get("cameras")
+        if not isinstance(cameras, list):
+            return
+        name_filter = camera_name.strip().lower() if camera_name else None
+        for camera in cameras:
+            if not isinstance(camera, dict):
+                continue
+            raw_name = str(camera.get("name", ""))
+            resolved_name = raw_name.strip()
+            lowered = resolved_name.lower()
+            if name_filter and lowered != name_filter:
+                continue
+            params = camera.get("supportParams")
+            if not isinstance(params, list):
+                continue
+            for param in params:
+                if isinstance(param, dict):
+                    yield resolved_name, param
+
+    def _find_support_param_contains(
+        self,
+        substring: str,
+        *,
+        camera_name: str | None = None,
+    ) -> dict[str, Any] | None:
+        needle = substring.strip().lower()
+        if not needle:
+            return None
+        for _, param in self._iter_camera_support_params(camera_name=camera_name):
+            name = str(param.get("name", "")).strip().lower()
+            if needle in name:
+                return param
+        return None
+
+    @staticmethod
+    def _resolve_support_mode_index(param: dict[str, Any], label_substring: str) -> int | None:
+        haystack = label_substring.strip().lower()
+        if not haystack:
+            return None
+        modes = param.get("supportMode")
+        if not isinstance(modes, list):
+            return None
+        for entry in modes:
+            if not isinstance(entry, dict):
+                continue
+            name = str(entry.get("name", "")).strip().lower()
+            if haystack in name:
+                try:
+                    return int(entry.get("index", 0))
+                except (TypeError, ValueError):
+                    continue
+        return None
+
+    @classmethod
+    def _extract_support_param_options(
+        cls,
+        param: dict[str, Any],
+    ) -> list[tuple[int | None, int, str, float | None]]:
+        options: list[tuple[int | None, int, str, float | None]] = []
+        gear_mode = param.get("gearMode")
+        gear_mode_index = cls._resolve_support_mode_index(param, "gear")
+        if isinstance(gear_mode, dict):
+            values = gear_mode.get("values")
+            if isinstance(values, list):
+                for entry in values:
+                    if not isinstance(entry, dict):
+                        continue
+                    try:
+                        index_value = int(entry.get("index"))
+                    except (TypeError, ValueError):
+                        continue
+                    label = str(entry.get("name", ""))
+                    options.append((gear_mode_index, index_value, label, None))
+        continue_mode = param.get("continueMode")
+        continue_mode_index = cls._resolve_support_mode_index(param, "continue")
+        if isinstance(continue_mode, dict) and continue_mode_index is not None:
+            value = continue_mode.get("defaultValue")
+            if isinstance(value, (int, float)):
+                options.append((continue_mode_index, 0, str(value), float(value)))
+        return options
+
+    @staticmethod
+    def _extract_feature_options(feature: dict[str, Any]) -> list[tuple[int | None, int, str, float | None]]:
+        options: list[tuple[int | None, int, str, float | None]] = []
+
+        def _coerce_float(value: Any) -> float | None:
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, str):
+                try:
+                    return float(value)
+                except ValueError:
+                    return None
+            return None
+
+        def _walk(node: Any, mode_index: int | None) -> None:
+            current_mode = mode_index
+            if isinstance(node, dict):
+                if "modeIndex" in node:
+                    try:
+                        current_mode = int(node["modeIndex"])
+                    except (TypeError, ValueError):
+                        current_mode = mode_index
+                has_index = "index" in node and "name" in node
+                if has_index:
+                    try:
+                        index_value = int(node["index"])
+                    except (TypeError, ValueError):
+                        index_value = None
+                    if index_value is not None:
+                        label = str(node.get("name", ""))
+                        continue_raw = (
+                            node.get("continueValue")
+                            if "continueValue" in node
+                            else node.get("value")
+                        )
+                        continue_value = _coerce_float(continue_raw)
+                        options.append((current_mode, index_value, label, continue_value))
+                for value in node.values():
+                    if isinstance(value, (dict, list)):
+                        _walk(value, current_mode)
+            elif isinstance(node, list):
+                for item in node:
+                    if isinstance(item, (dict, list)):
+                        _walk(item, mode_index)
+
+        _walk(feature, None)
+        return options
+
+    def _find_feature_option_by_label(
+        self,
+        label_substring: str,
+    ) -> tuple[dict[str, Any], tuple[int | None, int, str, float | None]] | None:
+        needle = label_substring.strip().lower()
+        if not needle:
+            return None
+        for feature in self._iter_feature_params():
+            options = self._extract_feature_options(feature)
+            for option in options:
+                _, _, label, _ = option
+                if needle in label.strip().lower():
+                    return feature, option
+        return None
+
+    def _list_feature_names(self) -> list[str]:
+        names: list[str] = []
+        for feature in self._iter_feature_params():
+            name = feature.get("name")
+            if isinstance(name, str):
+                names.append(name)
+        return names
+
+    async def _ensure_default_filter(self, default_filter: str = "VIS") -> None:
+        state = self.camera_state
+        target = default_filter.strip()
+        if not target:
+            return
+        if self.simulation:
+            state.filter_name = target
+            return
+        config = await self._ensure_params_config()
+        if config is None:
+            return
+        target_lower = target.lower()
+        feature: dict[str, Any] | None = None
+        selected: tuple[int | None, int, str, float | None] | None = None
+
+        support_param = self._find_support_param_contains("ir cut", camera_name="tele")
+        support_options: list[tuple[int | None, int, str, float | None]] = []
+        if support_param is not None:
+            support_options = self._extract_support_param_options(support_param)
+            for option in support_options:
+                _, _, label, _ = option
+                if target_lower in label.strip().lower():
+                    feature = support_param
+                    selected = option
+                    break
+            if feature is None and support_options:
+                feature = support_param
+                selected = support_options[0]
+
+        if feature is None or selected is None:
+            feature = self._find_feature_param_contains("filter")
+            if feature is not None:
+                options = self._extract_feature_options(feature)
+                if options:
+                    for option in options:
+                        _, _, label, _ = option
+                        if target_lower in label.strip().lower():
+                            selected = option
+                            break
+                    if selected is None:
+                        selected = options[0]
+
+        if feature is None or selected is None:
+            fallback = self._find_feature_option_by_label(target)
+            if fallback is not None:
+                feature, selected = fallback
+
+        if feature is None or selected is None:
+            available_support = [label for _, _, label, _ in support_options]
+            logger.warning(
+                "dwarf.camera.filter_feature_missing",
+                filter=target,
+                available=self._list_feature_names() + available_support,
+            )
+            return
+        mode_index, index, label, continue_value = selected
+        if state.filter_name and state.filter_name.lower() == label.strip().lower():
+            return
+        kwargs: Dict[str, Any] = {
+            "mode_index": mode_index if mode_index is not None else 0,
+            "index": index,
+        }
+        if continue_value is not None:
+            kwargs["continue_value"] = continue_value
+        await self._set_feature_param(feature, **kwargs)
+        chosen_label = label.strip() or target
+        state.filter_name = chosen_label
+        logger.info(
+            "dwarf.camera.filter_selected",
+            filter=state.filter_name,
+            mode_index=kwargs["mode_index"],
+            index=index,
+            continue_value=kwargs.get("continue_value"),
+        )
 
     async def _set_feature_param(
         self,
@@ -544,11 +922,11 @@ class DwarfSession:
         param.continue_value = float(continue_value)
         request.param.CopyFrom(param)
         try:
-            await send_and_check(
-                self._ws_client,
+            await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
                 protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_FEATURE_PARAM,
                 request,
+                expected_responses=self._tele_param_expected_responses(),
             )
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.warning(
@@ -595,24 +973,38 @@ class DwarfSession:
         else:
             logger.warning("dwarf.camera.feature_param_missing", name="Astro img_to_take")
 
-    async def _start_astro_capture(self, *, timeout: float) -> None:
+    async def _start_astro_capture(self, *, timeout: float) -> int:
         if self.simulation:
-            return
+            return protocol_pb2.OK
         request = ReqAstroStartCaptureRawLiveStacking()
-        await send_and_check(
-            self._ws_client,
+        response = await self._send_command(
             protocol_pb2.ModuleId.MODULE_ASTRO,
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
             request,
             timeout=timeout,
+        )
+        code = getattr(response, "code", protocol_pb2.OK)
+        if code == protocol_pb2.OK:
+            return code
+        if code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
+            logger.warning(
+                "dwarf.camera.astro_capture_goto_ignored",
+                module_id=protocol_pb2.ModuleId.MODULE_ASTRO,
+                command_id=protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                code=code,
+            )
+            return code
+        raise DwarfCommandError(
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+            code,
         )
 
     async def _start_photo_capture(self, *, timeout: float) -> None:
         if self.simulation:
             return
         request = ReqPhotoRaw()
-        await send_and_check(
-            self._ws_client,
+        await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_PHOTO_RAW,
             request,
@@ -624,8 +1016,7 @@ class DwarfSession:
             return
         try:
             request = ReqAstroStopCaptureRawLiveStacking()
-            await send_and_check(
-                self._ws_client,
+            await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
                 request,
@@ -636,21 +1027,21 @@ class DwarfSession:
     async def _set_exposure_mode_manual(self) -> None:
         request = ReqSetExpMode()
         request.mode = protocol_pb2.PhotoMode.Manual
-        await send_and_check(
-            self._ws_client,
+        await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_EXP_MODE,
             request,
+            expected_responses=self._tele_param_expected_responses(),
         )
 
     async def _set_exposure_index(self, index: int) -> None:
         request = ReqSetExp()
         request.index = index
-        await send_and_check(
-            self._ws_client,
+        await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_EXP,
             request,
+            expected_responses=self._tele_param_expected_responses(),
         )
 
     async def _refresh_capture_baseline(self, *, capture_kind: str) -> None:
@@ -1004,8 +1395,7 @@ class DwarfSession:
             await self._ensure_ws()
             stop = ReqStopManualContinuFocus()
             with contextlib.suppress(Exception):
-                await send_and_check(
-                    self._ws_client,
+                await self._send_and_check(
                     protocol_pb2.ModuleId.MODULE_FOCUS,
                     protocol_pb2.DwarfCMD.CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS,
                     stop,
@@ -1031,8 +1421,7 @@ class DwarfSession:
             for _ in range(steps):
                 request = ReqManualSingleStepFocus()
                 request.direction = direction
-                await send_and_check(
-                    self._ws_client,
+                await self._send_and_check(
                     protocol_pb2.ModuleId.MODULE_FOCUS,
                     protocol_pb2.DwarfCMD.CMD_FOCUS_MANUAL_SINGLE_STEP_FOCUS,
                     request,
@@ -1043,16 +1432,14 @@ class DwarfSession:
         else:
             request = ReqManualContinuFocus()
             request.direction = direction
-            await send_and_check(
-                self._ws_client,
+            await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_FOCUS,
                 protocol_pb2.DwarfCMD.CMD_FOCUS_START_MANUAL_CONTINU_FOCUS,
                 request,
             )
             await asyncio.sleep(min(steps * 0.01, 5))
             stop = ReqStopManualContinuFocus()
-            await send_and_check(
-                self._ws_client,
+            await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_FOCUS,
                 protocol_pb2.DwarfCMD.CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS,
                 stop,
@@ -1069,8 +1456,7 @@ class DwarfSession:
         await self._ensure_ws()
         stop = ReqStopManualContinuFocus()
         try:
-            await send_and_check(
-                self._ws_client,
+            await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_FOCUS,
                 protocol_pb2.DwarfCMD.CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS,
                 stop,
