@@ -109,6 +109,17 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
                     ),
                 ),
             ),
+            MessageSpec(
+                name="ReqSetIrCut",
+                fields=(
+                    (
+                        "value",
+                        1,
+                        descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                        descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ),
+                ),
+            ),
         MessageSpec(
             name="ReqCloseCamera",
             fields=(),
@@ -292,6 +303,7 @@ ResMotor = _prototype("ResMotor")
 ReqOpenCamera = _prototype("ReqOpenCamera")
 ReqGetSystemWorkingState = _prototype("ReqGetSystemWorkingState")
 ReqSetFeatureParams = _prototype("ReqSetFeatureParams")
+ReqSetIrCut = _prototype("ReqSetIrCut")
 ReqCloseCamera = _prototype("ReqCloseCamera")
 ResNotifyParam = _prototype("ResNotifyParam")
 ReqPhoto = _prototype("ReqPhoto")

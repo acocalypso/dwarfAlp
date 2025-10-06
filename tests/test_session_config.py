@@ -34,18 +34,20 @@ async def test_ensure_default_filter_prefers_support_params(params_config: dict[
 
     taken: dict[str, object] = {}
 
-    async def fake_set_feature_param(self, feature, *, mode_index: int, index: int, continue_value: float = 0.0) -> None:  # type: ignore[override]
-        taken["feature_name"] = feature.get("name")
-        taken["mode_index"] = mode_index
-        taken["index"] = index
-        taken["continue_value"] = continue_value
+    async def fake_set_ir_cut(self, *, value: int) -> None:  # type: ignore[override]
+        taken["ircut_value"] = value
 
+    async def fake_set_feature_param(self, *args, **kwargs) -> None:  # type: ignore[override]
+        raise AssertionError("_set_feature_param should not be called for IR Cut filters")
+
+    async def fake_ensure_ws(self) -> None:  # type: ignore[override]
+        return None
+
+    session._set_ir_cut = types.MethodType(fake_set_ir_cut, session)
     session._set_feature_param = types.MethodType(fake_set_feature_param, session)
+    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
 
     await session._ensure_default_filter("VIS")
 
-    assert taken["feature_name"] == "IR Cut"
-    assert taken["mode_index"] == 0
-    assert taken["index"] == 0
-    assert taken["continue_value"] == 0.0
+    assert taken["ircut_value"] == 0
     assert session.camera_state.filter_name == "VIS Filter"

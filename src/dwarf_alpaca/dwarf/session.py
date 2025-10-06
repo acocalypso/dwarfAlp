@@ -24,6 +24,7 @@ from ..proto.dwarf_messages import (
     ReqManualSingleStepFocus,
     ReqPhotoRaw,
     ReqOpenCamera,
+    ReqSetIrCut,
     ReqSetFeatureParams,
     ReqSetExp,
     ReqSetExpMode,
@@ -1038,12 +1039,28 @@ class DwarfSession:
         if not option.controllable or not option.parameter:
             raise RuntimeError("filter_control_unavailable")
 
-        await self._set_feature_param(
-            option.parameter,
-            mode_index=option.mode_index,
-            index=option.index,
-            continue_value=option.continue_value if option.continue_value is not None else 0.0,
-        )
+        param_id_raw = None
+        try:
+            param_id_raw = option.parameter.get("id")
+            param_name = str(option.parameter.get("name", ""))
+        except AttributeError:
+            param_id_raw = None
+            param_name = ""
+        try:
+            param_id = int(param_id_raw) if param_id_raw is not None else None
+        except (TypeError, ValueError):
+            param_id = None
+        is_ir_cut = param_id == 8 or "ir cut" in param_name.strip().lower()
+
+        if is_ir_cut:
+            await self._set_ir_cut(value=option.index)
+        else:
+            await self._set_feature_param(
+                option.parameter,
+                mode_index=option.mode_index,
+                index=option.index,
+                continue_value=option.continue_value if option.continue_value is not None else 0.0,
+            )
         state.filter_name = option.label
         state.filter_index = position
         logger.info(
@@ -1053,6 +1070,18 @@ class DwarfSession:
             mode_index=option.mode_index,
             index=option.index,
             continue_value=option.continue_value,
+        )
+
+    async def _set_ir_cut(self, *, value: int) -> None:
+        if self.simulation:
+            return
+        request = ReqSetIrCut()
+        request.value = int(value)
+        await self._send_and_check(
+            protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+            protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_IRCUT,
+            request,
+            expected_responses=self._tele_param_expected_responses(),
         )
 
     async def set_filter_position(self, position: int) -> str:
