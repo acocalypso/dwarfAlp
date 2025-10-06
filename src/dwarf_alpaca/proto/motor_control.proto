@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+message ReqMotorServiceJoystick {
+    double vector_angle = 1;
+    double vector_length = 2;
+    double speed = 3;          
+}
+
+message ReqMotorServiceJoystickFixedAngle {
+    double vector_angle = 1;
+    double vector_length = 2;
+    double speed = 3;          
+}
+
+message ReqMotorServiceJoystickStop {
+   
+}
+
+message ReqMotorRun {
+    int32 id = 1;
+    double speed = 2;
+    bool direction = 3;
+    int32 speed_ramping = 4;
+    int32 resolution_level = 5;
+}
+
+message ReqMotorRunInPulse {
+    int32 id = 1;                    // 电机ID：0：旋转轴  1：俯仰轴
+    int32 frequency = 2;             // 频率
+    bool direction = 3;              // 方向         
+    int32 speed_ramping = 4;         // 加减速步数：0-1000
+    int32 resolution = 5;            // 细分
+    int32 pulse = 6;                 // 脉冲数
+    bool mode = 7;                   // 模式：连续/脉冲模式
+}
+
+message ReqMotorRunTo {
+    int32 id = 1;
+    double end_position = 2;
+    double speed = 3;
+    int32 speed_ramping = 4;
+    int32 resolution_level = 5;
+}
+
+message ReqMotorGetPosition {
+    int32 id = 1;
+}
+
+message ReqMotorStop {
+    int32 id = 1;
+}
+
+message ReqMotorReset {
+    int32 id = 1;
+    bool direction = 2;
+}
+
+message ReqMotorChangeSpeed {
+    int32 id = 1;
+    double speed = 2;
+}
+
+message ReqMotorChangeDirection {
+    int32 id = 1;
+    bool direction = 2;
+}
+
+message ResMotor {
+    int32 id = 1;
+    int32 code = 2;  
+}
+
+message ResMotorPosition {
+    int32 id = 1;
+    int32 code = 2;  
+    double position = 3;
+}
+
+// 双摄联动
+message ReqDualCameraLinkage {
+    int32 x = 1;
+    int32 y = 2;
+}

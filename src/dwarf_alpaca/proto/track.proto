@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+// 开始跟踪
+message ReqStartTrack {
+    int32 x = 1;
+    int32 y = 2;
+    int32 w = 3;
+    int32 h = 4;
+}
+
+// 停止跟踪
+message ReqStopTrack {
+}
+
+// 暂停跟踪
+message ReqPauseTrack { 
+}
+
+// 继续跟踪
+message ReqContinueTrack {
+}
+
+// 开始哨兵模式
+message ReqStartSentryMode {
+    int32 mode = 1;
+}
+
+// 停止哨兵模式
+message ReqStopSentryMode {
+}

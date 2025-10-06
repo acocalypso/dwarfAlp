@@ -1,0 +1,249 @@
+syntax = "proto3";
+
+import "base.proto";
+
+
+//打开摄像头
+message ReqOpenCamera {
+    bool binning = 1;
+    int32 rtsp_encode_type = 2;
+}
+
+//关闭摄像头
+message ReqCloseCamera {
+}
+
+//拍照
+message ReqPhoto {
+}
+
+//开始连拍
+message ReqBurstPhoto {
+    int32 count = 1;
+}
+
+//停止连拍
+message ReqStopBurstPhoto {
+}
+
+//开始录像
+message ReqStartRecord {
+    int32 encode_type = 1;
+}
+
+//停止录像
+message ReqStopRecord {
+}
+
+//设置曝光模式
+message ReqSetExpMode {
+    int32 mode = 1;
+}
+
+//获取曝光模式
+message ReqGetExpMode {
+
+}
+
+//设置曝光
+message ReqSetExp {
+    int32 index = 1;
+} 
+
+//获取曝光
+message ReqGetExp {
+}
+
+//设置增益模式
+message ReqSetGainMode {
+    int32 mode = 1;
+}
+
+//获取增益模式
+message ReqGetGainMode {
+
+}
+
+//设置增益
+message ReqSetGain {
+    int32 index = 1;
+}
+
+//获取增益
+message ReqGetGain {
+
+}
+
+//设置亮度
+message ReqSetBrightness {
+    int32 value = 1;
+}
+
+//获取亮度
+message ReqGetBrightness {
+
+}
+
+//设置对比度
+message ReqSetContrast {
+    int32 value = 1;
+}
+
+//获取对比度
+message ReqGetContrast {
+
+}
+
+//设置色调
+message ReqSetHue {
+    int32 value = 1;
+}
+
+//获取色调
+message ReqGetHue {
+
+}
+
+//设置饱和度
+message ReqSetSaturation {
+    int32 value = 1;
+}
+
+//获取饱和度
+message ReqGetSaturation {
+
+}
+
+//设置锐度
+message ReqSetSharpness {
+    int32 value = 1;
+}
+
+//获取锐度
+message ReqGetSharpness {
+
+}
+
+//设置白平衡模式
+message ReqSetWBMode {
+    int32 mode = 1;
+}
+
+//获取白平衡模式
+message ReqGetWBMode {
+
+}
+
+//设置白平衡场景
+message ReqSetWBSence {
+    int32 value = 1;
+}
+
+//获取白平衡场景
+message ReqGetWBSence {
+
+}
+
+//设置白平衡色温
+message ReqSetWBCT {
+    int32 index = 1;
+}
+
+//获取白平衡色温
+message ReqGetWBCT {
+
+}
+
+//设置IRCUT
+message ReqSetIrCut {
+    int32 value = 1;
+}
+
+//获取IRCUT状态
+message ReqGetIrcut {
+
+}
+
+//开始延时摄影
+message ReqStartTimeLapse {
+}
+
+//停止延时摄影
+message ReqStopTimeLapse {
+    
+}
+
+//设置所有参数
+message ReqSetAllParams {
+    int32 exp_mode = 1;
+    int32 exp_index = 2;
+    int32 gain_mode = 3;
+    int32 gain_index = 4;
+    int32 ircut_value = 5;
+    int32 wb_mode = 6;
+    int32 wb_index_type = 7;
+    int32 wb_index = 8;
+    int32 brightness = 9;
+    int32 contrast = 10;
+    int32 hue = 11;
+    int32 saturation = 12;
+    int32 sharpness = 13;
+    int32 jpg_quality = 14;
+}
+
+// 获取所有参数
+message ReqGetAllParams {
+
+}
+
+// 返回所有参数结果
+message ResGetAllParams {
+    repeated CommonParam all_params = 1;
+    int32 code = 2;
+}
+
+// 设置feature参数
+message ReqSetFeatureParams {
+    CommonParam param = 1;
+}
+
+// 获取所有feature参数
+message ReqGetAllFeatureParams {
+}
+
+// 返回所有feature参数
+message ResGetAllFeatureParams {
+    repeated CommonParam all_feature_params = 1;
+    int32 code = 2;
+}
+
+// 获取整机工作状态
+message ReqGetSystemWorkingState {
+    
+}
+
+// 设置预览jpg质量
+message ReqSetJpgQuality {
+    int32 quality = 1;
+}
+
+// 获取预览jpg质量
+message ReqGetJpgQuality {
+}
+
+// 拍摄RAW图
+message ReqPhotoRaw {
+}
+
+// 设置rtsp 预览码率类型
+message ReqSetRtspBitRateType {
+    int32 bitrate_type = 1;
+}
+
+// 禁用isp处理
+message ReqDisableAllIspProcessing {
+}
+
+// 打开isp处理
+message ReqEnableAllIspProcessing {
+}

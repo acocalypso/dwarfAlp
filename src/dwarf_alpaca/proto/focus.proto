@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+// 手动单次对焦
+message ReqManualSingleStepFocus {
+    uint32 direction = 1;
+}
+
+// 手动连续对焦
+message ReqManualContinuFocus {
+    uint32 direction = 1;
+} 
+
+// 停止手动连续对焦
+message ReqStopManualContinuFocus {
+
+}
+
+// 普通模式自动对焦
+message ReqNormalAutoFocus {
+    uint32 mode = 1;
+    uint32 center_x = 2;
+    uint32 center_y = 3;
+}
+
+// 开始天文自动对焦
+message ReqAstroAutoFocus {
+    uint32 mode = 1;
+}
+
+// 停止天文自动对焦
+message ReqStopAstroAutoFocus {
+
+}

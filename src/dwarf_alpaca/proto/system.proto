@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+//设置系统时间
+message ReqSetTime {
+    uint64 timestamp = 1;
+    double timezone_offset = 2;
+}
+
+//设置系统时区
+message ReqSetTimezone {
+    string timezone = 1;
+}
+
+// 设置MTP模式
+message ReqSetMtpMode {
+    int32 mode = 1;
+}
+
+// 设置CPU模式
+message ReqSetCpuMode {
+    int32 mode = 1;
+}
+
+// 设置是否锁定主机
+message ReqsetMasterLock {
+    bool lock = 1;
+}
+
+// 获取设备激活信息
+message ReqGetDeviceActivateInfo {
+    int32 issuer = 1;
+}
+
+// 返回设备激活信息（未激活时带获取激活码的请求参数）
+message ResDeviceActivateInfo {
+    int32 activate_state = 1;
+    int32 activate_process_state = 2;
+    string request_param = 3;
+}
+
+// 写激活码文件
+message ReqDeviceActivateWriteFile {
+    string request_param = 1;
+}
+
+// 写激活码文件接口返回
+message ResDeviceActivateWriteFile {
+    int32 code = 1;
+    string request_param = 2;
+}
+
+// 激活成功接口(收到服务端激活成功通知后调用)
+message ReqDeviceActivateSuccessfull {
+    string request_param = 1;
+}
+
+// 激活成功接口返回
+message ResDeviceActivateSuccessfull {
+    int32 code = 1;
+    int32 activate_state = 2;
+}
+
+// 去激活接口
+message ReqDisableDeviceActivate {
+    string request_param = 1;
+}
+
+// 去激活接口返回
+message ResDisableDeviceActivate {
+    int32 code = 1;
+    int32 activate_state = 2;
+}
+

@@ -1,0 +1,28 @@
+
+syntax = "proto3";
+
+//打开RGB
+message ReqOpenRgb {
+}
+
+//关闭RGB
+message ReqCloseRgb {
+}
+
+// 关机
+message ReqPowerDown {
+}
+
+
+// 打开电量指示灯
+message ReqOpenPowerInd {
+}
+
+// 关闭电量指示灯
+message ReqClosePowerInd {
+}
+
+
+// 重启
+message ReqReboot {
+}

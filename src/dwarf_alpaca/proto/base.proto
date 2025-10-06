@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+enum WsMajorVersion {
+    WS_MAJOR_VERSION_UNKNOWN = 0;
+    WS_MAJOR_VERSION_NUMBER = 1;
+}
+
+enum WsMinorVersion {
+    WS_MINOR_VERSION_UNKNOWN = 0;
+    WS_MINOR_VERSION_NUMBER = 9;
+}
+
+message WsPacket {
+    uint32 major_version = 1;   //协议主版本
+    uint32 minor_version = 2;   //协议次版本
+    uint32 device_id = 3;       //设备ID
+    uint32 module_id = 4;       //模块ID
+    uint32 cmd = 5;             //指令
+    uint32 type = 6;            //消息类型 0：请求 1：应答 2：通知 3：响应
+    bytes data = 7;             //请求、响应数据，对应具体的业务接口
+    string client_id = 8;       //ws客户端id
+}
+
+message ComResponse {
+    int32 code = 1;  
+}
+
+message ComResWithInt {
+    int32 value = 1;
+    int32 code = 2;
+}
+
+message ComResWithDouble {
+    double value = 1;
+    int32 code = 2;
+}
+
+message ComResWithString {
+    string str = 1;
+    int32 code = 2;
+}
+
+message CommonParam {
+    bool hasAuto = 1;
+    int32 auto_mode = 2;
+    int32 id = 3;
+    int32 mode_index = 4;
+    int32 index = 5;
+    double continue_value = 6;
+}
+

@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+var/
+venv/
+.pytest_cache/
+dwarf_python_api/

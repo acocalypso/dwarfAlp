@@ -1,0 +1,1936 @@
+DWARF  API2.0
+1. IP Address
+1.1 AP mode
+IP Address is fixed to 192.168.88.1 .
+1.2 STA mode
+IP Address is the IP Address returned by Bluetooth.
+2. HTTP interface
+JPG Image Port Number: 8092 Others: 8082
+2.1 Universal error code
+Error codeValueExplanationHTTP_OK0SuccessHTTP _ INVAID _ PARAM-2Invalid parameter2.2 JPG image transmission interface
+Port Number: 8092
+2.2.1 Telephoto
+GET request URL:
+http://IP:PORT/mainstream
+2.2.2 Wide angle
+GET request URL:
+http://IP:PORT/secondstream
+3. RTSP image transmission interface
+3.1 Telephoto
+Bash
+rtsp://192.168.88.1/ch0/stream03.2 Wide angle
+Bash
+rtsp://192.168.88.1/ch1/stream03.3 Album interface
+3.3.1 Album media type
+TypeValueAll types0Ordinary photos1Video2Continuous shooting3Astronomy4Panorama53.3.2 Get the number of album files
+POST request URL:
+http://IP:PORT/album/list/mediaCounts
+Methord:Post
+Content-Type: application/json
+Return result:
+Python
+{
+    "code": 0,
+    "data": [
+        {
+            "count": 20,
+            "mediaType": 0
+        },
+        {
+            "count": 7,
+            "mediaType": 1
+        },
+        {
+            "count": 6,
+            "mediaType": 2
+        },
+        {
+            "count": 7,
+            "mediaType": 3
+        },
+        {
+            "count": 4,
+            "mediaType": 5
+        },
+        {
+            "count": 3,
+            "mediaType": 4
+        }
+    ]
+}3.3.8 List interface
+3.3.8.1 List json format
+Python
+{
+    "mediaType": 1,
+    "fileName": "DWARF_20230619172007798.jpeg",
+    "filePath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20230619172007798.jpeg",
+    "thumbnailPath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20230619172007798.jpeg"
+    "modificationTime": 1687195206,
+    "fileSize": 10031155,
+    "videoDuration": 0,
+    "burstImgCount": 0,
+    "astroTargetName": "M31",
+    "basicParams": [
+        {
+            "name": "expTime",
+            "value": ""
+        }  
+    ],
+    "featureParams": [
+        {
+            "name": "fileCount",
+            "value": "0"
+        }
+    ],,
+    "images": [
+        {
+            "filePath": "/sdcard/DWARF_II/Burst/DWARF_20230809180050065/1.jpg",
+            "thumbnailPath":"",
+            "fileSize": 0
+        },
+        {
+            "filePath": "/sdcard/DWARF_II/Burst/DWARF_20230809180050065/2.jpg",
+            "thumbnailPath": "",
+            "fileSize": 0
+        },
+    ]
+}
+FieldValue typeExplanationNullablemediaTypeintMedia typeNonemptyfileNamestringFile nameNonemptyfilePathstringFile pathNonemptythumbnailPathstringThumbnail pathNonemptymodificationTimeint64Modification timeNonemptyfileSizeint64File sizeNonemptyvideoDurationintVideo duration (s)Can be emptyburstImgCountintNumber of continuous shotsCan be emptyastroTargetNamestringShooting targetCan be emptybasicParamsJSON objectBasic parametersCan be emptyfeatureParamsJSON objectFeature parameterCan be emptyimagesJSON object
+Picture list
+Can be empty, the front end requires the json object to keep the same structure as this tablepanoImgCountintNumber of panoramic photosCan be empty3.3.8.2 Query interface, in descending order by modification time
+POST request URL:
+http://IP:PORT/album/list/mediaInfos
+Methord:Post
+Content-Type: application/json
+Request parameters:
+Python
+{
+    "mediaType": 1,
+    "pageIndex": 0,
+    "pageSize": 0
+}
+FieldValue typeExplanationmediaTypeintTypepageIndexintPage index, starting from 0pageSizeintPage size, no paging when 0Return result:
+1. All types
+Python
+2. Ordinary photos
+Python
+{
+    "code": 0,
+    "data": [
+        {
+            "basicParams": null,
+            "featureParams": null,
+            "fileName": "DWARF_20231006101125356.jpeg",
+            "filePath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006101125356.jpeg",
+            "fileSize": "689.38 KB",
+            "mediaType": 1,
+            "modificationTime": 1696587084,
+            "thumbnailPath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006101125356.jpeg"
+        },
+        {
+            "basicParams": null,
+            "featureParams": null,
+            "fileName": "DWARF_20231006100856698.jpeg",
+            "filePath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006100856698.jpeg",
+            "fileSize": "825.84 KB",
+            "mediaType": 1,
+            "modificationTime": 1696586936,
+            "thumbnailPath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006100856698.jpeg"
+        },
+        {
+            "basicParams": null,
+            "featureParams": null,
+            "fileName": "DWARF_20231006100228162.jpeg",
+            "filePath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006100228162.jpeg",
+            "fileSize": "760.69 KB",
+            "mediaType": 1,
+            "modificationTime": 1696586546,
+            "thumbnailPath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006100228162.jpeg"
+        },
+        {
+            "basicParams": null,
+            "featureParams": null,
+            "fileName": "DWARF_20231006100049241.jpeg",
+            "filePath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006100049241.jpeg",
+            "fileSize": "1.11 MB",
+            "mediaType": 1,
+            "modificationTime": 1696586448,
+            "thumbnailPath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006100049241.jpeg"
+        },
+        {
+            "basicParams": null,
+            "featureParams": null,
+            "fileName": "DWARF_20231006100043074.jpeg",
+            "filePath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006100043074.jpeg",
+            "fileSize": "1.21 MB",
+            "mediaType": 1,
+            "modificationTime": 1696586442,
+            "thumbnailPath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20231006100043074.jpeg"
+        }
+    ]
+}3. Continuous shooting
+Python
+4. Video
+Python
+{
+    "code": 0,
+    "data": [
+        {
+            "basicParams": null,
+            "featureParams": [
+                {
+                    "name": "duration",
+                    "value": "74"
+                },
+                {
+                    "name": "width",
+                    "value": "3840"
+                },
+                {
+                    "name": "height",
+                    "value": "2160"
+                }
+            ],
+            "fileName": "DWARF_20230530085407647.mp4",
+            "filePath": "/sdcard/DWARF_II/Videos/DWARF_20230530085407647.mp4",
+            "fileSize": "264.17 MB",
+            "mediaType": 1,
+            "modificationTime": 1685408122,
+            "thumbnailPath": "/sdcard/DWARF_II/Videos/Thumbnail/DWARF_20230530085407647.jpg"
+        },
+        {
+            "basicParams": null,
+            "featureParams": [
+                {
+                    "name": "duration",
+                    "value": "4"
+                },
+                {
+                    "name": "width",
+                    "value": "3840"
+                },
+                {
+                    "name": "height",
+                    "value": "2160"
+                }
+            ],
+            "fileName": "DWARF_20230530085359109.mp4",
+            "filePath": "/sdcard/DWARF_II/Videos/DWARF_20230530085359109.mp4",
+            "fileSize": "17.03 MB",
+            "mediaType": 1,
+            "modificationTime": 1685408044,
+            "thumbnailPath": "/sdcard/DWARF_II/Videos/Thumbnail/DWARF_20230530085359109.jpg"
+        },
+        {
+            "basicParams": null,
+            "featureParams": [
+                {
+                    "name": "duration",
+                    "value": "1"
+                },
+                {
+                    "name": "width",
+                    "value": "3840"
+                },
+                {
+                    "name": "height",
+                    "value": "2160"
+                }
+            ],
+            "fileName": "DWARF_TELE_TL_1970-01-01-12-42-18-258.mp4",
+            "filePath": "/sdcard/DWARF_II/Videos/DWARF_TELE_TL_1970-01-01-12-42-18-258.mp4",
+            "fileSize": "4.82 MB",
+            "mediaType": 1,
+            "modificationTime": 315504000,
+            "thumbnailPath": "/sdcard/DWARF_II/Videos/Thumbnail/DWARF_TELE_TL_1970-01-01-12-42-18-258.jpg"
+        },
+        {
+            "basicParams": null,
+            "featureParams": [
+                {
+                    "name": "duration",
+                    "value": "5"
+                },
+                {
+                    "name": "width",
+                    "value": "3840"
+                },
+                {
+                    "name": "height",
+                    "value": "2160"
+                }
+            ],
+            "fileName": "DWARF_TELE_TL_1970-01-01-13-05-21-577.mp4",
+            "filePath": "/sdcard/DWARF_II/Videos/DWARF_TELE_TL_1970-01-01-13-05-21-577.mp4",
+            "fileSize": "18.72 MB",
+            "mediaType": 1,
+            "modificationTime": 315504000,
+            "thumbnailPath": "/sdcard/DWARF_II/Videos/Thumbnail/DWARF_TELE_TL_1970-01-01-13-05-21-577.jpg"
+        }
+    ]
+}5. Panorama
+Python
+3.3.9 Delete
+POST request URL:
+http://IP:PORT/album/delete
+Methord:Post
+Content-Type: application/json
+Request parameters:
+Python
+{
+    "datas":[
+        {
+            "mediaType": 0,
+            "filePath": "/sdcard/DWARF_II/Normal_Photos/DWARF_20230619155313190.jpeg",
+            "fileName": "DWARF_20230619155313190.jpeg"
+        },
+        {
+            "mediaType": 0,
+            "filePath": "/sdcard/DWARF_II/Videos/DWARF_20230530085407647.mp4",
+            "fileName": "DWARF_20230530085407647.mp4"
+        }
+    ]
+}Return result:
+Python
+{
+    "code": 0,
+    "data": [
+        {
+            "mediaType": 0,
+            "filePath": "",
+            "fileName": ""
+            "isSuccess": false
+        }
+    ]
+}
+3.4 Configuration interface
+3.4.1 Get default parameter configuration
+GET request URL:
+http://IP:/getDefaultParamsConfig
+3.4.2 Configuration file
+[params_config.json]
+3.5 Get firmware version
+POST URL:
+http://IP:PORT/firmwareVersion
+3.5.1 Return the result
+Successfully returned
+Python
+{
+    "code": 0,
+    "data": {
+        "majorVersion": 2,
+        "minorVersion": 0,
+        "patchVersion": 1
+    }
+}Failure returns
+Python
+{
+    "code": 0,
+    "data": {
+        "majorVersion": -1,
+        "minorVersion": -1,
+        "patchVersion": -1
+    }
+}3.6 Firmware upgrade interface(DWARF2)
+POST URL:
+http://IP:PORT/uploadFirmware
+3.6.1 Error code
+Error codeValueExplanationHTTP_OK0SuccessHTTP_FILE_NOT_EXIST-1FileHTTP _ INVAID _ PARAM-2Invalid parameterHTTP_CHECK_MD5_ERROR-3MD5 verification failed3.6.2 Request parameters
+
+Request header Content-Type:
+multipart/form-data; boundary=yourboundary
+Yourboundary can be customized.
+ParameterTypeExplanationfiwmwareFileNameFileUpgrade firmware package namemd5TextFirmware MD5 checksum3.6.3 Return the result
+Python
+{
+    "code": -3
+}
+JSON
+{
+        "code": 0,
+        "message": "?????",
+        "data": {
+                "deviceId": 1,
+                "majorVersion": 2,
+                "minorVersion": 0,
+                "patchVersion": 1,
+                "link": "https:\/\/tipscope-app-image.oss-cn-hangzhou.aliyuncs.com\/firmware\/update_package_v2.0.01.zip",
+                "updateContent": "1. Optimize astronomical autofocus and add infinite focus capability.\n2. Implement dynamic bad pixel correction.\n3. Introduce solar and lunar stack features.\n4. add binning off in Astro mode.\n5. Enhance the album function to improve media file access speed and album stability.\n6. Implement automatic matching of wide-angle and telephoto images.",
+                "md5": "c50c36e72cb7cd9337437a5879218d68",
+                "fileName": "update_package_v2.0.01.zip",
+                "updateType": 0
+        }
+}3.6.4 Device side version number file
+/etc/software_version
+3.7 Get log file information
+GET URL:
+http://IP:PORT/logInfo
+3.7.1 Return the result
+FieldValue typeExplanationNullablehasLogFileboolIs there a log fileNonemptyfileNamestringFile nameNonemptytimestampstringTimestampNonemptyfileSizeint64Log file sizeNonempty
+Python
+{
+    "code": 0,
+    "data": {
+        "hasLogFile": true,
+        "fileName": "",
+        "timestamp":,
+        "fileSize": 0
+    }
+}3.8 Log download interface
+GET URL:
+http://IP:PORT/downloadLog
+3.8.1 Return the result
+Return file format:
+DWARF_II_LOG_D49CDD8E7440_2023-12-05-21-30-19-195.zip
+3.9 Obtain device information
+POST URL:
+http://IP:PORT/deviceInfo
+3.9.1 Return the result
+FieldValue typeExplanationNullableRange of valuesdeviceIdintDevice IDNonempty1:DWARF II
+2:MAGNIdeviceName
+stringDevice nameNonemptyDefault: DWARF_XXXXXX (last 6 bits of MAC address)
+Limit: no more than 29 charactersdevicePwd
+stringDevice passwordNonemptyDefault: DWARF_12345678
+Limit: 64 charactersmacAddressstringMAC addressNonemptyapIpAddressstringAP Mode IP AddressNonemptyDWARF:192.168.88.1sdCardInfoJSON objectSD card informationNonemptystaWifiNamestringSTA Wi-Fi NameNot empty (can be an empty string)staWifiPwdstringSTA Wi-Fi passwordNot empty (can be an empty string)staIpAddressstirngFirmware package file nameNot empty (can be an empty string)bleServiceIdstringBluetooth serviceIdNonemptyDWARF II:0000DAF2-0000-1000-8000-00805F9B34FBwifiConnectedModeintWiFi connection modeNonempty0: AP mode 1: STA modesn
+stringCan be empty, D2 does not have this fieldmacstringCan be empty, D2 does not have this fieldactivateStatusintCan be empty, D2 does not have this field
+Python
+{
+    "code": 0,
+    "data": {
+        "deviceId": 1,
+        "apIpAddress": "192.168.88.1",
+        "deviceName": "DWARF_XXXXXX",
+        "devicePwd": "DWARF_12345678",
+        "macAddress": "D4:9C:DD:8F:D0:78",
+        "sdCardInfo": {
+            "availableSize": 31,
+            "hasSdcard": true,
+            "totalSize": 59
+        },
+        "staIpAddress": "192.168.88.1",
+        "staWifiName": "DWARF_STA",
+        "staWifiPwd": "12345678",
+        "bleServiceId": "0000DAF2-0000-1000-8000-00805F9B34FB",
+        "wifiConnectedMode": 0
+    }
+}
+
+3.10 Modify device name and password
+POST URL:
+http://IP:PORT/setDeviceNameAndPsd
+Content-Type: application/json
+3.10.1 Error code
+Error codeValueExplanationHTTP_SET_DEVICE_NAME_PASSWORD_FAILED-5Wrong setting name passwordHTTP_SET_DEVICE_NAME_OLD_PASSWORD_ERROR-6Old password error3.10.2 Request parameters
+FieldTypeExplanationNullablemodeint
+0: Change password
+1: Change nameNonemptyoldValuestringOld value (for password modification)NonemptynewValuestringNew valueNonempty
+Python
+{
+    "mode": 1,
+    "oldValue": "DWARF_xxxxxx",
+    "newValue": "xxxxxxxx"
+}3.10.3 Return the result
+Python
+{
+    "code": 0,
+    "data": {
+        "mode": 1,
+        "deviceName": "DWARF_XXXXXX",
+        "devicePwd": "DWARF_12345678"
+    }
+}3.11 Reset device information
+POST URL:
+http://IP:PORT/resetDeviceInfo
+3.11.1 Return the result
+Python
+{
+    "code": 0
+}3.12 Get reset status
+POST URL:
+http://IP:PORT/getResetState
+3.12.1 Return the result
+Python
+{
+    "code": 0,
+    "data": {
+        "isReseted": true,
+        "deviceName": "DWARF_XXXXXX",
+        "devicePwd": "DWARF_12345678"
+    }
+}
+4. WebSocket interface
+4.1 Websocket communication address :
+ws://IP:9900/
+4.2 Proto file
+[astro.proto]
+[base.proto]
+[ble.proto]
+[camera.proto]
+[focus.proto]
+[motor_control.proto]
+[notify.proto]
+[rgb.proto]
+[shooting_schedule.proto]
+[system.proto]
+[track.proto]
+4.3 Protobuf protocol format :
+message WsPacket {
+UINT32 major_version = 1;//protocol major version
+UINT32 minor_version = 2;//protocol version
+UINT32 device_id = 3;//Device ID
+UINT32 module_id = 4;//Module ID
+Uint32 cmd = 5;//instruction
+Uint32 type = 6;//Message type 0: Request 1: Response 2: Notification 3: Response
+Bytes data = 7;//Request and response data, corresponding to specific business interfaces
+String client_id = 8;//ws Client id
+}
+4.4 Module ID
+Module IDValueCommand intervalExplanationMODULE_NONE0NoMODULE_CAMERA_TELE110000-10499Telephoto camera moduleMODULE_CAMERA_WIDE212000-12499Wide-angle camera moduleMODULE_ASTRO311000-11499Astronomy moduleMODULE_SYSTEM413000-13299System modulesMODULE_RGB_POWER513500-13799RGB & Power Management ModulesMODULE_MOTOR614000-14499Motor moduleMODULE_TRACK714800-14899Tracking moduleMODULE_FOCUS815000-15099Focusing moduleMODULE_NOTIFY915200-15499Notification moduleMODULE_PANORAMA1015500-15599Panoramic moduleMODULE_SHOOTING_SCHEDULE1316100-16300Shooting schedule module4.5 Websocket universal error code
+Error codeValueExplanationWS_OK0SuccessWS_PARSE_PROTOBUF_ERROR-1Protocol parsing errorWS_SDCARD_NOT_EXIST-2SD card not detectedWS _ INVAID _ PARAM-3Invalid parameterWS_SDCARD_WRITE_ERROR-4SD card write failedWS_DEVICE_NOT_ACTIVATED-5Device is not activatedWS_SDCARD_FULL_ERROR-6Device storage is full4.6 Heartbeat
+Client actively sends string "ping", server level returns string "pong".
+4.7 Telephoto camera function
+4.7.1 CMD instruction
+CMDValueExplanationCMD_CAMERA_TELE_OPEN_CAMERA10000Turn on the cameraCMD_CAMERA_TELE_CLOSE_CAMERA10001Turn off the cameraCMD_CAMERA_TELE_PHOTOGRAPH10002Take photosCMD_CAMERA_TELE_BURST10003Start continuous shootingCMD_CAMERA_TELE_STOP_BURST10004Stop continuous shootingCMD_CAMERA_TELE_START_RECORD10005Start recordingCMD_CAMERA_TELE_STOP_RECORD10006Stop recordingCMD_CAMERA_TELE_SET_EXP_MODE10007Set exposure modeCMD_CAMERA_TELE_GET_EXP_MODE10008Acquire exposure modeCMD_CAMERA_TELE_SET_EXP10009Set exposure valueCMD_CAMERA_TELE_GET_EXP10010Get exposure valueCMD_CAMERA_TELE_SET_GAIN_MODE10011Set gain modeCMD_CAMERA_TELE_GET_GAIN_MODE10012Acquisition gain modeCMD_CAMERA_TELE_SET_GAIN10013Set gain valueCMD_CAMERA_TELE_GET_GAIN10014Get gain valueCMD_CAMERA_TELE_SET_BRIGHTNESS10015Set brightnessCMD_CAMERA_TELE_GET_BRIGHTNESS10016Acquire brightnessCMD_CAMERA_TELE_SET_CONTRAST10017Set contrastCMD_CAMERA_TELE_GET_CONTRAST10018Get contrastCMD_CAMERA_TELE_SET_SATURATION10019Set saturationCMD_CAMERA_TELE_GET_SATURATION10020Acquire saturationCMD_CAMERA_TELE_SET_HUE10021Set toneCMD_CAMERA_TELE_GET_HUE10022Get hueCMD_CAMERA_TELE_SET_SHARPNESS10023Set sharpnessCMD_CAMERA_TELE_GET_SHARPNESS10024Acquire sharpnessCMD_CAMERA_TELE_SET_WB_MODE10025Set white balance modeCMD_CAMERA_TELE_GET_WB_MODE10026Acquire white balance modeCMD_CAMERA_TELE_SET_WB_SCENE10027Set white balance sceneCMD_CAMERA_TELE_GET_WB_SCENE10028Get white balance sceneCMD_CAMERA_TELE_SET_WB_CT10029Set the white balance color temperature valueCMD_CAMERA_TELE_GET_WB_CT10030Obtain the white balance color temperature valueCMD_CAMERA_TELE_SET_IRCUT10031Set IRCUTCMD_CAMERA_TELE_GET_IRCUT10032Get IRCUT statusCMD_CAMERA_TELE_START_TIMELAPSE_PHOTO10033Start time-lapse photographyCMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO10034Stop time-lapse photographyCMD_CAMERA_TELE_SET_ALL_PARAMS10035Set all parametersCMD_CAMERA_TELE_GET_ALL_PARAMS10036Get all parametersCMD_CAMERA_TELE_SET_FEATURE_PARAM10037Set feature parametersCMD_CAMERA_TELE_GET_ALL_FEATURE_PARAMS10038Get all feature parametersCMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE10039Get the working status of the whole machineCMD_CAMERA_TELE_SET_JPG_QUALITY10040Set jpg preview qualityCMD_CAMERA_TELE_PHOTO_RAW10041Shoot RAW imageCMD_CAMERA_TELE_SET_RTSP_BITRATE_TYPE10042Set rtsp preview bit rate type4.7.2 All error codes
+Error codeValueExplanationCODE_CAMERA_TELE_OPENED10500Camera is turned onCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failedCODE_CAMERA_TELE_OPEN_FAILED10504Camera failed to openCODE_CAMERA_TELE_CAPTURE_RAW_FAILED10510Failed to catch RAW imageCODE_CAMERA_TELE_WORKING_BUSY10511The telephoto camera is busy with work4.7.3 Turn on the camera
+4.7.3.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_OPEN_FAILED10504Camera failed to open4.7.3.2 Request
+message ReqOpenCamera {
+    bool binning = 1;                     //0:4k 1:1080p
+    int32 rtsp_encode_type = 2;      // 0:H264 1:H65
+}
+4.7.3.3 Response
+message ComResponse {
+    int32 code = 1;  
+}
+4.7.4 Turn off the camera
+4.7.4.1 Error code
+4.7.4.2 Request
+message ReqCloseCamera {
+}
+4.7.4.3 Response
+message ComResponse {
+    int32 code = 1;  
+}
+4.7.5 Set all camera parameters
+4.7.5.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.5.2 Request
+message ReqSetAllParams {
+INT32 exp_mode = 1;//Exposure mode 0: Auto 1: Manual
+INT32 exp_index = 2;//Exposure gear index
+INT32 gain_mode = 3;//gain mode
+INT32 gain_index = 4;//Gain gear index
+INT32 ircut_value = 5;//IRCUT value 0: CUT 1: PASS
+INT32 wb_mode = 6;//white balance mode 0: automatic 1: manual
+INT32 wb_index_type = 7;//White Balance Manual Mode Index Type: 0: Color Temperature Mode 1: Scene Mode
+INT32 wb_index = 8;//white balance color temperature or scene for index
+INT32 brightness = 9;//brightness
+INT32 contrast = 10;//contrast
+Int32 hue = 11;//hue
+Int32 saturation = 12;//saturation
+INT32 sharpness = 13;//sharpness
+INT32 jpg_quality = 14;//jpg mass
+}
+4.7.5.3 Response
+ComResponse
+4.7.6 Get all camera parameters
+4.7.6.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is off4.7.6.2 Request
+message ReqGetAllParams {
+}
+
+4.7.6.3 Response
+message ResGetAllParams {
+    repeated CommonParam all_params = 1;
+    int32 code = 2;
+}
+message CommonParam {
+    bool hasAuto = 1;
+    int32 auto_mode = 2;
+    int32 id = 3;
+    int32 mode_index = 4;
+    int32 index = 5;
+    double continue_value = 6;
+}
+ParameterTypeExplanationhas_autoboolIs there an automatic modeauto_modeint320: Automatic 1: Manualidint32See parameter configuration filemode_indexint32See parameter configuration fileindexint32See parameter configuration filecontinue_valuedoubleSee parameter configuration file4.7.7 Set feature parameters
+4.7.7.1 Request
+Set feature parameters
+message ReqSetFeatureParams {
+    CommonParam param = 1;
+}
+
+
+4.7.7.2 Response
+ComResponse
+
+4.7.8 Get all feature parameters
+4.7.8.1 Request
+message ReqGetAllFeatureParams {
+}
+4.7.8.2 Response
+message ResGetAllFeatureParams {
+    repeated CommonParam all_feature_params = 1;
+    int32 code = 2;
+}
+4.7.9 Get the working status of the whole machine
+4.7.9.1 Request
+message ReqGetSystemWorkingState {
+}
+4.7.9.2 Response
+ComResponse
+4.7.10 Take photos
+4.7.10.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offWS_SDCARD_NOT_EXIST-2SD card not detectedWS_SDCARD_WRITE_ERROR-4SD card write failed4.7.10.2 Request
+message ReqPhoto {
+}
+
+Subsequent addition of zoom-in support function:
+Uint32 x = 1;//The abscissa of the center point of the enlarged and translated image (relative to the image coordinate system)
+Uint32 y = 2;//The ordinate of the center point of the enlarged and translated image (relative to the image coordinate system)
+Double ratio = 3;//magnification ratio (integer, 1- 10)
+4.7.10.3 Response
+ComResponse
+4.7.11 Start continuous shooting
+4.7.11.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offWS_SDCARD_NOT_EXIST-2SD card not detectedWS_SDCARD_WRITE_ERROR-4SD card write failed4.7.11.2 Request
+message ReqBurstPhoto {
+}
+4.7.11.3 Response
+Continuous shooting return
+ComResponse
+4.7.12 Stop continuous shooting
+4.7.12.1 Request
+message ReqStopBurstPhoto {
+}
+4.7.12.2 Response
+ComResponse
+4.7.13 Start recording
+4.7.13.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offWS_SDCARD_NOT_EXIST-2SD card not detectedWS_SDCARD_WRITE_ERROR-4SD card write failed4.7.13.2 Request
+message ReqStartRecord {
+}
+4.7.13.3 Response
+ComResponse
+4.7.14 Stop recording
+4.7.14.1 Error code
+4.7.14.2 Request
+message ReqStopRecord {
+}
+4.7.14.3 Response
+ComResponse
+4.7.15 Start time-lapse photography
+4.7.15.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_RECORDING10506RecordingWS_SDCARD_NOT_EXIST-2SD card not detectedWS_SDCARD_WRITE_ERROR-4SD card write failed4.7.15.2 Request
+message ReqStartTimeLapse {
+}
+4.7.15.3 Response
+ComResponse
+4.7.16 Stop time-lapse photography
+4.7.16.1 Request
+message ReqStopTimeLapse {
+}
+4.7.16.2 Response
+ComResponse
+4.7.17 Set exposure mode
+4.7.17.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.17.2 Request
+message ReqSetExpMode {
+INT32 mode = 1;//0: Auto 1: Manual
+}
+4.7.17.3 Response
+ComResponse
+4.7.18 Acquire exposure mode
+4.7.18.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.18.2 Request
+message ReqGetExpMode {
+}
+4.7.18.3 Response
+ComResponse
+4.7.19 Set exposure value
+4.7.19.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.19.2 Request
+message ReqSetExp {
+    int32 index = 1;
+} 
+4.7.19.3 Response
+ComResponse
+4.7.20 Get exposure value
+4.7.20.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.20.2 Request
+4.7.20.3 Response
+4.7.21 Set gain mode
+4.7.21.1 Error code
+
+4.7.21.2 Request
+message ReqSetGainMode {
+INT32 mode = 1;//0: Auto 1: Manual
+}
+4.7.21.3 Response
+ComResponse
+4.7.22 Acquisition gain mode
+4.7.23 Set gain value
+4.7.23.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.23.2 Request
+message ReqSetGain {
+    int32 index = 1;
+}
+4.7.23.3 Response
+ComResponse
+4.7.24 Get gain value
+4.7.25 Set IRCUT
+4.7.25.1 Error code
+4.7.25.2 Request
+message ReqSetIrCut {
+    int32 value = 1;
+}
+4.7.25.3 Response
+ComResponse
+4.7.26 Get IRCUT status
+4.7.27 Set white balance mode
+4.7.27.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.27.2 Request
+message ReqSetWBMode {
+    int32 mode = 1;
+}
+
+4.7.27.3 Response
+ComResponse
+4.7.28 Acquire white balance mode
+4.7.29 Set white balance scene
+4.7.29.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.29.2 Request
+message ReqSetWBSence {
+    int32 value = 1;
+}
+
+4.7.29.3 Response
+ComResponse
+4.7.30 Get white balance scene
+4.7.31 Set the white balance color temperature value
+4.7.31.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.31.2 Request
+message ReqSetWBCT {
+    int32 index = 1;
+}
+4.7.31.3 Response
+ComResponse
+4.7.32 Obtain the white balance color temperature value
+4.7.33 Set brightness
+4.7.33.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)-1001000Actual value (B)0255128B = (A + 100) * 255.0 / 200
+4.7.33.2 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.33.3 Request
+message ReqSetBrightness {
+    int32 value = 1;
+}
+4.7.33.4 Response
+ComResponse
+4.7.34 Acquire brightness
+4.7.35 Set contrast
+4.7.35.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)-1001000Actual value (B)0255128B = (A + 100) * 255.0 / 200
+4.7.35.2 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.35.3 Request
+message ReqSetContrast {
+    int32 value = 1;
+}
+4.7.35.4 Response
+ComResponse
+4.7.36 Get contrast
+4.7.37 Set saturation
+4.7.37.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)-1001000Actual value (B)0255128B = (A + 100) * 255.0 / 200
+4.7.37.2 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.37.3 Request
+message ReqSetSaturation {
+    int32 value = 1;
+}
+4.7.37.4 Response
+ComResponse
+4.7.38 Acquire saturation
+4.7.39 Set tone
+4.7.39.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)-1801800Actual value (B)0255128B =(A + 180) * 255.0 / 360
+4.7.39.2 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.39.3 Request
+message ReqSetHue {
+    uint32 value = 1;
+}
+4.7.39.4 Response
+ComResponse
+4.7.40 Get hue
+4.7.41 Set sharpness
+4.7.41.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)010050Actual value (B)010050B = A
+4.7.41.2 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_CAMERA_TELE_ISP_SET_FAILED10502ISP parameter settings failed4.7.41.3 Request
+message ReqSetSharpness {
+    int32 value = 1;
+}
+4.7.41.4 Response
+ComResponse
+4.7.42 Acquire sharpness
+4.7.43 Set jpg preview quality
+4.7.43.1 Request
+message ReqSetJpgQuality {
+    int32 quality = 1;
+}
+4.7.43.2 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is off4.7.43.3 Response
+ComResponse
+4.8 Focus function
+4.8.1 CMD instruction
+CMDValueExplanationCMD_FOCUS_AUTO_FOCUS15000Normal mode autofocusCMD_FOCUS_MANUAL_SINGLE_STEP_FOCUS15001Manual single-step focusingCMD_FOCUS_START_MANUAL_CONTINU_FOCUS15002Start manual continuous focusCMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS15003Stop manual continuous focusCMD_FOCUS_START_ASTRO_AUTO_FOCUS15004Start astronomical autofocusCMD_FOCUS_STOP_ASTRO_AUTO_FOCUS15005Stop astronomical autofocus4.8.2 All error codes
+4.8.3 Normal autofocus
+4.8.3.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is off4.8.3.2 Request
+message ReqNormalAutoFocus {
+Uint32 mode = 1;//0: global focus 1: area focus
+UINT32 center_x = 2;//Area focus x coordinates
+UINT32 center_y = 3;//Area focus y coordinates
+}
+4.8.3.3 Response
+ComResponse
+4.8.4 Start astronomical autofocus
+4.8.4.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_FOCUS_ASTRO_AUTO_FOCUS_SLOW_ERROR15100Slow astronomical autofocus failedCODE_FOCUS_ASTRO_AUTO_FOCUS_FAST_ERROR15101Fast astronomical autofocus failed, you need to perform a slow astronomical autofocus first4.8.4.2 Request
+Python
+// ??????
+message ReqAstroAutoFocus {
+    uint32 mode = 1;                 // 0??????1?????
+}4.8.4.3 Response
+ComResponse
+4.8.5 Stop astronomical autofocus
+4.8.5.1 Error code
+No
+4.8.5.2 Request
+ProtoBuf
+message ReqStopAstroAutoFocus {
+
+}4.8.5.3 Response
+ComResponse 
+4.8.6 Manual single-step focusing
+4.8.6.1 Error code
+Error codeValueExplanationWS _ INVAID _ PARAM-3Invalid parameter4.8.6.2 Request
+message ReqManualSingleStepFocus {
+UINT32 direction = 1;//Focus direction 0: far focus 1: near focus
+}
+4.8.6.3 Response
+message ComResponse {
+    int32 code = 1;  
+}
+4.8.7 Start manual continuous focus
+4.8.7.1 Error code
+Error codeValueExplanationWS _ INVAID _ PARAM-3Invalid parameter4.8.7.2 Request
+message ReqManualContinuFocus {
+    uint32 direction = 1;
+}
+4.8.7.3 Response
+ComResponse 
+4.8.8 Stop manual continuous focus
+4.8.8.1 Error code
+No
+4.8.8.2 Request
+message ReqStopManualContinuFocus {
+}
+4.8.8.3 Response
+ComResponse 
+4.9 Wide-angle camera function
+4.9.1 CMD instruction
+CMDValueExplanationCMD_CAMERA_WIDE_OPEN_CAMERA12000Turn on the cameraCMD_CAMERA_WIDE_CLOSE_CAMERA12001Turn off the cameraCMD_CAMERA_WIDE_SET_EXP_MODE12002Set exposure modeCMD_CAMERA_WIDE_GET_EXP_MODE12003Acquire exposure modeCMD_CAMERA_WIDE_SET_EXP12004Set exposure valueCMD_CAMERA_WIDE_GET_EXP12005Get exposure valueCMD_CAMERA_WIDE_SET_GAIN12006Set gainCMD_CAMERA_WIDE_GET_GAIN12007Acquisition gainCMD_CAMERA_WIDE_SET_BRIGHTNESS12008Set brightnessCMD_CAMERA_WIDE_GET_BRIGHTNESS12009Acquire brightnessCMD_CAMERA_WIDE_SET_CONTRAST12010Set contrastCMD_CAMERA_WIDE_GET_CONTRAST12011Get contrastCMD_CAMERA_WIDE_SET_SATURATION12012Set saturationCMD_CAMERA_WIDE_GET_SATURATION12013Acquire saturationCMD_CAMERA_WIDE_SET_HUE12014Set toneCMD_CAMERA_WIDE_GET_HUE12015Get hueCMD_CAMERA_WIDE_SET_SHARPNESS12016Set sharpnessCMD_CAMERA_WIDE_GET_SHARPNESS12017Acquire sharpnessCMD_CAMERA_WIDE_SET_WB_MODE12018Set white balance modeCMD_CAMERA_WIDE_GET_WB_MODE12019Acquire white balance modeCMD_CAMERA_WIDE_SET_WB_CT12020Set white balance color temperatureCMD_CAMERA_WIDE_GET_WB_CT12021Obtain white balance color temperatureCMD_CAMERA_WIDE_PHOTOGRAPH12022Take photosCMD_CAMERA_WIDE_BURST12023Continuous shootingCMD_CAMERA_WIDE_STOP_BURST12024Stop continuous shootingCMD_CAMERA_WIDE_START_TIMELAPSE_PHOTO12025Start time-lapse photographyCMD_CAMERA_WIDE_STOP_TIMELAPSE_PHOTO12026Stop time-lapse photographyCMD_CAMERA_WIDE_GET_ALL_PARAMS12027Get all parametersCMD_CAMERA_WIDE_SET_ALL_PARAMS12028Set all parameters4.9.2 All error codes
+Error codeValueExplanationCODE_CAMERA_WIDE_OPENED12500Wide-angle camera turned onCODE_CAMERA_WIDE_CLOSED12501The wide-angle camera is turned offCODE_CAMERA_WIDE_CANNOT_FOUND12502Can't find the cameraCODE_CAMERA_WIDE_OPEN_FAILED12503Failed to open cameraCODE_CAMERA_WIDE_CLOSE_FAILED12504Failed to turn off cameraCODE_CAMERA_WIDE_SET_ISP_FAILED12505Failed to set ISP parametersCODE_CAMERA_WIDE_PHOTOGRAPHING12506Taking pictures4.9.3 Turn on the camera
+4.9.3.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CANNOT_FOUND12502Can't find the cameraCODE_CAMERA_WIDE_OPEN_FAILED12503Failed to open camera4.9.3.2 Request
+message ReqOpenCamera {
+Bool binning = 1;//Wide-angle has no binning parameter, no need to fill in
+}
+4.9.3.3 Response
+ComResponse 
+4.9.4 Turn off the camera
+4.9.4.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSE_FAILED12504Failed to turn off camera4.9.4.2 Request
+message ReqCloseCamera {
+}
+4.9.4.3 Response
+ComResponse
+4.9.5 Take photos
+4.9.5.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED10501Camera is offWS_SDCARD_NOT_EXIST-2SD card not detectedWS_SDCARD_WRITE_ERROR-4SD card write failed4.9.5.2 Request
+message ReqPhoto {
+}
+4.9.5.3 Response
+ComResponse
+4.9.6 Start recording
+4.9.6.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED-10501Camera is offCODE_CAMERA_WIDE_EXP_TOO_LONG-12508The exposure time is too long, and recording is not supported.4.9.6.2 Request
+message ReqStartRecord {
+}
+4.9.6.3 Response
+ComResponse
+4.9.7 Stop recording
+4.9.7.1 Error code
+4.9.7.2 Request
+message ReqStopRecord {
+}
+4.9.7.3 Response
+ComResponse
+4.9.8 Start continuous shooting
+4.9.8.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED10501Camera is offWS_SDCARD_NOT_EXIST-2SD card not detectedWS_SDCARD_WRITE_ERROR-4SD card write failed4.9.8.2 Request
+message ReqBurstPhoto {
+}
+4.9.8.3 Response
+Continuous shooting return
+ComResponse
+4.9.9 Stop continuous shooting
+4.9.9.1 Request
+message ReqStopBurstPhoto {
+}
+4.9.9.2 Response
+ComResponse 
+4.9.10 Get all parameters
+4.9.10.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED10501Camera is off4.9.10.2 Request
+message ReqGetAllParams {
+}
+4.9.10.3 Response
+message ResGetAllParams {
+    repeated CommonParam all_params = 1;
+    int32 code = 2;
+}
+message CommonParam {
+    bool hasAuto = 1;
+    int32 auto_mode = 2;
+    int32 id = 3;
+    int32 mode_index = 4;
+    int32 index = 5;
+    double continue_value = 6;
+}
+ParameterTypeExplanationhas_autoboolIs there an automatic modeauto_modeint320: Automatic 1: Manualidint32See parameter configuration filemode_indexint32See parameter configuration fileindexint32See parameter configuration filecontinue_valuedoubleSee parameter configuration file4.9.11 Set exposure mode
+4.9.11.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED12505ISP parameter settings failed4.9.11.2 Request
+message ReqSetExpMode {
+INT32 mode = 1;//0: Auto 1: Manual
+}
+4.9.11.3 Response
+ComResponse
+4.9.12 Acquire exposure mode
+4.9.13 Set exposure value
+4.9.13.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.13.2 Request
+message ReqSetExp {
+    int32 index = 1;
+} 
+4.9.13.3 Response
+ComResponse
+4.9.14 Get exposure value
+4.9.14.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED10501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.14.2 Request
+4.9.14.3 Response
+4.9.15 Set gain mode
+4.9.15.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.15.2 Request
+message ReqSetGainMode {
+INT32 mode = 1;//0: Auto 1: Manual
+}
+4.9.15.3 Response
+ComResponse
+4.9.16 Acquisition gain mode
+4.9.17 Set gain value
+4.9.17.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.17.2 Request
+message ReqSetGain {
+    int32 index = 1;
+}
+4.9.17.3 Response
+ComResponse
+4.9.18 Get gain value
+4.9.19 Set white balance mode
+4.9.19.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.19.2 Request
+message ReqSetWBMode {
+    int32 mode = 1;
+}
+
+4.9.19.3 Response
+ComResponse
+4.9.20 Set the white balance color temperature value
+4.9.20.1 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.20.2 Request
+message ReqSetWBCT {
+    int32 index = 1;
+}
+4.9.20.3 Response
+ComResponse
+4.9.21 Set brightness
+4.9.21.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)-1001000Actual value (B)-64640B = A * 64.0 / 100
+4.9.21.2 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.21.3 Request
+message ReqSetBrightness {
+    int32 value = 1;
+}
+4.9.21.4 Response
+ComResponse
+4.9.22 Set contrast
+4.9.22.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)-1001000Actual value (B)0950B = (A + 100) * 95.0 / 200
+4.9.22.2 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.22.3 Request
+message ReqSetContrast {
+    int32 value = 1;
+}
+4.9.22.4 Response
+ComResponse
+4.9.22.5 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.22.6 Request
+message ReqSetSaturation {
+    uint32 value = 1;
+}
+4.9.22.7 Response
+ComResponse
+4.9.23 Set saturation
+4.9.23.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)-10010060Actual value (B)010080B =(A + 100) * 100.0 / 200
+4.9.23.2 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.23.3 Request
+message ReqSetSaturation {
+    uint32 value = 1;
+}
+4.9.23.4 Response
+ComResponse
+4.9.24 Set tone
+4.9.24.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)-1801800Actual value (B)-200020000B = A * 2000.0 / 180
+4.9.24.2 Error code
+4.9.24.3 Request
+message ReqSetHue {
+    uint32 value = 1;
+}
+4.9.24.4 Response
+ComResponse
+4.9.25 Set sharpness
+4.9.25.1 Mapping relationship
+Minimum valueMaximum valueDefault valueUI value (A)010017Actual value (B)172B = A * 6.0 / 100 + 1
+4.9.25.2 Error code
+Error codeValueExplanationCODE_CAMERA_WIDE_CLOSED12501Camera is offCODE_CAMERA_WIDE_SET_ISP_FAILED10502ISP parameter settings failed4.9.25.3 Request
+message ReqSetSharpness {
+    uint32 value = 1;
+}
+4.9.25.4 Response
+ComResponse
+4.10 Astronomical function
+4.10.1 CMD instruction
+CMDValueExplanationCMD_ASTRO_START_CALIBRATION11000Start calibrationCMD_ASTRO_STOP_CALIBRATION11001Stop calibrationCMD_ASTRO_START_GOTO_DSO11002Start GOTO Deep Space ObjectCMD_ASTRO_START_GOTO_SOLAR_SYSTEM11003Start GOTO Solar System TargetCMD_ASTRO_STOP_GOTO11004Stop GOTOCMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING11005Start stackingCMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING11006Stop overlayCMD_ASTRO_START_CAPTURE_RAW_DARK11007Start shooting dark scenesCMD_ASTRO_STOP_CAPTURE_RAW_DARK11008Stop filming darkfieldCMD_ASTRO_CHECK_GOT_DARK11009Inquire about the dark field that has been shotCMD_ASTRO_GO_LIVE11010GO LIVE interfaceCMD_ASTRO_START_TRACK_SPECIAL_TARGET11011Start tracking the sun and moonCMD_ASTRO_STOP_TRACK_SPECIAL_TARGET11012Stop tracking the sun and moonCMD_ASTRO_START_ONE_CLICK_GOTO_DSO11013One-click GOTO deep space celestial bodyCMD_ASTRO_START_ONE_CLICK_GOTO_SOLAR_SYSTEM11014One-click GOTO solar system targetCMD_ASTRO_STOP_ONE_CLICK_GOTO11015Stop one-click GOTOCMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING11016Start wide-angle overlayCMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING11017Stop wide-angle overlayCMD_ASTRO_START_EQ_SOLVING11018Start EQ verificationCMD_ASTRO_STOP_EQ_SOLVING11019Stop EQ verificationCMD_ASTRO_WIDE_GO_LIVE11020Wide-angle GO LIVE interfaceCMD_ASTRO_START_CAPTURE_RAW_DARK_WITH_PARAM
+11021Start shooting the dark field with specified parameters (manually set exposure, gain, binning).CMD_ASTRO_STOP_CAPTURE_RAW_DARK_WITH_PARAM11022Stop shooting the dark field with specified parametersCMD_ASTRO_GET_DARK_FRAME_LIST11023Query the list of recorded dark scenesCMD_ASTRO_DEL_DARK_FRAME_LIST11024Delete the specified dark field listCMD_ASTRO_START_CAPTURE_WIDE_RAW_DARK_WITH_PARAM11025Start shooting wide-angle dark field with specified parameters (manually set exposure and gain. Binning is fixed to 1 internally, setting does not work).CMD_ASTRO_STOP_CAPTURE_WIDE_RAW_DARK_WITH_PARAM11026Stop shooting dark field with wide-angle specified parametersCMD_ASTRO_GET_WIDE_DARK_FRAME_LIST11027Query the list of wide-angle dark scenes takenCMD_ASTRO_DEL_WIDE_DARK_FRAME_LIST11028Delete the specified wide-angle dark field list4.10.2 Start calibration
+4.10.2.1 Error code
+Error codeValueExplanationCMD_ASTRO_PLATE_SOLVING_FAILED11500Plate solving failedCODE_ASTRO_FUNCTION_BUSY11501Astronomical function busyCODE_ASTRO_CALIBRATION_FAILED11504Calibration failedCODE_STEP_MOTOR_LIMIT_POSITION_WARNING14518Calibration limit warning4.10.2.2 Request
+message ReqStartCalibration {
+}
+4.10.2.3 Response
+ComResponse
+4.10.3 Stop calibration
+4.10.3.1 Error code
+4.10.3.2 Request
+message ReqStopCalibration {
+}
+4.10.3.3 Response
+ComResponse
+4.10.4 Start GOTO and track deep space objects
+4.10.4.1 Error code
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedCODE_ASTRO_PLATE_SOLVING_FAILED11500Plate solving failedCODE_ASTRO_FUNCTION_BUSY11501Astronomical function busyCODE_STEP_MOTOR_LIMIT_POSITION_WARNING14518GOTO limit warningCODE_STEP_MOTOR_LIMIT_POSITION_HITTED14519Star collision limitCODE_ASTRO_GOTO_FAILED11505GOTO failed4.10.4.2 Request
+message ReqGotoDSO {
+    double ra = 1;
+    double dec = 2;
+    string target_name = 3;
+}
+ParameterTypeExplanationradoubleright ascension coordinatedecdoubleDeclination coordinatestarget_namestringtarget name4.10.4.3 Response
+ComResponse
+4.10.5 Start GOTO and track solar system targets
+4.10.5.1 Error code
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedWS _ INVAID _ PARAM3Invalid parameterCODE_ASTRO_PLATE_SOLVING_FAILED11500Plate solving failedCODE_ASTRO_FUNCTION_BUSY11501Astronomical function busyCODE_STEP_MOTOR_LIMIT_POSITION_WARNING14518GOTO limit warningCODE_STEP_MOTOR_LIMIT_POSITION_HITTED14519Star collision limitCODE_ASTRO_GOTO_FAILED11505GOTO failed4.10.5.2 Request
+message ReqGotoSolarSystem {
+    int32 index = 1;
+    double lon = 2;
+    double lat = 3;
+    string target_name = 4;
+}
+ParameterTypeExplanationindex
+int32
+Solar System Target Number:
+Mercury = 1,
+Venus = 2,
+Mars = 3,
+Jupiter (Jupiter) = 4,
+Saturn = 5,
+Uranus (Uranus) = 6,
+Neptune (Neptune) = 7,
+Moon (moon) = 8
+Sun (Sun) = 9londoubleGPS longitude coordinateslatdoubleGPS latitude coordinatestarget_namestringtarget name4.10.5.3 Response
+ComResponse
+4.10.6 Stop GOTO
+4.10.6.1 Error code
+4.10.6.2 Request
+message ReqStopGoto {
+}
+4.10.6.3 Response
+ComResponse
+4.10.7 Start Sun track & & Moon track
+4.10.7.1 Error code
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedWS _ INVAID _ PARAM3Invalid parameterCODE_ASTRO_FUNCTION_BUSY11501Astronomical function busyCODE_STEP_MOTOR_LIMIT_POSITION_WARNING14518GOTO limit warningCODE_STEP_MOTOR_LIMIT_POSITION_HITTED14519Tracking collision limit4.10.7.2 Request
+ProtoBuf
+message ReqTrackSpecialTarget {
+    int32 index = 1;
+    double lon = 2;
+    double lat = 3;
+}
+ParameterTypeExplanationindex
+int32
+Special target number:
+Sun: 0
+Moon: 1londoubleGPS longitude coordinateslatdoubleGPS latitude coordinates4.10.7.3 Response
+ComResponse
+4.10.8 Stop sun and moon tracking
+4.10.8.1 Error code
+4.10.8.2 Request
+ProtoBuf
+message ReqStopTrackSpecialTarget {
+
+}4.10.8.3 Response
+ComResponse
+4.10.9 Start telephoto stacking
+4.10.9.1 Error code
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedWS_SDCARD_NOT_EXIST2SD card not detectedWS_SDCARD_WRITE_ERROR4Image writing to SD card failed (maybe the card is full)CODE_CAMERA_TELE_WORKING_BUSY10507The telephoto camera is busy.CODE_ASTRO_FUNCTION_BUSY11501Astronomical function busyCODE_ASTRO_DARK_GAIN_OUT_OF_RANGE11502Gain beyond darkfield shooting range (darkfield coverage 30-150 gain)CODE_ASTRO_DARK_NOT_FOUND11503Darkfield not foundCODE_ASTRO_NEED_GOTO11513No GOTOCODE_ASTRO_NEED_ADJUST_SHOOT_PARAM11514Parameters are not suitable4.10.9.2 Request
+message ReqCaptureRawLiveStacking {
+}
+4.10.9.3 Response
+ComResponse
+4.10.10 stop telephoto stack
+4.10.10.1 Error code
+4.10.10.2 Request
+message ReqStopCaptureRawLiveStacking {
+}
+4.10.10.3 Response
+ComResponse
+4.10.11 Start wide-angle stack
+4.10.11.1 Error code
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedWS_SDCARD_NOT_EXIST2SD card not detectedWS_SDCARD_WRITE_ERROR4Failed to write the image to the SD card (possibly because the card is full).CODE_CAMERA_TELE_WORKING_BUSY10507The telephoto camera is busyCODE_ASTRO_FUNCTION_BUSY11501Astronomy function is busyCODE_ASTRO_DARK_GAIN_OUT_OF_RANGE11502Gain beyond dark field shooting range (dark field coverage 30-150 gain)CODE_ASTRO_DARK_NOT_FOUND11503Dark field not foundCODE_ASTRO_NEED_GOTO11513No GOTOCODE_ASTRO_NEED_ADJUST_SHOOT_PARAM11514Parameters are not suitable4.10.11.2 Request
+ProtoBuf
+message ReqCaptureWideRawLiveStacking {
+}4.10.11.3 Response
+ComResponse
+4.10.12 Stop wide-angle stack
+4.10.12.1 Error code
+4.10.12.2 Request
+ProtoBuf
+message ReqStopCaptureWideRawLiveStacking {
+}4.10.12.3 Response
+ComResponse
+4.10.13 Inquire about the dark field that has been shot
+4.10.13.1 Error code
+4.10.13.2 Request
+message ReqCheckDarkFrame {
+}
+4.10.13.3 Response
+message ResCheckDarkFrame {
+    int32 progress = 1;
+    int32 code = 2;
+}
+ParameterTypeExplanationprogressint32Shooting progress, return the percentage progress * 100, that is, keep 2 decimal placescodeint32Error code4.10.14 Start shooting dark scenes
+4.10.14.1 Error code
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedWS_SDCARD_NOT_EXIST2SD card not detectedWS_SDCARD_WRITE_ERROR4Failed to write the image to the SD card (possibly because the card is full).CODE_CAMERA_TELE_WORKING_BUSY10511The telephoto camera is busyCODE_ASTRO_FUNCTION_BUSY11501Astronomy function is busy4.10.14.2 Request
+message ReqCaptureDarkFrame {
+    int32 reshoot = 1;
+}
+ParameterTypeExplanationreshootint32Whether to reshoot,
+0: No;
+1: Remake4.10.14.3 Response
+ComResponse
+4.10.15 Stop shooting dark scenes
+4.10.15.1 Error code
+4.10.15.2 Request
+message ReqStopCaptureDarkFrame {
+}
+4.10.15.3 Response
+ComResponse
+4.10.16 GO LIVE interface
+4.10.16.1 Error code
+Error codeValueExplanationCODE_CAMERA_TELE_OPEN_FAILED10504Camera failed to openCODE_ASTRO_FUNCTION_BUSY11501Astronomy function is busy4.10.16.2 Request
+message ReqGoLive {
+}
+4.10.16.3 Response
+ComResponse
+4.10.17 One-click GOTO deep space celestial object target (supported starting from protocol version 1.4)
+4.10.17.1 Error code
+Focus, calibration, GOTO deep space object target interface returns error code normally
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedWS _ INVAID _ PARAM3Invalid parameterCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_ASTRO_PLATE_SOLVING_FAILED11500Plate solving failedCODE_ASTRO_FUNCTION_BUSY11501Astronomy function is busyCODE_ASTRO_CALIBRATION_FAILED11504Calibration failedCODE_ASTRO_GOTO_FAILED11505GOTO failedCODE_STEP_MOTOR_LIMIT_POSITION_WARNING14518Limit warningCODE_STEP_MOTOR_LIMIT_POSITION_HITTED14519Collision limitCODE_FOCUS_ASTRO_AUTO_FOCUS_SLOW_ERROR15100Slow astronomical autofocus failedCODE_ASTRO_SKY_SEARCH_FAILED11517Sky detection failed4.10.17.2 Request
+ProtoBuf
+message ReqOneClickGotoDSO {
+    double ra = 1;
+    double dec = 2;
+    string target_name = 3;
+}
+ParameterTypeExplanationradoubleRight ascension coordinatesdecdoubleDeclination coordinatestarget_namestringTarget name4.10.17.3 Response
+ProtoBuf
+message ResOneClickGoto {
+    int32 step = 1;
+    int32 code = 2;
+    bool all_end = 3;
+}4.10.18 One-click GOTO solar system target (supported starting from protocol version 1.4)
+4.10.18.1 Error code
+Same focus, calibration, GOTO solar system target error code
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedWS _ INVAID _ PARAM3Invalid parameterCODE_CAMERA_TELE_CLOSED10501Camera is offCODE_ASTRO_PLATE_SOLVING_FAILED11500Plate solving failedCODE_ASTRO_FUNCTION_BUSY11501Astronomy function is busyCODE_ASTRO_CALIBRATION_FAILED11504Calibration failedCODE_ASTRO_GOTO_FAILED11505GOTO failedCODE_STEP_MOTOR_LIMIT_POSITION_WARNING14518Limit warningCODE_STEP_MOTOR_LIMIT_POSITION_HITTED14519Collision limitCODE_FOCUS_ASTRO_AUTO_FOCUS_SLOW_ERROR15100Slow astronomical autofocus failed4.10.18.2 Request
+ProtoBuf
+message ReqOneClickGotoSolarSystem {
+    int32 index = 1;
+    double lon = 2;
+    double lat = 3;
+    string target_name = 4;
+}
+ParameterTypeExplanationindex
+int32
+Solar system target number:
+Mercury = 1,
+Venus = 2,
+Mars = 3,
+Jupiter = 4,
+Saturn = 5,
+Uranus (Uranus) = 6,
+Neptune (Neptune) = 7,
+Moon = 8
+Sun = 9londoubleGPS longitude coordinateslatdoubleGPS latitude coordinatestarget_namestringTarget name4.10.18.3 Response
+ProtoBuf
+message ResOneClickGoto {
+    int32 step = 1;    // ????
+    int32 code = 2;    // ???
+    bool all_end = 3;  // ??????GOTO????
+}
+ParameterTypeExplanationstepint32Step number:
+Sky detection = 10,
+Focus = 20,
+Calibration = 30,
+Goto = 40?4.10.19 Stop one-click GOTO (supported since protocol version 1.4)
+4.10.19.1 Error code
+4.10.19.2 Request
+message ReqStopOneClickGoto {
+}
+4.10.19.3 Response
+ComResponse
+4.10.20 Start EQ verification (supported since protocol version 1.5)
+4.10.20.1 Error code
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedWS _ INVAID _ PARAM3Invalid parameterCODE_CAMERA_TELE_CLOSED10501The camera has been turned off (only focus failure returns).CODE_ASTRO_EQ_SOLVING_FAILED11516EQ calculation failed (only calculation failed to return)CODE_FOCUS_ASTRO_AUTO_FOCUS_SLOW_ERROR15100Slow Astronomy autofocus failed (focus failure only returns)4.10.20.2 Request
+ProtoBuf
+message ReqStartEqSolving {
+    double lon = 1;  // GPS??
+    double lat = 2;  // GPS??
+}4.10.20.3 Response
+ProtoBuf
+message ResStartEqSolving {
+    double azi_err = 1;  // ?????????????????
+    double alt_err = 2;  // ???????????????
+    int32 code = 3;    // ???
+}4.10.21 Stop EQ verification (supported since protocol version 1.5)
+4.10.21.1 Error code
+4.10.21.2 Request
+ProtoBuf
+message ReqStopEqSolving {
+
+}4.10.21.3 Response
+ComResponse
+
+4.10.22 Start shooting dark field (with parameters).
+4.10.22.1 Error code
+Error codeValueExplanationWS_PARSE_PROTOBUF_ERROR1Protobuf parsing failedWS_SDCARD_NOT_EXIST2SD card not detectedWS_SDCARD_WRITE_ERROR4Failed to write the image to the SD card (possibly because the card is full).CODE_ASTRO_FUNCTION_BUSY11501Astronomy function is busy4.10.22.2 Request
+message ReqCaptureDarkFrameWithParam{
+    int32 exp_index = 1;
+    int32 gain_index = 2;
+    int32 bin_index = 3;
+    int32 cap_size = 4;
+}
+ParameterTypeExplanationexp_indexint32Exposure parameter index valuegain_index int32Gain parameter index valuebin_index int32Binning parameter index valuecap_size int32Number of shots4.10.22.3 Response
+ComResponse
+4.10.23 Stop shooting dark field (with parameters)
+4.10.23.1 Error code
+4.10.23.2 Request
+message ReqStopCaptureDarkFrameWithParam{
+}
+4.10.23.3 Response
+ComResponse
+4.10.24 Query the list of shot dark scenes (with shooting parameters).
+4.10.24.1 Error code
+Error codeValueExplanationWS_OK0SuccessCODE_ASTRO_DARK_NOT_FOUND-11503No dark field data4.10.24.2 Request
+message ReqGetDarkFrameList {
+}
+4.10.24.3 Response
+message ResGetDarkFrameInfo {
+    int32 exp_index = 1;
+    int32 gain_index = 2;
+    int32 bin_index = 3;
+}
+
+message ResGetDarkFrameInfoList {
+    int32 code = 1;
+    repeated ResGetDarkFrameInfo results = 2;
+}
+ParameterTypeExplanationexp_index int32Exposure parameter index valuegain_index int32Gain parameter index valuebin_index int32Binning parameter index valueexp_namestringThe value corresponding to the exposure parameter and the index value, see the configuration filegain_namestringThe value corresponding to the gain parameter and the index value, see the configuration filebin_namestringThe value corresponding to the binning parameter and the index value, see the configuration file.
+ParameterTypeExplanationcodeint32The interface returns an error code, see 3.9.24.1results ResGetDarkFrameInfo Array of ResGetDarkFrameInfo structure, corresponding to multiple dark field results.4.10.25 Delete the specified dark field list
+4.10.25.1 Error code
+Error codeValueExplanationWS_OK0SuccessCODE_ASTRO_DARK_NOT_FOUND-11503No dark field data4.10.25.2 Request
+//Delete dark field
+message ReqDelDarkFrame {
+    int32 exp_index = 1;
+    int32 gain_index = 2;
+    int32 bin_index = 3; 
+}
+
+Delete the dark field list
+message ReqDelDarkFrameList {
+    repeated ReqDelDarkFrame dark_list = 1;
+}
+ParameterTypeExplanationexp_index int32Delete the exposure parameter index value of the dark fieldgain_index int32Delete the gain parameter index value of the dark fieldbin_index int32Delete the binning parameter index value of the dark field4.10.25.3 Response
+message ResDelDarkFrameList {
+    int32 code = 1;
+}
+ParameterTypeExplanationcodeint32The interface returns an error code, see 3.9.25.14.11 System functions
+4.11.1 CMD instruction
+CMDValueExplanationCMD_SYSTEM_SET_TIME13000Set the system timeCMD_SYSTEM_SET_TIME_ZONE13001Set the time zoneCMD_SYSTEM_SET_MTP_MODE13002Set MTP modeCMD_SYSTEM_SET_CPU_MODE13003Set CPU mode4.11.2 All error codes
+Error codeValueExplanationCODE_SYSTEM_SET_TIME_FAILED13300Set time failedCODE_SYSTEM_SET_TIMEZONE_FAILED13301Failed to set time zone4.11.3 Set the system time
+4.11.3.1 Error code
+Error codeValueExplanationCODE_SYSTEM_SET_TIME_FAILED13300Set time failed4.11.3.2 Request
+message ReqSetTime {
+Uint64 timestamp = 1;//timestamp, the time difference between the current time and midnight UTC on January 1, 1970, in seconds
+}
+4.11.3.3 Response
+ComResponse
+4.11.4 Set the time zone
+4.11.4.1 Error code
+Error codeValueExplanationCODE_SYSTEM_SET_TIMEZONE_FAILED13302Time zone setting failed4.11.4.2 Request
+message ReqSetTimezone {
+    string timezone = 1; 
+}
+4.11.4.3 Response
+ComResponse
+4.11.5 Set MTP mode(DWARF2)
+4.11.5.1 Request
+message ReqSetMtpMode {
+Int32 mode = 1;//Can be omitted, default is on, cannot be closed
+}
+4.11.5.2 Response
+ComResponse
+4.11.6 Set CPU mode(DWARF2)
+4.11.6.1 Request
+message ReqSetCpuMode{
+Int32 mode = 1;//0: Normal mode 1: Performance mode
+}
+4.11.6.2 Response
+ComResponse
+4.11.7 Lock & unlock the host
+4.11.7.1 Protocol version
+>=1.2
+4.11.7.2 Request
+Set whether to lock the host
+message ReqsetMasterLock {
+    bool lock = 1;
+}
+4.11.7.3 Response
+ComResponse
+4.12 RGB function
+4.12.1 CMD instruction
+CMDValueExplanationCMD_RGB_POWER_OPEN_RGB13500Turn on the ring lightCMD_RGB_POWER_CLOSE_RGB13501Turn off the ring lightCMD_RGB_POWER_POWER_DOWN13502Shut downCMD_RGB_POWER_POWERIND_ON13503Turn on the battery indicatorCMD_RGB_POWER_POWERIND_OFF13504Turn off battery indicatorCMD_RGB_POWER_REBOOT13505Restart4.12.2 All error codes
+Error codeValueExplanationCODE_RGB_POWER_UART_INIT_FAILED13800Serial port Initialization failed4.12.3 Turn on the ring light
+4.12.3.1 Request
+message ReqOpenRgb {
+}
+4.12.3.2 Response
+ComResponse
+4.12.4 Turn off the ring light
+4.12.4.1 Request
+message ReqCloseRgb{
+}
+4.12.4.2 Response
+ComResponse
+4.12.5 Turn on the battery indicator
+4.12.5.1 Request
+message ReqOpenPowerInd{
+}
+4.12.5.2 Response
+ComResponse
+4.12.6 Turn off battery indicator
+4.12.6.1 Request
+message ReqClosePowerInd{
+}
+4.12.6.2 Response
+ComResponse
+4.12.7 Shut down
+4.12.7.1 Request
+message ReqPowerDown {
+}
+4.12.7.2 Response
+ComResponse
+4.12.8 Restart
+4.12.8.1 Request
+message ReqReboot {
+}
+4.12.8.2 Response
+ComResponse
+4.13 Motion control function
+4.13.1 CMD instruction
+CMDValueExplanationCMD_STEP_MOTOR_RUN14000Motor motionCMD_STEP_MOTOR_STOP14002Motor stopCMD_STEP_MOTOR_SERVICE_JOYSTICK14006JoystickCMD_STEP_MOTOR_SERVICE_JOYSTICK_FIXED_ANGLE14007Short press the arrow keys with the joystickCMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP14008Stop joystickCMD_STEP_MOTOR_SERVICE_DUAL_CAMERA_LINKAGE14009Dual camera linkage4.13.2 All error codes
+Error codeValueExplanationWS _ INVAID _ PARAM-3Invalid parameter4.13.3 Motor motion
+4.13.3.1 Error code
+Error codeValueExplanationWS _ INVAID _ PARAM-3Invalid parameter4.13.3.2 Request
+ProtoBuf
+message ReqMotorRun {
+  Int32 id =   1; // 1  : Rotation axis   2:   Pitch axis
+  Double speed = 2;     //     5 gears: 0.1, 1, 5, 10, 30 degrees/s, supports maximum speed of 32 degrees/s
+  Bool direction = 3;     //     0: left/down 1: right/up
+  INT32 speed_ramping = 4;     //     Acceleration and deceleration: 0-1000, 100 gears, a total of 11 gears
+  INT32 resolution_level = 5;     
+  //     Subdivision: 
+  // 0?256 Subdivision
+  // 1?128 Subdivision
+  // 2?64 Subdivision
+  // 3?32 Subdivision
+  // 4?16 Subdivision
+  // 5?8 Subdivision
+  // 6?4 Subdivision
+  // 7?2 Subdivision
+  // 8?1 Subdivision 
+}4.13.3.3 Response
+message ResMotor {
+    int32 id = 1;
+    int32 code = 2;  
+}
+4.13.4 Motor stop
+4.13.4.1 Error code
+No
+4.13.4.2 Request
+message ReqMotorStop {
+Int32 id = 1;//0: Rotation axis 1: Pitch axis
+}
+4.13.4.3 Response
+message ResMotor {
+    int32 id = 1;
+    int32 code = 2;  
+}
+4.13.5 Joystick
+4.13.5.1 Error code
+Error codeValueExplanationWS _ INVAID _ PARAM-3Invalid parameter4.13.5.2 Request
+message ReqMotorServiceJoystick {
+    Double vector_angle = 1;//The angle of the direction vector, indicating the direction of motion of the field of view, 0-360 degrees, 0 degrees starting from the positive x-axis and increasing counterclockwise
+    Double vector_length = 2;//The length of the direction vector represents the scaling factor of the speed, 0-1, and the speed is finely adjusted according to the range of the joystick drag
+    Double speed = 3;//speed along the direction vector, 0.1 °/s-30 °/s
+}
+Speed mapping relationship :
+Index is gear: 0-40
+Python
+val b = 0.1
+val a = (30 - 0.1) / 40.0.pow(3.0)
+val speed = a * index.toDouble().pow(3.0) + b4.13.5.3 Response
+ComResponse
+4.13.6 Short press the arrow keys with the joystick
+4.13.6.1 Error code
+Error codeValueExplanationWS _ INVAID _ PARAM-3Invalid parameter4.13.6.2 Request
+message ReqMotorServiceJoystickFixedAngle {
+    double vector_angle = 1;
+    double vector_length = 2;
+    double speed = 3;          
+}
+4.13.6.3 Response
+ComResponse
+4.13.7 Stop joystick
+4.13.7.1 Error code
+No
+4.13.7.2 Request
+message ReqMotorServiceJoystickStop {
+}
+4.13.7.3 Response
+ComResponse
+4.13.8 Dual camera linkage
+Error codeValueExplanationWS _ INVAID _ PARAM-3Invalid parameterCODE_STEP_MOTOR_LIMIT_POSITION_HITTED-14519Collision limit4.13.8.1 Request
+message ReqDualCameraLinkage {
+    int32 x = 1;
+    int32 y = 2;
+}
+4.13.8.2 Response
+ComResponse
+4.14 Tracking function
+4.14.1 CMD instruction
+CMDValueExplanationCMD_TRACK_START_TRACK14800Started trackingCMD_TRACK_STOP_TRACK14801Stop trackingCMD_SENTRY_MODE_START14802Start Sentinel Mode (PackCMD_SENTRY_MODE_STOP14803Stop Sentinel ModeCMD_MOT_START14804Start "Multi-Object Tracking" featureCMD_MOT_TRACK_ONE
+14805
+Telephoto: "Multi-Object Tracking" starts tracking a target (the firmware will return an identification box and ID, and track the target according to the user's click confirmation)
+CMD_UFOTRACK_MODE_START
+14806Start sentinel UFO modeCMD_UFOTRACK_MODE_STOP
+14807Stop Sentinel UFO ModeCMD_MOT_WIDE_TRACK_ONE
+14808
+Wide-angle: "Multi-Object Tracking" starts tracking a specific target (firmware will return an identification box and ID, confirm tracking target based on user clicks)CMD_WIDE_TELE_TRACK_SWITCH
+14809Object Detection with 30 classes for post-production non-sentinel mode. Choose between wide-angle and telephoto tracking button instructionsCMD_UFO_HAND_AOTO_MODE
+14810Used for post-UFO mode selection manual or automatic4.14.2 All error codes
+CMDValueExplanationWS_PARSE_PROTOBUF_ERROR1Parsing failedCODE_TRACK_TRACKER_INITING14900Tracking is initializingCODE_TRACK_TRACKER_FAILED14901Trace failed4.14.3 Started tracking
+4.14.3.1 Request
+ProtoBuf
+message ReqStartTrack {
+    int32 x = 1;    // x-coordinate of the top-left corner of the target box
+    int32 y = 2;    // y-coordinate of the top-left corner of the target box
+    int32 w = 3;    // Width of the target box
+    int32 h = 4;    // Height of the target box
+}
+4.14.3.2 Response
+ProtoBuf
+message ComResponse {
+    int32 code = 1;  
+}4.14.4 Stop tracking
+4.14.4.1 Request
+ProtoBuf
+message ReqStopTrack {
+}4.14.4.2 Response
+ProtoBuf
+message ComResponse {
+    int32 code = 1;  
+}4.14.5 Start Sentinel Mode
+Protocol version 1.3 and above
+4.14.5.1 Request
+ProtoBuf
+message ReqStartSentryMode {
+    int32 mode = 1;  // ?????????0
+}4.14.5.2 Response
+ProtoBuf
+message ComResponse {
+    int32 code = 1;  
+}4.14.6 Stop Sentinel Mode
+4.14.6.1 Request
+ProtoBuf
+message ReqStopSentryMode {
+}4.14.6.2 Response
+ProtoBuf
+message ComResponse {
+    int32 code = 1;  
+}4.14.7 Start "Multi-Object Tracking"
+4.14.8 "Multi-Object Tracking" feature starts tracking a target
+ProtoBuf
+message ReqMOTTrackOne {
+    int32 id = 1;
+}4.14.9 Start "UFO Tracking"
+Protocol version 1.5 and above
+4.14.9.1 Start UFO mode (to reuse Sentinel mode)
+ProtoBuf
+
+message ReqStartSentryMode {
+    int32 mode = 1;
+}4.14.9.2 Stop UFO mode (to reuse Sentinel mode)
+ProtoBuf
+
+message ReqStopSentryMode {
+}4.15 Panoramic function
+4.15.1 CMD instruction
+CMDValueExplanationCMD_PANORAMA_START_GRID15500Start panoramaCMD_PANORAMA_STOP15501Stop panorama4.15.2 All error codes
+CMDValueExplanationCODE_PANORAMA_PHOTO_FAILED15600Panoramic shooting failedCODE_PANORAMA_MOTOR_RESET_FAILED15601Panoramic shooting motor reset failed4.15.3 Request
+Go
+message ReqStartPanoramaByGrid{
+    uint32 rows = 1;
+    uint32 cols = 2;
+}4.16 Notification function
+4.16.1 CMD instruction
+CMDValueExplanationCMD_NOTIFY_TELE_WIDI_PICTURE_MATCHING15200Telephoto wide-angle image matchingCMD_NOTIFY_ELE15201Battery NotificationCMD_NOTIFY_CHARGE15202Charge status notificationCMD_NOTIFY_SDCARD_INFO15203SD card capacity notificationCMD_NOTIFY_TELE_RECORD_TIME15204Recording timeCMD_NOTIFY_TELE_TIMELAPSE_OUT_TIME15205Telephoto time-lapse photography timeCMD_NOTIFY_STATE_CAPTURE_RAW_DARK15206Dark field shooting stateCMD_NOTIFY_PROGRASS_CAPTURE_RAW_DARK15207Dark field shooting progressCMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING15208Astronomical overlay shooting statusCMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING15209Astronomical overlay shooting progressCMD_NOTIFY_STATE_ASTRO_CALIBRATION15210Astronomical calibration statusCMD_NOTIFY_STATE_ASTRO_GOTO15211Astronomical GOTO statusCMD_NOTIFY_STATE_ASTRO_TRACKING15212Astronomical tracking statusCMD_NOTIFY_TELE_SET_PARAM15213Telephoto parameter echoCMD_NOTIFY_WIDE_SET_PARAM15214Wide-angle parametric echoCMD_NOTIFY_TELE_FUNCTION_STATE15215Telephoto functional statusCMD_NOTIFY_WIDE_FUNCTION_STATE15216Wide-angle functional statusCMD_NOTIFY_SET_FEATURE_PARAM15217Feature parameter echoCMD_NOTIFY_TELE_BURST_PROGRESS15218Telephoto continuous shooting progressCMD_NOTIFY_PANORAMA_PROGRESS15219Telephoto panoramic shooting progressCMD_NOTIFY_WIDE_BURST_PROGRESS15220Wide-angle continuous shooting progressCMD_NOTIFY_RGB_STATE15221RGB Ring Light StatusCMD_NOTIFY_POWER_IND_STATE15222Power indicator statusCMD_NOTIFY_WS_HOST_SLAVE_MODE15223Leader/follower mode notificationCMD_NOTIFY_MTP_STATE15224MTP mode notificationCMD_NOTIFY_TRACK_RESULT15225Tracking result notificationCMD_NOTIFY_WIDE_TIMELAPSE_OUT_TIME15226Wide-angle time-lapse photography timeCMD_NOTIFY_CPU_MODE15227CPU modeCMD_NOTIFY_STATE_ASTRO_TRACKING_SPECIAL15228Sun and moon tracking statusCMD_NOTIFY_POWER_OFF15229Shutdown notificationCMD_NOTIFY_ALBUM_UPDATE15230Album update notificationCMD_NOTIFY_SENTRY_MODE_STATE15231Sentinel mode statusCMD_NOTIFY_SENTRY_MODE_TRACK_RESULT15232Sentinel mode tracking box result notificationCMD_NOTIFY_STATE_ASTRO_ONE_CLICK_GOTO15233One-click GOTO status    CMD_NOTIFY_STREAM_TYPE15234Image type notificationCMD_NOTIFY_WIDE_RECORD_TIME15235Wide-angle video recording timeCMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING15236Wide-angle astronomical overlay shooting statusCMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING15237Progress of wide-angle astronomical overlay photographyCMD_NOTIFY_MULTI_TRACK_RESULT15238Multi-Object Tracking Result NotificationCMD_NOTIFY_EQ_SOLVING_STATE15239EQ check statusCMD_NOTIFY_UFO_MODE_STATE15240Sentinel-UFO Mode StatusCMD_NOTIFY_TELE_LONG_EXP_PROGRESS15241Telephoto long exposure progressCMD_NOTIFY_WIDE_LONG_EXP_PROGRESS15242Wide-angle long exposure progressCMD_NOTIFY_TEMPERATURE15243Movement temperatureCMD_NOTIFY_PANORAMA_UPLOAD_COMPRESS_PROGRESS15244CMD_NOTIFY_PANORAMA_UPLOAD_UPLOAD_PROGRESS15245CMD_NOTIFY_PANORAMA_UPLOAD_COMPLETE15245CMD_NOTIFY_STATE_CAPTURE_WIDE_RAW_DARK15247Wide-angle dark field shooting stateCMD_NOTIFY_SHOOTING_SCHEDULE_RESULT_AND_STATE15248CMD_NOTIFY_SHOOTING_TASK_STATE15249CMD_NOTIFY_SKY_SEACHER_STATE15250Sky detection statusCMD_NOTIFY_WIDE_MULTI_TRACK_RESULT15251Wide-angle multi-target box result notificationCMD_NOTIFY_WIDE_TRACK_RESULT15252Wide-angle single target box result notification4.16.2 All status codes
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stoppedSTATE_SUCCESS4SuccessSTATE_FAILED5FailureSTATE_ASTRO_PLATE_SOLVING6Astronomy is Plating Solving4.16.3 Telephoto wide-angle image matching
+4.16.3.1 Notification
+message ResNotifyPictureMatching {
+Uint32 x;//Coordinate x in the upper left corner of the matching box.
+Uint32 y;//Coordinate y in the upper left corner of the matching box
+Uint32 width;//Match box width
+Uint32 height;//Match box height
+Double value;//match value
+    int32 code;
+}
+4.16.4 Electricity
+4.16.4.1 Notification
+message ComResWithInt {
+Int32 value = 1;//battery value
+}
+4.16.5 State of charge
+4.16.5.1 Notification
+message ComResWithInt {
+Int32 value = 1;//Charging status 0: not charged 1: slow charging 2: fast charging
+}
+4.16.6 Ring light status
+4.16.6.1 Notification
+message ResNotifyRgbState {
+Int32 state = 1;//0: off 1: on
+}
+4.16.7 Power indicator status
+4.16.7.1 Notification
+message ResNotifyPowerIndState {
+Int32 state = 1;//0: off 1: on
+}
+4.16.8 SD card capacity
+4.16.8.1 Notification
+message ResNotifySDcardInfo {
+UINT32 available_size = 1;//Available space, unit: GB
+UINT32 total_size = 2;//Total space, unit: GB
+    int32 code = 3;
+}
+4.16.9 Recording time
+4.16.9.1 Notification
+message ResNotifyRecordTime {
+INT32 record_time = 1;//Recording time, unit: s
+}
+4.16.10 Time-lapse photography time
+4.16.10.1 Notification
+message ResNotifyTimeLapseOutTime {
+Int32 interval = 1;//Interval time, unit: s
+INT32 out_time = 2;//Film time, unit: s
+INT32 total_time = 3;//Recording time, unit: s
+}
+out_time = total_time / (30.0 * Interval);
+ParameterTypeExplanationintervalint32Interval timeout_time int32When the film is finishedtotal_time int32Recording time4.16.11 Continuous shooting progress
+message ResNotifyBurstProgress {
+UINT32 total_count = 1;//Total number of continuous shots
+UINT32 completed_count = 2;//Number of photos taken
+}
+
+4.16.12 Dark field shooting state
+4.16.12.1 Status code
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stopped4.16.12.2 Notification
+enum OperationState {
+    OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;
+}
+message ResNotifyOperationState {
+    OperationState state = 1;  
+}
+ParameterTypeExplanationstate
+OperationStateRunning status:
+OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;4.16.13 Dark field shooting progress
+4.16.13.1 Notification
+message ResNotifyProgressCaptureRawDark {
+    int32 progress = 1;
+    int32 remaining_time = 2;
+}
+ParameterTypeExplanationprogressint32Shooting progressremaining_timeint32Remaining time (seconds)4.16.14 Astronomical overlay shooting status
+4.16.14.1 Status code
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stopped4.16.14.2 Notification
+enum OperationState {
+    OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;
+}
+message ResNotifyOperationState {
+    OperationState state = 1;  
+}
+ParameterTypeExplanationstate
+OperationStateRunning status:
+OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;4.16.15 Astronomical overlay shooting progress
+4.16.15.1 Notification
+message ResNotifyProgressCaptureRawLiveStacking {
+    int32 total_count = 1;
+    int32 update_count_type = 2;
+    int32 current_count = 3;
+    int32 stacked_count = 4;
+    int32 exp_index = 5;
+    int32 gain_index = 6;
+    string target_name = 7;
+}
+ParameterTypeExplanationtotal_countint32Total number of sheetsupdate_count_typeint320: Update the number of photos taken
+1: Update the number of stacked sheets
+2: Simultaneously update the number of photos taken and the number of photos stackedcurrent_countint32Number of shots takenstacked_countint32Number of stacked sheetsexp_indexint32Current exposure index:
+Used for front-end display of current shooting parametersgain_indexint32Current gain index:
+Used for front-end display of current shooting parameterstarget_namestringTarget name4.16.16 Astronomical calibration status
+4.16.16.1 Status code
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stoppedSTATE_ASTRO_PLATE_SOLVING4Astronomy is Plating Solving4.16.16.2 Notification
+enum AstroState {
+    ASTRO_STATE_IDLE = 0;
+    ASTRO_STATE_RUNNING = 1;
+    ASTRO_STATE_STOPPING = 2;
+    ASTRO_STATE_STOPPED = 3;
+    ASTRO_STATE_PLATE_SOLVING = 4;
+}
+message ResNotifyStateAstroCalibration {
+    AstroCalibrateState state = 1;  
+    int32 plate_solving_times = 2;
+}
+ParameterTypeExplanationstateAstroState
+Astronomical status code:
+ASTRO_STATE_IDLE = 0;
+    ASTRO_STATE_RUNNING = 1;
+    ASTRO_STATE_STOPPING = 2;
+    ASTRO_STATE_STOPPED = 3;
+    ASTRO_STATE_PLATE_SOLVING = 4;plate_solving_timesint32When in the Plate Solving state, the number of times is attached to indicate the number of calculations4.16.17 Astronomical GOTO status
+4.16.17.1 Status code
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stoppedSTATE_ASTRO_PLATE_SOLVING4Astronomy is Plating Solving4.16.17.2 Notification
+enum AstroState {
+    ASTRO_STATE_IDLE = 0;
+    ASTRO_STATE_RUNNING = 1;
+    ASTRO_STATE_STOPPING = 2;
+    ASTRO_STATE_STOPPED = 3;
+    ASTRO_STATE_PLATE_SOLVING = 4;
+}
+message ResNotifyStateAstroGoto {
+    AstroGotoState state = 1;  
+}
+ParameterTypeExplanationstateAstroStateAstronomical status code:
+ASTRO_STATE_IDLE = 0;
+    ASTRO_STATE_RUNNING = 1;
+    ASTRO_STATE_STOPPING = 2;
+    ASTRO_STATE_STOPPED = 3;
+    ASTRO_STATE_PLATE_SOLVING = 4;4.16.18 Astronomical tracking status
+4.16.18.1 Status code
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stopped4.16.18.2 Notification
+enum OperationState {
+    OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;
+}
+message ResNotifyStateAstroTracking {
+    OperationState state = 1;  
+    string target_name = 2;
+}
+ParameterTypeExplanationstate
+OperationStateRunning status:
+OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;target_namestringTracking target name4.16.19 Sun and moon tracking status
+4.16.19.1 Status code
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stopped4.16.19.2 Notification
+ProtoBuf
+enum OperationState {
+    OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;
+}
+message ResNotifyStateAstroTrackingSpecial {
+    OperationState state = 1;  
+    string target_name = 2;
+    int32 index = 3;
+}
+ParameterTypeExplanationstate
+OperationStateRunning status:
+OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;target_namestringTracking target nameindexint32Sun and Moon Numbering:
+Sun: 0
+Moon: 14.16.20 Parametric echo
+4.16.20.1 Notification
+message CommonParam {
+    bool hasAuto = 1;
+    int32 auto_mode = 2;
+    int32 id = 3;
+    int32 mode_index = 4;
+    int32 index = 5;
+    double continue_value = 6;
+}
+
+Parameter echo
+message ResNotifyParam {
+    repeated CommonParam param = 1;
+}
+ParameterTypeExplanationhas_autoboolIs there an automatic modeauto_modeint320: Automatic 1: Manualidint32See parameter configuration filemode_indexint32See parameter configuration fileindexint32See parameter configuration filecontinue_valuedoubleSee parameter configuration file4.16.21 Camera function status
+4.16.21.1 Function id
+FunctionidTurn on/off camera1Ordinary photography2Ordinary continuous shooting3Video recording4Time-lapse photography5Panorama6Ordinary tracking7Astronomical autofocus8Normal autofocus9Astronomical autofocus (fast)10
+Area autofocus11Dual camera linkage124.16.21.2 Notification
+message ResNotifyCamFunctionState {
+    OperationState state = 1;
+    uint32 function_id = 2;
+}
+4.16.22 Panoramic shooting progress
+message ResNotifyPanoramaProgress {
+    int32 total_count = 1;
+    int32 completed_count = 2;
+}
+ParameterTypeExplanationtotal_count int32Total number of shotscompleted_count int32Number of shots taken4.16.23 Websocket leader/follower mode notification
+message ResNotifyHostSlaveMode {
+    int32 mode = 1;
+}
+ParameterTypeExplanationmodeint320: Host 1: Slave4.16.24 MTP mode notification
+message ResNotifyMTPState {
+    int32 mode = 1;
+}
+ParameterTypeExplanationmodeint320: MTP off 1: MTP on4.16.25 Tracking result notification
+ProtoBuf
+message ResNotifyTrackResult {
+    int32 x = 1;
+    int32 y = 2;
+    int32 w = 3;
+    int32 h = 4;
+}
+ParameterTypeExplanationxint32The x-coordinate of the upper left point of the tracking result boxyint32The y coordinate of the upper left point of the tracking result boxwint32Track the width of the result boxhint32Track the length of the result box4.16.26 CPU mode notification
+message ResNotifyCPUMode {
+    int32 mode = 1;
+}
+ParameterTypeExplanationmodeint320: Normal Mode 1: Performance Mode4.16.27 Shutdown notification
+//shutdown notification
+message ResNotifyPowerOff {
+}
+4.16.28 Album update notification
+Go
+message ResNotifyAlbumUpdate {
+    int32 media_type = 1;
+}
+
+media_type???http??????????4.16.29 Sentinel mode state (UFO to reuse this state)
+4.16.29.1 Status code
+Status codeValueExplanationSENTRY_MODE_STATE_IDLE0Idle state [including UFO]SENTRY_MODE_STATE_INIT1Initialization status, motor reset [including UFO]SENTRY_MODE_STATE_DETECT2Detecting targets in [including UFO]SENTRY_MODE_STATE_TRACK3Tracking targets [including UFOs]SENTRY_MODE_STATE_TRACK_FINISH4Tracking completed (including video completion) [including UFO]SENTRY_MODE_STATE_STOPPING5
+Stopping (after clicking stop, because the video is stored, it takes about 2 seconds to stop completely) [including UFO]4.16.29.2 Notification (UFO to reuse)
+enum SentryModeState {
+    SENTRY_MODE_STATE_IDLE = 0;
+    SENTRY_MODE_STATE_INIT = 1;
+    SENTRY_MODE_STATE_DETECT = 2;
+    SENTRY_MODE_STATE_TRACK = 3;
+    SENTRY_MODE_STATE_TRACK_FINISH = 4;
+    SENTRY_MODE_STATE_STOPPING = 5;
+};
+message ResNotifyStateSentryMode {
+    SentryModeState state = 1;
+}
+ParameterTypeExplanationstate
+SentryModeState SENTRY_MODE_STATE_IDLE = 0;
+    SENTRY_MODE_STATE_INIT = 1;
+    SENTRY_MODE_STATE_DETECT = 2;
+    SENTRY_MODE_STATE_TRACK = 3;
+SENTRY_MODE_STATE_TRACK_FINISH = 4;
+    SENTRY_MODE_STATE_STOPPING = 5;4.16.30 Sentinel mode tracking box result notification
+ProtoBuf
+message ResNotifyTrackResult {
+    int32 x = 1;
+    int32 y = 2;
+    int32 w = 3;
+    int32 h = 4;
+}
+ParameterTypeExplanationxint32The x-coordinate of the upper left point of the tracking result boxyint32The y coordinate of the upper left point of the tracking result boxwint32Track the width of the result boxhint32Track the length of the result box4.16.31 One-click GOTO status notification (supported since protocol version 1.4)
+4.16.31.1 Status code
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stopped4.16.31.2 Notification
+ProtoBuf
+enum OperationState {
+    OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;
+}
+message ResNotifyOneClickGotoState {
+    OperationState state = 1;  
+}
+ParameterTypeExplanationstate
+OperationStateRunning status:
+OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;4.16.32 Image type notification
+When the exposure time is greater than or equal to 1s, switch to jpg image transmission and notify the App that the current image transmission type is jpg.
+When the exposure time is less than 1s, switch to rtsp image transmission and notify the App that the current image transmission type is rtsp.
+ProtoBuf
+message ResNotifyStreamType {
+    int32 stream_type = 1;
+    int32 cam_id = 2;
+}
+ParameterTypeExplanationstream_typeint321?RTSP
+2?JPEGcam_idint320: Telephoto
+1: Wide angle4.16.33 Wide-angle astronomical overlay shooting status
+4.16.33.1 Status code
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stopped4.16.33.2 Notification
+ProtoBuf
+enum OperationState {
+    OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;
+}
+message ResNotifyOperationState {
+    OperationState state = 1;  
+}
+ParameterTypeExplanationstate
+OperationStateRunning status:
+OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;4.16.34 Progress of wide-angle astronomical overlay photography
+4.16.34.1 Notification
+ProtoBuf
+message ResNotifyProgressCaptureRawLiveStacking {
+    int32 total_count = 1;
+    int32 update_count_type = 2;
+    int32 current_count = 3;
+    int32 stacked_count = 4;
+    int32 exp_index = 5;
+    int32 gain_index = 6;
+    string target_name = 7;
+}
+ParameterTypeExplanationtotal_countint32Total number of sheetsupdate_count_typeint320: Update the number of photos taken
+1: Update the number of stacked sheets
+2: Simultaneously update the number of photos taken and the number of photos stackedcurrent_countint32Number of shots takenstacked_countint32Number of stacked sheetsexp_indexint32Current exposure index:
+Used for front-end display of current shooting parametersgain_indexint32Current gain index:
+Used for front-end display of current shooting parameterstarget_namestringTarget name4.16.35 Multi-Object Tracking Result Notification
+ProtoBuf
+message ResNotifyTrackResult {
+    int32 x = 1;
+    int32 y = 2;
+    int32 w = 3;
+    int32 h = 4;
+    int32 id = 5;
+}
+message ResNotifyMultiTrackResult {
+    repeated ResNotifyTrackResult results = 1;
+}
+ParameterTypeExplanationxint32The x-coordinate of the upper left point of the tracking result boxyint32The y coordinate of the upper left point of the tracking result boxwint32Track the width of the result boxhint32Track the length of the result boxidint32ID of the current frame4.16.36 EQ verification status notification (supported since protocol version 1.5)
+4.16.36.1 Status code
+Status codeValueExplanationSTATE_IDLE0Idle stateSTATE_RUNNING1RunningSTATE_STOPPING2Is stoppingSTATE_STOPPED3Has stopped4.16.36.2 Notification
+ProtoBuf
+enum OperationState {
+    OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;
+}
+message ResNotifyEqSolvingState {
+    enum Action {
+        UNSPECIFIED = 0;
+        FOCUS = 1; 
+        SOLVING = 2; 
+    }
+    Action step = 1;
+    OperationState state = 2;  
+}
+ParameterTypeExplanationstate
+OperationStateRunning status:
+OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;4.16.37 Long Exposure Shooting Progress Bar
+4.16.37.1 Notification
+Java
+
+message ResNotifyLongExpPhotoProgress {
+    uint32 function_id = 1;               
+    double total_time = 2;               
+    double exposured_time = 3;            
+}4.16.38 Movement temperature
+4.16.38.1 Notification
+message ResNotifyTemperature {
+    int32 code = 1;
+    int32 temperature = 2;
+}
+4.16.39 Sky Detection Status Notification
+4.16.39.1 Notification
+Java
+// ????????
+message ResNotifySkySeacherState {
+    OperationState state = 1;
+}5.  access process
+1. Get the working status.
+2. Open the camera, telephoto and wide-angle.
+3. Get parameter configuration.
+4. HTTP image transmission.
+
+
+
+

@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+enum DwarfBleErrorCode {
+    BLE_OK = 0; // Normal return
+    BLE_PASSWORD_ERROR = -1; // Bluetooth password error
+    BLE_MESSAGE_MALLOC_ERROR = -2; // Bluetooth Communication Protocol Memory Error
+    BLE_MESSAGE_PARSE_ERROR = -3; // Bluetooth Communication Protocol Message Parsing Error
+    BLE_MESSAGE_CRC_ERROR = -4; // CRC check failed
+    BLE_WIFI_CONFIGING = -5; // Bluetooth configuration wifi
+    BLE_WIFI_CONFIGED = -6; // WiFi configuration is done
+    BLE_GET_WIFI_LIST_ERROR = -7; // Failed to get WiFi list
+    BLE_WIFI_STA_PASSWORD_EMPTY = -8; // STA password is empty
+    BLE_WIFI_STA_PASSWORD_ERROR = -9; // STA password error
+    BLE_WIFI_SET_SSID_PSD_ERROR = -10; // Failed to set name and password
+    BLE_WIFI_RESET_WAITING = -11; // Bluetooth wifi waiting for reset
+    BLE_WIFI_RESETED = -12; // Bluetooth wifi has been reset
+    BLE_GET_SYSTEM_INFO_ERROR = -13; // Failed to retrieve system information
+    BLE_RECEIVE_FRAME_HEAD_ERROR = -14; // Protocol header error
+    BLE_RECEIVE_FRAME_TAIL_ERROR = -15; // Protocol end-of-frame error
+    BLE_CHECK_FILE_NOT_EXIST = -16; // MD5 detection file does not exist
+    BLE_CHECK_FILE_MD5_ERROR = -17; // MD5 verification failed
+    BLE_WIFI_RESET_FAILED = -18; // Reset failed
+}
+
+//ask
+message ReqGetconfig {
+     int32 cmd = 1; //CMD instruction value is 1
+     string ble_psd = 2; //Default: "DWARF_12345678"
+}
+
+message ReqAp {
+     int32 cmd = 1; //CMD instruction value is 2
+     int32 wifi_type = 2; //0-5G 1-2.4G
+     int32 auto_start = 3; //WiFi startup configuration 0-Does not start at startup 1-Start at startup
+     int32 country_list = 4; //0-Do not configure country_list 1-Configure country_list
+     string country = 5; //Country code
+     string ble_psd = 6; //Default: "DWARF_12345678"
+}
+
+message ReqSta {
+     int32 cmd =1; //CMD instruction value is 3
+     int32 auto_start = 2; //WiFi startup configuration 0-Does not start at startup 1-Start at startup
+     string ble_psd = 3; //Default: "DWARF_12345678"
+     string ssid = 4; //WiFi name of the router to be connected
+     string psd = 5; //WiFi password of the router to be connected
+}
+
+message ReqSetblewifi {
+     int32 cmd = 1; //CMD instruction value is 4
+     int32 mode = 2; //Modification type 0-Bluetooth name 1-Bluetooth naming 2-wifi name 3-wifi password
+     string ble_psd = 3; //Default: "DWARF_12345678"
+     string value = 4; //modified value
+}
+
+message ReqReset {
+     int32 cmd = 1; //CMD instruction value is 5
+}
+
+message ReqGetwifilist {
+     int32 cmd = 1; //CMD instruction value is 6
+}
+
+message ReqGetsysteminfo {
+     int32 cmd = 1; //CMD instruction value is 7
+}
+
+message ReqCheckFile {
+     int32 cmd = 1; //CMD instruction value is 8
+     string file_path = 2; //File path
+     string md5 = 3; //md5 value
+}
+
+
+//return
+message ResGetconfig {
+     int32 cmd = 1; //CMD instruction value is 1
+     int32 code = 2; //error code
+     int32 state = 3; //WiFi configuration status 0-Not configured 1-Configuring 2-Configuration completed
+     int32 wifi_mode = 4; //WiFi mode 0-NONE 1-AP 2-STA
+     int32 ap_mode = 5; //AP mode WiFi type 0-5G 1-2.4G
+     int32 auto_start = 6; //WiFi startup configuration 0-Does not start at startup 1-Start at startup
+     int32 ap_country_list = 7; //Country code configuration file settings 0-Set country_list 1-Do not set country_list
+     string ssid = 8; //WiFi name
+     string psd = 9; //WiFi password
+     string ip = 10; //WiFi ip address
+     string ap_country = 11; //Country code
+}
+
+message ResAp {
+     int32 cmd = 1; //CMD instruction
+     int32 code = 2; //error code
+     int32 mode = 3; //AP mode WiFi type 0-5G 1-2.4G
+     string ssid = 4; //WiFi name
+     string psd = 5; //WiFi password
+}
+
+message ResSta {
+     int32 cmd = 1; //CMD instruction
+     int32 code = 2; //error code
+     string ssid = 3; //WiFi name
+     string psd = 4; //WiFi password
+     string ip = 5; //WiFi ip address
+}
+
+message ResSetblewifi {
+     int32 cmd = 1; //CMD instruction
+     int32 code = 2; //error code
+     int32 mode = 3; //Modification type 0-Bluetooth name 1-Bluetooth naming 2-wifi name 3-wifi password
+     string value = 4; //modified value
+}
+
+message ResReset {
+     int32 cmd = 1; //CMD instruction
+     int32 code = 2; //error code
+}
+
+message ResWifilist {
+     int32 cmd = 1; //CMD instruction
+     int32 code = 2; //error code
+     repeated string ssid = 4;
+}
+
+message ResGetsysteminfo {
+     int32 cmd = 1; //CMD instruction
+     int32 code = 2; //error code
+     int32 protocol_version = 3; //Bluetooth protocol
+     string device = 4; //Device name
+     string mac_address = 5; //MAC address
+     string dwarf_ota_version = 6; //dwarf firmware version
+}
+
+message ResReceiveDataError {
+     int32 cmd = 1; //CMD instruction is 0
+     int32 code = 2; //error code
+}
+
+message ResCheckFile {
+     int32 cmd = 1; //CMD instruction
+     int32 code = 2; //error code
+}
+

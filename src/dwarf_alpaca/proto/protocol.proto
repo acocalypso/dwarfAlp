@@ -1,0 +1,336 @@
+syntax = "proto3";
+
+enum ModuleId {
+    MODULE_NONE = 0; // No 
+    MODULE_CAMERA_TELE = 1; // 10000-10499 Telephoto camera module
+    MODULE_CAMERA_WIDE = 2; // 12000-12499 Wide-angle camera module
+    MODULE_ASTRO = 3; // 11000-11499 Astronomy module
+    MODULE_SYSTEM = 4; // 13000-13299 System modules
+    MODULE_RGB_POWER = 5; // 13500-13799 RGB & Power Management Modules
+    MODULE_MOTOR = 6; // 14000-14499 Motor module
+    MODULE_TRACK = 7; // 14800-14899 Tracking module
+    MODULE_FOCUS = 8; // 15000-15099 Focusing module
+    MODULE_NOTIFY = 9; // 15200-15499 Notification module
+    MODULE_PANORAMA = 10; // 15500-15599 Panoramic module
+    MODULE_SHOOTING_SCHEDULE = 13; // 16100-16300 Shooting schedule module
+}
+
+enum MessageTypeId {
+    TYPE_REQUEST = 0; // Message Type Request
+    TYPE_REQUEST_RESPONSE = 1; // Message Type Request Response
+    TYPE_NOTIFICATION = 2; // Message Type Notification
+    TYPE_NOTIFICATION_RESPONSE = 3; // Message Type Notification Response
+}
+
+enum DwarfCMD {
+    NO_CMD = 0; // No Cmd
+
+    CMD_CAMERA_TELE_OPEN_CAMERA = 10000; // Turn on the camera
+    CMD_CAMERA_TELE_CLOSE_CAMERA = 10001; // Turn off the camera
+    CMD_CAMERA_TELE_PHOTOGRAPH = 10002; // Take photos
+    CMD_CAMERA_TELE_BURST = 10003; // Start continuous shooting
+    CMD_CAMERA_TELE_STOP_BURST = 10004; // Stop continuous shooting
+    CMD_CAMERA_TELE_START_RECORD = 10005; // Start recording
+    CMD_CAMERA_TELE_STOP_RECORD = 10006; // Stop recording
+    CMD_CAMERA_TELE_SET_EXP_MODE = 10007; // Set exposure mode
+    CMD_CAMERA_TELE_GET_EXP_MODE = 10008; // Acquire exposure mode
+    CMD_CAMERA_TELE_SET_EXP = 10009; // Set exposure value
+    CMD_CAMERA_TELE_GET_EXP = 10010; // Get exposure value
+    CMD_CAMERA_TELE_SET_GAIN_MODE = 10011; // Set gain mode
+    CMD_CAMERA_TELE_GET_GAIN_MODE = 10012; // Acquisition gain mode
+    CMD_CAMERA_TELE_SET_GAIN = 10013; // Set gain value
+    CMD_CAMERA_TELE_GET_GAIN = 10014; // Get gain value
+    CMD_CAMERA_TELE_SET_BRIGHTNESS = 10015; // Set brightness
+    CMD_CAMERA_TELE_GET_BRIGHTNESS = 10016; // Acquire brightness
+    CMD_CAMERA_TELE_SET_CONTRAST = 10017; // Set contrast
+    CMD_CAMERA_TELE_GET_CONTRAST = 10018; // Get contrast
+    CMD_CAMERA_TELE_SET_SATURATION = 10019; // Set saturation
+    CMD_CAMERA_TELE_GET_SATURATION = 10020; // Acquire saturation
+    CMD_CAMERA_TELE_SET_HUE = 10021; // Set tone
+    CMD_CAMERA_TELE_GET_HUE = 10022; // Get hue
+    CMD_CAMERA_TELE_SET_SHARPNESS = 10023; // Set sharpness
+    CMD_CAMERA_TELE_GET_SHARPNESS = 10024; // Acquire sharpness
+    CMD_CAMERA_TELE_SET_WB_MODE = 10025; // Set white balance mode
+    CMD_CAMERA_TELE_GET_WB_MODE = 10026; // Acquire white balance mode
+    CMD_CAMERA_TELE_SET_WB_SCENE = 10027; // Set white balance scene
+    CMD_CAMERA_TELE_GET_WB_SCENE = 10028; // Get white balance scene
+    CMD_CAMERA_TELE_SET_WB_CT = 10029; // Set the white balance color temperature value
+    CMD_CAMERA_TELE_GET_WB_CT = 10030; // Obtain the white balance color temperature value
+    CMD_CAMERA_TELE_SET_IRCUT = 10031; // Set IRCUT
+    CMD_CAMERA_TELE_GET_IRCUT = 10032; // Get IRCUT status
+    CMD_CAMERA_TELE_START_TIMELAPSE_PHOTO = 10033; // Start time-lapse photography
+    CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO = 10034; // Stop time-lapse photography
+    CMD_CAMERA_TELE_SET_ALL_PARAMS = 10035; // Set all parameters
+    CMD_CAMERA_TELE_GET_ALL_PARAMS = 10036; // Get all parameters
+    CMD_CAMERA_TELE_SET_FEATURE_PARAM = 10037; // Set feature parameters
+    CMD_CAMERA_TELE_GET_ALL_FEATURE_PARAMS = 10038; // Get all feature parameters
+    CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE = 10039; // Get the working status of the whole machine
+    CMD_CAMERA_TELE_SET_JPG_QUALITY = 10040; // Set jpg preview quality
+
+    CMD_CAMERA_TELE_PHOTO_RAW = 10041; // Shoot RAW image
+    CMD_CAMERA_TELE_SET_RTSP_BITRATE_TYPE = 10042; // Set rtsp preview bit rate type
+
+    CMD_ASTRO_START_CALIBRATION = 11000; // Start calibration
+    CMD_ASTRO_STOP_CALIBRATION = 11001; // Stop calibration
+    CMD_ASTRO_START_GOTO_DSO = 11002; // Start GOTO Deep Space Object
+    CMD_ASTRO_START_GOTO_SOLAR_SYSTEM = 11003; // Start GOTO Solar System Target
+    CMD_ASTRO_STOP_GOTO = 11004; // Stop GOTO
+    CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING = 11005; // Start stacking
+    CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING = 11006; // Stop overlay
+    CMD_ASTRO_START_CAPTURE_RAW_DARK = 11007; // Start shooting dark scenes
+    CMD_ASTRO_STOP_CAPTURE_RAW_DARK = 11008; // Stop filming darkfield
+    CMD_ASTRO_CHECK_GOT_DARK = 11009; // Inquire about the dark field that has been shot
+    CMD_ASTRO_GO_LIVE = 11010; // GO LIVE interface
+    CMD_ASTRO_START_TRACK_SPECIAL_TARGET = 11011; // Start tracking the sun and moon
+    CMD_ASTRO_STOP_TRACK_SPECIAL_TARGET = 11012; // Stop tracking the sun and moon
+
+    CMD_ASTRO_START_ONE_CLICK_GOTO_DSO = 11013; // One-click GOTO deep space celestial body
+    CMD_ASTRO_START_ONE_CLICK_GOTO_SOLAR_SYSTEM = 11014; // One-click GOTO solar system target
+    CMD_ASTRO_STOP_ONE_CLICK_GOTO = 11015; // Stop one-click GOTO
+    CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING = 11016; // Start wide-angle overlay
+    CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING = 11017; // Stop wide-angle overlay
+    CMD_ASTRO_START_EQ_SOLVING = 11018; // Start EQ verification
+    CMD_ASTRO_STOP_EQ_SOLVING = 11019; // Stop EQ verification
+    CMD_ASTRO_WIDE_GO_LIVE = 11020; // Wide-angle GO LIVE interface
+
+    CMD_ASTRO_START_CAPTURE_RAW_DARK_WITH_PARAM = 11021; // Start shooting the dark field with specified parameters (manually set exposure, gain, binning).
+    CMD_ASTRO_STOP_CAPTURE_RAW_DARK_WITH_PARAM = 11022; // Stop shooting the dark field with specified parameters
+    CMD_ASTRO_GET_DARK_FRAME_LIST = 11023; // Query the list of recorded dark scenes
+    CMD_ASTRO_DEL_DARK_FRAME_LIST = 11024; // Delete the specified dark field list
+    CMD_ASTRO_START_CAPTURE_WIDE_RAW_DARK_WITH_PARAM = 11025; // Start shooting wide-angle dark field with specified parameters (manually set exposure and gain. Binning is fixed to 1 internally, setting does not work).
+    CMD_ASTRO_STOP_CAPTURE_WIDE_RAW_DARK_WITH_PARAM = 11026; // Stop shooting dark field with wide-angle specified parameters
+    CMD_ASTRO_GET_WIDE_DARK_FRAME_LIST = 11027; // Query the list of wide-angle dark scenes taken
+    CMD_ASTRO_DEL_WIDE_DARK_FRAME_LIST = 11028; // Delete the specified wide-angle dark field list
+
+    CMD_CAMERA_WIDE_OPEN_CAMERA = 12000; // Turn on the camera
+    CMD_CAMERA_WIDE_CLOSE_CAMERA = 12001; // Turn off the camera
+    CMD_CAMERA_WIDE_SET_EXP_MODE = 12002; // Set exposure mode
+    CMD_CAMERA_WIDE_GET_EXP_MODE = 12003; // Acquire exposure mode
+    CMD_CAMERA_WIDE_SET_EXP = 12004; // Set exposure value
+    CMD_CAMERA_WIDE_GET_EXP = 12005; // Get exposure value
+    CMD_CAMERA_WIDE_SET_GAIN = 12006; // Set gain
+    CMD_CAMERA_WIDE_GET_GAIN = 12007; // Acquisition gain
+    CMD_CAMERA_WIDE_SET_BRIGHTNESS = 12008; // Set brightness
+    CMD_CAMERA_WIDE_GET_BRIGHTNESS = 12009; // Acquire brightness
+    CMD_CAMERA_WIDE_SET_CONTRAST = 12010; // Set contrast
+    CMD_CAMERA_WIDE_GET_CONTRAST = 12011; // Get contrast
+    CMD_CAMERA_WIDE_SET_SATURATION = 12012; // Set saturation
+    CMD_CAMERA_WIDE_GET_SATURATION = 12013; // Acquire saturation
+    CMD_CAMERA_WIDE_SET_HUE = 12014; // Set tone
+    CMD_CAMERA_WIDE_GET_HUE = 12015; // Get hue
+    CMD_CAMERA_WIDE_SET_SHARPNESS = 12016; // Set sharpness
+    CMD_CAMERA_WIDE_GET_SHARPNESS = 12017; // Acquire sharpness
+    CMD_CAMERA_WIDE_SET_WB_MODE = 12018; // Set white balance mode
+    CMD_CAMERA_WIDE_GET_WB_MODE = 12019; // Acquire white balance mode
+    CMD_CAMERA_WIDE_SET_WB_CT = 12020; // Set white balance color temperature
+    CMD_CAMERA_WIDE_GET_WB_CT = 12021; // Obtain white balance color temperature
+    CMD_CAMERA_WIDE_PHOTOGRAPH = 12022; // Take photos
+    CMD_CAMERA_WIDE_BURST = 12023; // Continuous shooting
+    CMD_CAMERA_WIDE_STOP_BURST = 12024; // Stop continuous shooting
+    CMD_CAMERA_WIDE_START_TIMELAPSE_PHOTO = 12025; // Start time-lapse photography
+    CMD_CAMERA_WIDE_STOP_TIMELAPSE_PHOTO = 12026; // Stop time-lapse photography
+    CMD_CAMERA_WIDE_GET_ALL_PARAMS = 12027; // Get all parameters
+    CMD_CAMERA_WIDE_SET_ALL_PARAMS = 12028; // Set all parameters
+
+    CMD_CAMERA_WIDE_START_RECORD = 12030; // Start wide recording
+    CMD_CAMERA_WIDE_STOP_RECORD = 12031; // Stop wide recording
+
+    CMD_SYSTEM_SET_TIME = 13000; // Set the system time
+    CMD_SYSTEM_SET_TIME_ZONE = 13001; // Set the time zone
+    CMD_SYSTEM_SET_MTP_MODE = 13002; // Set MTP mode
+    CMD_SYSTEM_SET_CPU_MODE = 13003; // Set CPU mode
+    CMD_SYSTEM_SET_MASTERLOCK = 13004; // Set HOST mode
+
+    CMD_RGB_POWER_OPEN_RGB = 13500; // Turn on the ring light
+    CMD_RGB_POWER_CLOSE_RGB = 13501; // Turn off the ring light
+    CMD_RGB_POWER_POWER_DOWN = 13502; // Shut down
+    CMD_RGB_POWER_POWERIND_ON = 13503; // Turn on the battery indicator
+    CMD_RGB_POWER_POWERIND_OFF = 13504; // Turn off battery indicator = 
+    CMD_RGB_POWER_REBOOT = 13505; // Restart
+
+    CMD_STEP_MOTOR_RUN = 14000; // Motor motion
+    CMD_STEP_MOTOR_RUN_TO = 14001; // Motor motion to
+    CMD_STEP_MOTOR_STOP = 14002; // Motor stop
+    CMD_STEP_MOTOR_RESET = 14003; // Motor Reset
+    CMD_STEP_MOTOR_CHANGE_SPEED = 14004; // Motor Change Speed
+    CMD_STEP_MOTOR_CHANGE_DIRECTION = 14005; // Motor ChangeDirection
+    CMD_STEP_MOTOR_SERVICE_JOYSTICK = 14006; // Joystick
+    CMD_STEP_MOTOR_SERVICE_JOYSTICK_FIXED_ANGLE = 14007; // Short press the arrow keys with the joystick
+    CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP = 14008; // Stop joystick
+    CMD_STEP_MOTOR_SERVICE_DUAL_CAMERA_LINKAGE = 14009; // Dual camera linkage
+
+    CMD_STEP_MOTOR_RUN_IN_PULSE = 14010; // Motor run in pulse
+    CMD_STEP_MOTOR_GET_POSITION = 14011; // Motor get Position
+
+    CMD_TRACK_START_TRACK = 14800; // Started tracking
+    CMD_TRACK_STOP_TRACK = 14801; // Stop tracking
+
+    CMD_SENTRY_MODE_START = 14802; // Start Sentinel Mode (Pack
+    CMD_SENTRY_MODE_STOP = 14803; // Stop Sentinel Mode
+    CMD_MOT_START = 14804; // Start "Multi-Object Tracking" feature
+    CMD_MOT_TRACK_ONE = 14805; // Telephoto: "Multi-Object Tracking" starts tracking a target (the firmware will return an identification box and ID, and track the target according to the user's click confirmation)
+    CMD_UFOTRACK_MODE_START = 14806; // Start sentinel UFO mode
+    CMD_UFOTRACK_MODE_STOP = 14807; // Stop Sentinel UFO Mode
+    CMD_MOT_WIDE_TRACK_ONE = 14808; // Wide-angle: "Multi-Object Tracking" starts tracking a specific target (firmware will return an identification box and ID, confirm tracking target based on user clicks)
+    CMD_WIDE_TELE_TRACK_SWITCH = 14809; // Object Detection with 30 classes for post-production non-sentinel mode. Choose between wide-angle and telephoto tracking button instructions
+    CMD_UFO_HAND_AOTO_MODE = 14810; // Used for post-UFO mode selection manual or automatic
+
+    CMD_FOCUS_AUTO_FOCUS = 15000; // Normal mode autofocus
+    CMD_FOCUS_MANUAL_SINGLE_STEP_FOCUS = 15001; // Manual single-step focusing
+    CMD_FOCUS_START_MANUAL_CONTINU_FOCUS = 15002; // Start manual continuous focus
+    CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS = 15003; // Stop manual continuous focus
+    CMD_FOCUS_START_ASTRO_AUTO_FOCUS = 15004; // Start astronomical autofocus
+    CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS = 15005; // Stop astronomical autofocus
+
+    CMD_NOTIFY_TELE_WIDI_PICTURE_MATCHING = 15200; // Telephoto wide-angle image matching
+    CMD_NOTIFY_ELE = 15201; // Battery Notification
+    CMD_NOTIFY_CHARGE = 15202; // Charge status notification
+    CMD_NOTIFY_SDCARD_INFO = 15203; // SD card capacity notification
+    CMD_NOTIFY_TELE_RECORD_TIME = 15204; // Recording time
+    CMD_NOTIFY_TELE_TIMELAPSE_OUT_TIME = 15205; // Telephoto time-lapse photography time
+    CMD_NOTIFY_STATE_CAPTURE_RAW_DARK = 15206; // Dark field shooting state
+    CMD_NOTIFY_PROGRASS_CAPTURE_RAW_DARK = 15207; // Dark field shooting progress
+    CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING = 15208; // Astronomical overlay shooting status
+    CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING = 15209; // Astronomical overlay shooting progress
+    CMD_NOTIFY_STATE_ASTRO_CALIBRATION = 15210; // Astronomical calibration status
+    CMD_NOTIFY_STATE_ASTRO_GOTO = 15211; // Astronomical GOTO status
+    CMD_NOTIFY_STATE_ASTRO_TRACKING = 15212; // Astronomical tracking status
+    CMD_NOTIFY_TELE_SET_PARAM = 15213; // Telephoto parameter echo
+    CMD_NOTIFY_WIDE_SET_PARAM = 15214; // Wide-angle parametric echo
+    CMD_NOTIFY_TELE_FUNCTION_STATE = 15215; // Telephoto functional status
+    CMD_NOTIFY_WIDE_FUNCTION_STATE = 15216; // Wide-angle functional status
+    CMD_NOTIFY_SET_FEATURE_PARAM = 15217; // Feature parameter echo
+    CMD_NOTIFY_TELE_BURST_PROGRESS = 15218; // Telephoto continuous shooting progress
+    CMD_NOTIFY_PANORAMA_PROGRESS = 15219; // Telephoto panoramic shooting progress
+    CMD_NOTIFY_WIDE_BURST_PROGRESS = 15220; // Wide-angle continuous shooting progress
+    CMD_NOTIFY_RGB_STATE = 15221; // RGB Ring Light Status
+    CMD_NOTIFY_POWER_IND_STATE = 15222; // Power indicator status
+    CMD_NOTIFY_WS_HOST_SLAVE_MODE = 15223; // Leader/follower mode notification
+    CMD_NOTIFY_MTP_STATE = 15224; // MTP mode notification
+    CMD_NOTIFY_TRACK_RESULT = 15225; // Tracking result notification
+    CMD_NOTIFY_WIDE_TIMELAPSE_OUT_TIME = 15226; // Wide-angle time-lapse photography time
+    CMD_NOTIFY_CPU_MODE = 15227; // CPU mode
+    CMD_NOTIFY_STATE_ASTRO_TRACKING_SPECIAL = 15228; // Sun and moon tracking status
+    CMD_NOTIFY_POWER_OFF = 15229; // Shutdown notification
+    CMD_NOTIFY_ALBUM_UPDATE = 15230; // Album update notification
+    CMD_NOTIFY_SENTRY_MODE_STATE = 15231; // Sentinel mode status
+    CMD_NOTIFY_SENTRY_MODE_TRACK_RESULT = 15232; // Sentinel mode tracking box result notification
+    CMD_NOTIFY_STATE_ASTRO_ONE_CLICK_GOTO = 15233; // One-click GOTO status
+    CMD_NOTIFY_STREAM_TYPE = 15234; // Image type notification
+    CMD_NOTIFY_WIDE_RECORD_TIME = 15235; // Wide-angle video recording time
+    CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING = 15236; // Wide-angle astronomical overlay shooting status
+    CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING = 15237; // Progress of wide-angle astronomical overlay photography
+
+    CMD_NOTIFY_MULTI_TRACK_RESULT = 15238; // Multi-Object Tracking Result Notification
+    CMD_NOTIFY_EQ_SOLVING_STATE = 15239; // EQ check status
+    CMD_NOTIFY_UFO_MODE_STATE = 15240; // Sentinel-UFO Mode Status
+    CMD_NOTIFY_TELE_LONG_EXP_PROGRESS = 15241; // Telephoto long exposure progress
+    CMD_NOTIFY_WIDE_LONG_EXP_PROGRESS = 15242; // Wide-angle long exposure progress
+    CMD_NOTIFY_TEMPERATURE = 15243; // Movement temperature
+    CMD_NOTIFY_PANORAMA_UPLOAD_COMPRESS_PROGRESS = 15244; // 
+    CMD_NOTIFY_PANORAMA_UPLOAD_UPLOAD_PROGRESS = 15245; // 
+    CMD_NOTIFY_PANORAMA_UPLOAD_COMPLETE = 15246; // 
+    CMD_NOTIFY_STATE_CAPTURE_WIDE_RAW_DARK = 15247; // Wide-angle dark field shooting state
+    CMD_NOTIFY_SHOOTING_SCHEDULE_RESULT_AND_STATE = 15248; // 
+    CMD_NOTIFY_SHOOTING_TASK_STATE = 15249; // 
+    CMD_NOTIFY_SKY_SEACHER_STATE = 15250; // Sky detection status
+    CMD_NOTIFY_WIDE_MULTI_TRACK_RESULT = 15251; // Wide-angle multi-target box result notification
+    CMD_NOTIFY_WIDE_TRACK_RESULT = 15252; // Wide-angle single target box result notification
+
+    CMD_NOTIFY_FOCUS = 15257; // Focus Position
+
+    CMD_PANORAMA_START_GRID = 15500; // Start panorama
+    CMD_PANORAMA_STOP = 15501; // Stop panorama
+    CMD_PANORAMA_START_EULER_RANGE = 15502; // Start panorama Euler Range
+}
+
+enum DwarfErrorCode {
+    OK = 0; // OK : No Error
+    WS_PARSE_PROTOBUF_ERROR = -1; // Protobuf parsing failed
+    WS_SDCARD_NOT_EXIST = -2; // SD card not detected
+    WS_INVALID_PARAM = -3; // Invalid parameter
+    WS_SDCARD_WRITE_ERROR = -4; // Image writing to SD card failed (maybe the card is full)
+
+    CODE_CAMERA_TELE_OPENED = -10500; // Camera is turned on
+    CODE_CAMERA_TELE_CLOSED = -10501; // Camera is off
+    CODE_CAMERA_TELE_ISP_SET_FAILED = -10502; // ISP parameter settings failed
+    CODE_CAMERA_TELE_OPEN_FAILED = -10504; // Camera failed to open
+    CODE_CAMERA_TELE_RECORDING = -10506; // Recording
+    CODE_CAMERA_TELE_WORKING_BUSY_STACK = -10507; // The telephoto camera is busy.
+    CODE_CAMERA_TELE_CAPTURE_RAW_FAILED = -10510; // Failed to catch RAW image
+    CODE_CAMERA_TELE_WORKING_BUSY = -10511; // The telephoto camera is busy with work
+
+    CODE_ASTRO_PLATE_SOLVING_FAILED = -11500; // Plate solving failed
+    CODE_ASTRO_FUNCTION_BUSY = -11501; // Astronomical function busy
+    CODE_ASTRO_DARK_GAIN_OUT_OF_RANGE = -11502; // Gain beyond darkfield shooting range (darkfield coverage 30-150 gain)
+    CODE_ASTRO_DARK_NOT_FOUND = -11503; // Darkfield not found
+    CODE_ASTRO_CALIBRATION_FAILED = -11504; // Calibration failed
+    CODE_ASTRO_GOTO_FAILED = -11505; // GOTO failed
+    CODE_ASTRO_NEED_GOTO = -11513; // No GOTO
+    CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM = -11514; // Parameters are not suitable
+    
+    CODE_ASTRO_EQ_SOLVING_FAILED = -11516; // EQ calculation failed (only calculation failed to return)
+    CODE_ASTRO_SKY_SEARCH_FAILED = -11517; // Sky detection failed
+
+    CODE_CAMERA_WIDE_OPENED = -12500; // Wide-angle camera turned on
+    CODE_CAMERA_WIDE_CLOSED = -12501; // The wide-angle camera is turned off
+    CODE_CAMERA_WIDE_CANNOT_FOUND = -12502; // Can't find the camera
+    CODE_CAMERA_WIDE_OPEN_FAILED = -12503; // Failed to open camera
+    CODE_CAMERA_WIDE_CLOSE_FAILED = -12504; // Failed to turn off camera
+    CODE_CAMERA_WIDE_SET_ISP_FAILED = -12505; // Failed to set ISP parameters
+    CODE_CAMERA_WIDE_PHOTOGRAPHING = -12506; // Taking pictures
+    CODE_CAMERA_WIDE_EXP_TOO_LONG = -12508; // The exposure time is too long, and recording is not supported.
+
+    CODE_SYSTEM_SET_TIME_FAILED = -13300; // Set time failed
+    CODE_SYSTEM_SET_TIMEZONE_FAILED = -13301; // Failed to set time zone
+    CODE_SYSTEM_SETTING_TIMEZONE_FAILED = -13302; // Time zone setting failed
+
+    CODE_RGB_POWER_UART_INIT_FAILED = -13800; // Serial port Initialization failed
+
+    CODE_STEP_MOTOR_INVALID_PARAMETER_ID = -14504; // Motor Invalid Id Parameter
+    CODE_STEP_MOTOR_LIMIT_POSITION_WARNING = -14518; // GOTO limit warning
+    CODE_STEP_MOTOR_LIMIT_POSITION_HITTED = -14519; // Star collision limit
+    CODE_STEP_MOTOR_POSITION_NEED_RESET = -14520; // Motor Position need Reset
+
+    CODE_TRACK_TRACKER_INITING = -14900; // Tracking is initializing
+    CODE_TRACK_TRACKER_FAILED = -14901; // Trace failed
+
+    CODE_FOCUS_ASTRO_AUTO_FOCUS_SLOW_ERROR = -15100; // Slow astronomical autofocus failed
+    CODE_FOCUS_ASTRO_AUTO_FOCUS_FAST_ERROR = -15101; // Fast astronomical autofocus failed, you need to perform a slow astronomical autofocus first
+
+    CODE_PANORAMA_PHOTO_FAILED = -15600; // Panoramic shooting failed
+    CODE_PANORAMA_MOTOR_RESET_FAILED = -15601; // Panoramic shooting motor reset failed
+}
+
+enum AstroTrackingSpecial {
+    TRACKING_SUN = 0;
+    TRACKING_MOON = 1;
+}
+
+enum SolarSystemTarget {
+    Unknown = 0;
+    Mercury = 1; 
+    Venus = 2;
+    Mars = 3;
+    Jupiter = 4;
+    Saturn = 5;
+    Uranus = 6;
+    Neptune = 7;
+    Moon = 8;
+    Sun = 9;
+}
+
+enum PhotoMode {
+    Auto = 0; 
+    Manual = 1; 
+}
+
+enum WBMode {
+    ColorTemperature = 0; 
+    SceneMode = 1; 
+}
+
+enum IrCut {
+    CUT = 0; 
+    PASS = 1; 
+}
