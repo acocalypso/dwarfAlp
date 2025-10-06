@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     stream_buffer_seconds: float = 1.5
     ftp_timeout_seconds: float = 10.0
     ftp_poll_interval_seconds: float = 1.0
+    go_live_before_exposure: bool = True
+    go_live_timeout_seconds: float = 5.0
+    allow_continue_without_darks: bool = True
+    dark_check_timeout_seconds: float = 5.0
 
     ble_adapter: Optional[str] = None
     ble_password: Optional[str] = None

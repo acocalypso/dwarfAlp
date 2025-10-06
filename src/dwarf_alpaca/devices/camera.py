@@ -465,6 +465,7 @@ async def start_exposure(
     request: Request,
     Duration: float | None = Query(None, alias="Duration"),
     Light: bool | None = Query(None, alias="Light"),
+    ContinueWithoutDark: bool | None = Query(None, alias="ContinueWithoutDark"),
 ):
     _ensure_connected()
     session = await get_session()
@@ -472,6 +473,11 @@ async def start_exposure(
     if duration_value <= 0.0:
         raise HTTPException(status_code=400, detail="Duration must be greater than zero")
     light_value = await resolve_parameter(request, "Light", bool, Light)
+    continue_without_dark = (
+        ContinueWithoutDark
+        if ContinueWithoutDark is not None
+        else session.settings.allow_continue_without_darks
+    )
     client = request.client
     redacted_headers = [
         (
@@ -487,13 +493,19 @@ async def start_exposure(
         client_port=getattr(client, "port", None),
         raw_duration=Duration,
         raw_light=Light,
+        raw_continue_without_dark=ContinueWithoutDark,
         resolved_duration=duration_value,
         resolved_light=light_value,
+        continue_without_dark=continue_without_dark,
         query_params=dict(request.query_params),
         headers=redacted_headers,
     )
     try:
-        await session.camera_start_exposure(duration_value, light_value)
+        await session.camera_start_exposure(
+            duration_value,
+            light_value,
+            continue_without_darks=continue_without_dark,
+        )
     except DwarfCommandError as exc:
         if exc.code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
             raise HTTPException(

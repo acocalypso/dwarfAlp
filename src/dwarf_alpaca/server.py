@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
 
 import structlog
 import uvicorn
@@ -13,6 +13,7 @@ from .discovery import DiscoveryService
 from .management.router import router as management_router
 from .devices.telescope import router as telescope_router
 from .devices.camera import router as camera_router
+from .devices.filterwheel import preload_filters, router as filterwheel_router
 from .devices.focuser import router as focuser_router
 from .dwarf.session import configure_session
 
@@ -27,6 +28,15 @@ def build_app(settings: Settings) -> FastAPI:
     app.include_router(telescope_router, prefix="/api/v1/telescope/0")
     app.include_router(camera_router, prefix="/api/v1/camera/0")
     app.include_router(focuser_router, prefix="/api/v1/focuser/0")
+    app.include_router(filterwheel_router, prefix="/api/v1/filterwheel/0")
+
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI):
+        await preload_filters()
+        yield
+
+    app.router.lifespan_context = _lifespan
+
     return app
 
 

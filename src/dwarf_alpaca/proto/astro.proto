@@ -1,0 +1,184 @@
+syntax = "proto3";
+
+// 开始校准
+message ReqStartCalibration {
+    
+}
+
+// 停止校准
+message ReqStopCalibration {
+    
+}
+
+// Goto深空天体
+message ReqGotoDSO {
+    double ra = 1;
+    double dec = 2;
+    string target_name = 3;
+}
+
+// Goto太阳系
+message ReqGotoSolarSystem {
+    int32 index = 1;
+    double lon = 2;
+    double lat = 3;
+    string target_name = 4;
+}
+
+// 停止Goto
+message ReqStopGoto {
+    
+}
+
+// 开始叠图
+message ReqCaptureRawLiveStacking {
+
+}
+
+// 停止叠图
+message ReqStopCaptureRawLiveStacking {
+
+}
+
+// 查询暗场进度
+message ReqCheckDarkFrame {
+
+}
+
+// 暗场进度返回
+message ResCheckDarkFrame {
+    int32 progress = 1;
+    int32 code = 2;
+}
+
+// 开始拍摄暗场
+message ReqCaptureDarkFrame {
+    int32 reshoot = 1;
+}
+
+// 停止拍摄暗场
+message ReqStopCaptureDarkFrame {
+
+}
+
+// 开始拍摄暗场带参数
+message ReqCaptureDarkFrameWithParam {
+    int32 exp_index = 1;
+    int32 gain_index = 2;
+    int32 bin_index = 3;
+    int32 cap_size = 4;
+}
+
+// 停止拍摄暗场
+message ReqStopCaptureDarkFrameWithParam {
+
+}
+
+// 获取暗场信息list
+message ReqGetDarkFrameList {
+}
+
+// 获取到的暗场信息
+message ResGetDarkFrameInfo {
+    int32 exp_index = 1;
+    int32 gain_index = 2;
+    int32 bin_index = 3;
+    string exp_name = 4;
+    string gain_name = 5;
+    string bin_name = 6;
+    int32 temperature = 7;
+}
+
+// 获取的暗场list
+message ResGetDarkFrameInfoList {
+    int32 code = 1;
+    repeated ResGetDarkFrameInfo results = 2;
+}
+
+// 删除暗场
+message ReqDelDarkFrame {
+    int32 exp_index = 1;
+    int32 gain_index = 2;
+    int32 bin_index = 3; 
+}
+
+// 删除暗场list
+message ReqDelDarkFrameList {
+    repeated ReqDelDarkFrame dark_list = 1;
+}
+
+// 删除暗场的结果返回
+message ResDelDarkFrameList {
+    int32 code = 1;
+}
+
+// GO LIVE接口
+message ReqGoLive {
+
+}
+
+// 开始日月跟踪
+message ReqTrackSpecialTarget {
+    int32 index = 1;
+    double lon = 2;
+    double lat = 3;
+}
+
+// 停止日月跟踪
+message ReqStopTrackSpecialTarget {
+
+}
+
+// 一键Goto深空天体
+message ReqOneClickGotoDSO {
+    double ra = 1;
+    double dec = 2;
+    string target_name = 3;
+}
+
+// 一键Goto太阳系
+message ReqOneClickGotoSolarSystem {
+    int32 index = 1;
+    double lon = 2;
+    double lat = 3;
+    string target_name = 4;
+}
+
+message ResOneClickGoto {
+    int32 step = 1;
+    int32 code = 2;
+    bool all_end = 3;
+}
+
+// 停止一键GOTO
+message ReqStopOneClickGoto {
+
+}
+
+// 开始广角叠图
+message ReqCaptureWideRawLiveStacking {
+
+}
+
+// 停止广角叠图
+message ReqStopCaptureWideRawLiveStacking {
+
+}
+
+// 开始EQ校验
+message ReqStartEqSolving {
+    double lon = 1;  // GPS经度
+    double lat = 2;  // GPS纬度
+}
+
+// EQ校验返回
+message ResStartEqSolving {
+    double azi_err = 1;  // 方位轴极轴误差，正顺时针，负逆时针
+    double alt_err = 2;  // 俯仰轴极轴误差，正向上，负向下
+    int32 code = 3;    // 错误码
+}
+
+// 停止EQ校验
+message ReqStopEqSolving {
+
+}

@@ -33,26 +33,7 @@ def get_description():
 
 @router.get("/v1/configureddevices")
 def get_configured_devices():
-    devices = [
-        {
-            "DeviceName": "DWARF 3 Telescope",
-            "DeviceType": "Telescope",
-            "DeviceNumber": 0,
-            "UniqueID": "DWARF3-Telescope",
-        },
-        {
-            "DeviceName": "DWARF 3 Camera",
-            "DeviceType": "Camera",
-            "DeviceNumber": 0,
-            "UniqueID": "DWARF3-Camera",
-        },
-        {
-            "DeviceName": "DWARF 3 Focuser",
-            "DeviceType": "Focuser",
-            "DeviceNumber": 0,
-            "UniqueID": "DWARF3-Focuser",
-        },
-    ]
+    devices = [dict(device) for device in DEVICE_LIST]
     return alpaca_response(value=devices)
 
 

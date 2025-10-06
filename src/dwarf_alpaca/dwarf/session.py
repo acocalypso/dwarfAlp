@@ -12,13 +12,11 @@ from google.protobuf.message import Message
 from google.protobuf.json_format import MessageToDict
 
 from ..config.settings import Settings
-from ..proto import protocol_pb2
+from ..proto import astro_pb2, protocol_pb2
 from . import exposure
 from ..proto.dwarf_messages import (
     CommonParam,
     ComResponse,
-    ReqAstroStartCaptureRawLiveStacking,
-    ReqAstroStopCaptureRawLiveStacking,
     ReqCloseCamera,
     ReqGetSystemWorkingState,
     ReqGotoDSO,
@@ -42,6 +40,9 @@ from .ws_client import DwarfCommandError, DwarfWsClient, send_and_check
 logger = structlog.get_logger(__name__)
 
 
+FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "Duo-Band Filter"]
+
+
 def _message_to_log(message: Message) -> Dict[str, Any]:
     try:
         payload = MessageToDict(message, preserving_proto_field_name=True)
@@ -58,6 +59,7 @@ class CameraState:
     light: bool = True
     capture_mode: str = "photo"
     filter_name: str = ""
+    filter_index: int | None = None
     exposure_index: int | None = None
     image: Optional[np.ndarray] = field(default=None, repr=False)
     capture_task: asyncio.Task[None] | None = field(default=None, repr=False)
@@ -67,6 +69,7 @@ class CameraState:
     frame_height: int = 0
     image_timestamp: float | None = None
     last_error: str | None = None
+    last_dark_check_code: int | None = None
     last_album_mod_time: int | None = None
     last_album_file: str | None = None
     pending_album_baseline: int | None = None
@@ -79,6 +82,16 @@ class FocuserState:
     connected: bool = False
     position: int = 0
     is_moving: bool = False
+
+
+@dataclass(frozen=True)
+class FilterOption:
+    parameter: dict[str, Any] | None
+    mode_index: int
+    index: int
+    label: str
+    continue_value: float | None = None
+    controllable: bool = True
 
 
 class DwarfSession:
@@ -107,7 +120,7 @@ class DwarfSession:
             timeout=settings.ftp_timeout_seconds,
             poll_interval=settings.ftp_poll_interval_seconds,
         )
-        self._refs: dict[str, int] = {"telescope": 0, "camera": 0, "focuser": 0}
+        self._refs: dict[str, int] = {"telescope": 0, "camera": 0, "focuser": 0, "filterwheel": 0}
         self._master_lock_acquired = False
         self._master_lock_lock = asyncio.Lock()
         self._lock = asyncio.Lock()
@@ -117,6 +130,8 @@ class DwarfSession:
         self.focuser_state = FocuserState()
         self._exposure_resolver: Optional[exposure.ExposureResolver] = None
         self._params_config: Optional[dict[str, Any]] = None
+        self._filter_options: list[FilterOption] | None = None
+        self._last_dark_check_code: int | None = None
 
     @property
     def is_simulated(self) -> bool:
@@ -250,11 +265,12 @@ class DwarfSession:
                 command_id=command_id,
             )
 
-    async def _send_command(
+    async def _send_request(
         self,
         module_id: int,
         command_id: int,
         request: Message,
+        response_cls: Type[Message],
         *,
         timeout: float = 10.0,
         expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
@@ -272,11 +288,13 @@ class DwarfSession:
                 request_type=request.__class__.__name__,
                 request_payload=_message_to_log(request),
                 expected_responses=expected_summary,
+                expected_response_type=response_cls.__name__,
             )
-            response = await self._ws_client.send_command(
+            response = await self._ws_client.send_request(
                 module_id,
                 command_id,
                 request,
+                response_cls,
                 timeout=timeout,
                 expected_responses=expected_responses,
             )
@@ -289,6 +307,24 @@ class DwarfSession:
                 response_code=getattr(response, "code", None),
             )
             return response
+
+    async def _send_command(
+        self,
+        module_id: int,
+        command_id: int,
+        request: Message,
+        *,
+        timeout: float = 10.0,
+        expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
+    ) -> Message:
+        return await self._send_request(
+            module_id,
+            command_id,
+            request,
+            ComResponse,
+            timeout=timeout,
+            expected_responses=expected_responses,
+        )
 
     async def _ensure_master_lock(self) -> None:
         if self.simulation or self._master_lock_acquired:
@@ -459,7 +495,13 @@ class DwarfSession:
             request,
         )
 
-    async def camera_start_exposure(self, duration: float, light: bool) -> None:
+    async def camera_start_exposure(
+        self,
+        duration: float,
+        light: bool,
+        *,
+        continue_without_darks: bool | None = None,
+    ) -> None:
         state = self.camera_state
         state.duration = duration
         state.light = light
@@ -469,7 +511,8 @@ class DwarfSession:
         state.image_timestamp = None
         state.last_error = None
         state.image = None
-        state.capture_mode = "photo" if self.simulation else "astro"
+        state.last_dark_check_code = None
+        state.capture_mode = "photo"
         if state.capture_task and not state.capture_task.done():
             state.capture_task.cancel()
         if self.simulation:
@@ -477,48 +520,71 @@ class DwarfSession:
             state.capture_task = None
             return
 
+        if continue_without_darks is None:
+            continue_without_darks = self.settings.allow_continue_without_darks
+
         await self._ensure_ws()
         await self._ensure_exposure_settings(duration)
         await self._ensure_default_filter()
         command_timeout = max(duration + 10.0, 20.0)
         fallback_to_photo = False
 
-        await self._configure_astro_capture(frames=1)
-        await self._refresh_capture_baseline(capture_kind=state.capture_mode)
-        try:
-            astro_code = await self._start_astro_capture(timeout=command_timeout)
-        except DwarfCommandError as exc:
-            log_fields = {
-                "duration": duration,
-                "light": light,
-                "module_id": exc.module_id,
-                "command_id": exc.command_id,
-                "error_code": exc.code,
-            }
-            if light and exc.code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
-                state.last_error = "astro_need_goto"
-                log_fields["error_hint"] = "goto_required"
-                log_fields["fallback"] = "tele_raw"
-                logger.warning("dwarf.camera.astro_capture_command_failed", **log_fields)
-                fallback_to_photo = True
-            else:
-                state.last_error = f"command_error:{exc.code}"
-                logger.error("dwarf.camera.astro_capture_command_failed", **log_fields)
-                raise
-        else:
-            if astro_code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
-                logger.info(
-                    "dwarf.camera.astro_capture_goto_ignored",
-                    duration=duration,
-                    light=light,
+        if light and self.settings.go_live_before_exposure:
+            await self._astro_go_live()
+
+        if light:
+            try:
+                dark_ready = await self._ensure_dark_library(continue_without_darks=continue_without_darks)
+            except DwarfCommandError as exc:
+                state.last_error = f"dark_check_error:{exc.code}"
+                logger.error(
+                    "dwarf.camera.dark_library_required",
+                    code=exc.code,
+                    continue_without_darks=continue_without_darks,
                 )
-                if light:
-                    fallback_to_photo = True
+                raise
+            fallback_to_photo = not dark_ready
+
+        if not fallback_to_photo:
+            state.capture_mode = "astro"
+            await self._configure_astro_capture(frames=1)
+            await self._refresh_capture_baseline(capture_kind=state.capture_mode)
+            try:
+                astro_code = await self._start_astro_capture(timeout=command_timeout)
+            except DwarfCommandError as exc:
+                log_fields = {
+                    "duration": duration,
+                    "light": light,
+                    "module_id": exc.module_id,
+                    "command_id": exc.command_id,
+                    "error_code": exc.code,
+                }
+                if light and exc.code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
                     state.last_error = "astro_need_goto"
+                    log_fields["error_hint"] = "goto_required"
+                    log_fields["fallback"] = "tele_raw"
+                    logger.warning("dwarf.camera.astro_capture_command_failed", **log_fields)
+                    fallback_to_photo = True
+                else:
+                    state.last_error = f"command_error:{exc.code}"
+                    logger.error("dwarf.camera.astro_capture_command_failed", **log_fields)
+                    raise
+            else:
+                if astro_code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
+                    logger.info(
+                        "dwarf.camera.astro_capture_goto_ignored",
+                        duration=duration,
+                        light=light,
+                    )
+                    if light:
+                        fallback_to_photo = True
+                        state.last_error = "astro_need_goto"
 
         if fallback_to_photo:
             state.capture_mode = "photo"
             await self._refresh_capture_baseline(capture_kind=state.capture_mode)
+            if light:
+                state.last_error = "dark_missing" if state.last_error is None else state.last_error
             try:
                 await self._start_photo_capture(timeout=command_timeout)
             except DwarfCommandError as exc:
@@ -607,6 +673,7 @@ class DwarfSession:
             self._params_config = None
             return None
         self._params_config = payload
+        self._filter_options = None
         return payload
 
     async def _get_exposure_resolver(self) -> Optional[exposure.ExposureResolver]:
@@ -826,80 +893,228 @@ class DwarfSession:
                 names.append(name)
         return names
 
+    async def _get_filter_options(self) -> list[FilterOption]:
+        if self._filter_options is not None:
+            return self._filter_options
+        if self.simulation:
+            self._filter_options = [
+                FilterOption(parameter={}, mode_index=0, index=i, label=label)
+                for i, label in enumerate(FALLBACK_FILTER_LABELS)
+            ]
+            return self._filter_options
+        payload = await self._ensure_params_config()
+        if payload is None:
+            if self._filter_options:
+                return self._filter_options
+            self._filter_options = [
+                FilterOption(parameter=None, mode_index=0, index=i, label=label, controllable=False)
+                for i, label in enumerate(FALLBACK_FILTER_LABELS)
+            ]
+            logger.info(
+                "dwarf.camera.filter_options_fallback",
+                filters=FALLBACK_FILTER_LABELS,
+                reason="params_config_unavailable",
+            )
+            return self._filter_options
+
+        options: list[FilterOption] = []
+        seen: set[str] = set()
+
+        def _add_option(
+            parameter: dict[str, Any] | None,
+            mode_index: int | None,
+            index: int,
+            label: str,
+            continue_value: float | None,
+        ) -> None:
+            resolved = (label or f"Filter {index}").strip()
+            if not resolved:
+                resolved = f"Filter {index}"
+            key = resolved.lower()
+            if key in seen:
+                return
+            seen.add(key)
+            param_dict: dict[str, Any] | None = parameter if isinstance(parameter, dict) else None
+            has_id = False
+            if param_dict is not None:
+                try:
+                    _ = param_dict.get("id")
+                    has_id = _ is not None
+                except AttributeError:
+                    param_dict = None
+            options.append(
+                FilterOption(
+                    parameter=param_dict,
+                    mode_index=mode_index if mode_index is not None else 0,
+                    index=index,
+                    label=resolved,
+                    continue_value=continue_value,
+                    controllable=has_id,
+                )
+            )
+
+        filter_keywords = ("filter", "ir cut", "ir-cut")
+        for _, param in self._iter_camera_support_params(camera_name="tele"):
+            name = str(param.get("name", "")).strip().lower()
+            if not any(keyword in name for keyword in filter_keywords):
+                continue
+            for mode_index, index, label, continue_value in self._extract_support_param_options(param):
+                _add_option(param, mode_index, index, label, continue_value)
+
+        if not options:
+            for feature in self._iter_feature_params():
+                feature_name = str(feature.get("name", "")).strip().lower()
+                if "filter" not in feature_name:
+                    continue
+                for mode_index, index, label, continue_value in self._extract_feature_options(feature):
+                    _add_option(feature, mode_index, index, label, continue_value)
+
+        if not options:
+            fallback = self._find_feature_option_by_label("filter")
+            if fallback is not None:
+                feature, option = fallback
+                mode_index, index, label, continue_value = option
+                _add_option(feature, mode_index, index, label, continue_value)
+
+        if not options:
+            self._filter_options = [
+                FilterOption(parameter=None, mode_index=0, index=i, label=label, controllable=False)
+                for i, label in enumerate(FALLBACK_FILTER_LABELS)
+            ]
+            logger.info(
+                "dwarf.camera.filter_options_fallback",
+                filters=FALLBACK_FILTER_LABELS,
+                reason="params_config_missing_filters",
+            )
+        else:
+            self._filter_options = options
+        return self._filter_options
+
+    async def get_filter_labels(self) -> list[str]:
+        options = await self._get_filter_options()
+        return [option.label for option in options]
+
+    def get_filter_position(self) -> int | None:
+        return self.camera_state.filter_index
+
+    async def _apply_filter_option(self, position: int, option: FilterOption) -> None:
+        state = self.camera_state
+        if self.simulation:
+            state.filter_name = option.label
+            state.filter_index = position
+            logger.info(
+                "dwarf.camera.filter_selected",
+                filter=state.filter_name,
+                position=position,
+                mode_index=option.mode_index,
+                index=option.index,
+                continue_value=option.continue_value,
+                simulated=True,
+            )
+            return
+
+        if not option.controllable or not option.parameter:
+            raise RuntimeError("filter_control_unavailable")
+
+        await self._set_feature_param(
+            option.parameter,
+            mode_index=option.mode_index,
+            index=option.index,
+            continue_value=option.continue_value if option.continue_value is not None else 0.0,
+        )
+        state.filter_name = option.label
+        state.filter_index = position
+        logger.info(
+            "dwarf.camera.filter_selected",
+            filter=state.filter_name,
+            position=position,
+            mode_index=option.mode_index,
+            index=option.index,
+            continue_value=option.continue_value,
+        )
+
+    async def set_filter_position(self, position: int) -> str:
+        options = await self._get_filter_options()
+        if position < 0 or position >= len(options):
+            raise ValueError("filter_position_out_of_range")
+        option = options[position]
+        state = self.camera_state
+        if (
+            state.filter_index == position
+            and state.filter_name
+            and state.filter_name.strip().lower() == option.label.lower()
+        ):
+            return state.filter_name
+        if not self.simulation:
+            await self._ensure_ws()
+        await self._apply_filter_option(position, option)
+        return option.label
+
     async def _ensure_default_filter(self, default_filter: str = "VIS") -> None:
         state = self.camera_state
         target = default_filter.strip()
         if not target:
             return
-        if self.simulation:
-            state.filter_name = target
-            return
-        config = await self._ensure_params_config()
-        if config is None:
-            return
-        target_lower = target.lower()
-        feature: dict[str, Any] | None = None
-        selected: tuple[int | None, int, str, float | None] | None = None
-
-        support_param = self._find_support_param_contains("ir cut", camera_name="tele")
-        support_options: list[tuple[int | None, int, str, float | None]] = []
-        if support_param is not None:
-            support_options = self._extract_support_param_options(support_param)
-            for option in support_options:
-                _, _, label, _ = option
-                if target_lower in label.strip().lower():
-                    feature = support_param
-                    selected = option
-                    break
-            if feature is None and support_options:
-                feature = support_param
-                selected = support_options[0]
-
-        if feature is None or selected is None:
-            feature = self._find_feature_param_contains("filter")
-            if feature is not None:
-                options = self._extract_feature_options(feature)
-                if options:
-                    for option in options:
-                        _, _, label, _ = option
-                        if target_lower in label.strip().lower():
-                            selected = option
-                            break
-                    if selected is None:
-                        selected = options[0]
-
-        if feature is None or selected is None:
-            fallback = self._find_feature_option_by_label(target)
-            if fallback is not None:
-                feature, selected = fallback
-
-        if feature is None or selected is None:
-            available_support = [label for _, _, label, _ in support_options]
+        options = await self._get_filter_options()
+        if not options:
             logger.warning(
                 "dwarf.camera.filter_feature_missing",
                 filter=target,
-                available=self._list_feature_names() + available_support,
+                available=self._list_feature_names(),
             )
             return
-        mode_index, index, label, continue_value = selected
-        if state.filter_name and state.filter_name.lower() == label.strip().lower():
-            return
-        kwargs: Dict[str, Any] = {
-            "mode_index": mode_index if mode_index is not None else 0,
-            "index": index,
-        }
-        if continue_value is not None:
-            kwargs["continue_value"] = continue_value
-        await self._set_feature_param(feature, **kwargs)
-        chosen_label = label.strip() or target
-        state.filter_name = chosen_label
-        logger.info(
-            "dwarf.camera.filter_selected",
-            filter=state.filter_name,
-            mode_index=kwargs["mode_index"],
-            index=index,
-            continue_value=kwargs.get("continue_value"),
-        )
+
+        target_lower = target.lower()
+        if state.filter_name:
+            current_lower = state.filter_name.strip().lower()
+            if target_lower in current_lower:
+                if state.filter_index is None:
+                    for idx, option in enumerate(options):
+                        if option.label.lower() == current_lower:
+                            state.filter_index = idx
+                            break
+                return
+
+        selected_index: int | None = None
+        for idx, option in enumerate(options):
+            if option.label.lower() == target_lower:
+                selected_index = idx
+                break
+        if selected_index is None:
+            for idx, option in enumerate(options):
+                if target_lower in option.label.lower():
+                    selected_index = idx
+                    break
+        if selected_index is None:
+            logger.warning(
+                "dwarf.camera.filter_default_missing",
+                filter=target,
+                available=[option.label for option in options],
+            )
+            selected_index = 0
+
+        option = options[selected_index]
+        try:
+            await self.set_filter_position(selected_index)
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.camera.filter_default_apply_failed",
+                filter=target,
+                position=selected_index,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            if option.controllable and option.parameter:
+                try:
+                    await self._apply_filter_option(selected_index, option)
+                except Exception as inner_exc:  # pragma: no cover - defensive fallback
+                    logger.warning(
+                        "dwarf.camera.filter_default_apply_failed_fallback",
+                        filter=target,
+                        position=selected_index,
+                        error=str(inner_exc),
+                        error_type=type(inner_exc).__name__,
+                    )
 
     async def _set_feature_param(
         self,
@@ -976,7 +1191,7 @@ class DwarfSession:
     async def _start_astro_capture(self, *, timeout: float) -> int:
         if self.simulation:
             return protocol_pb2.OK
-        request = ReqAstroStartCaptureRawLiveStacking()
+        request = astro_pb2.ReqCaptureRawLiveStacking()
         response = await self._send_command(
             protocol_pb2.ModuleId.MODULE_ASTRO,
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
@@ -1000,6 +1215,105 @@ class DwarfSession:
             code,
         )
 
+    async def _astro_go_live(self) -> None:
+        if self.simulation:
+            return
+        request = astro_pb2.ReqGoLive()
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_GO_LIVE,
+                request,
+                timeout=max(self.settings.go_live_timeout_seconds, 1.0),
+            )
+        except DwarfCommandError as exc:
+            logger.warning(
+                "dwarf.camera.go_live_failed",
+                module_id=exc.module_id,
+                command_id=exc.command_id,
+                error_code=exc.code,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning(
+                "dwarf.camera.go_live_error",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+
+    async def _check_dark_library(self) -> tuple[int | None, int | None]:
+        if self.simulation:
+            return protocol_pb2.OK, None
+        request = astro_pb2.ReqCheckDarkFrame()
+        timeout = max(self.settings.dark_check_timeout_seconds, 1.0)
+        try:
+            response = await self._send_request(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_CHECK_GOT_DARK,
+                request,
+                astro_pb2.ResCheckDarkFrame,
+                timeout=timeout,
+            )
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.camera.dark_check_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return None, None
+        code = getattr(response, "code", None)
+        progress = getattr(response, "progress", None)
+        return code, progress
+
+    async def _ensure_dark_library(self, *, continue_without_darks: bool) -> bool:
+        code, progress = await self._check_dark_library()
+        state = self.camera_state
+        previous_code = self._last_dark_check_code
+        if code is not None:
+            self._last_dark_check_code = code
+            state.last_dark_check_code = code
+        if code is None:
+            logger.warning(
+                "dwarf.camera.dark_library_unknown",
+                reason="no_response",
+                continue_without_darks=continue_without_darks,
+            )
+            return continue_without_darks
+        if code == protocol_pb2.OK:
+            if previous_code != code:
+                logger.info("dwarf.camera.dark_library_ready")
+            if state.last_error == "dark_missing":
+                state.last_error = None
+            return True
+        if code == protocol_pb2.CODE_ASTRO_DARK_NOT_FOUND:
+            if previous_code != code:
+                logger.warning(
+                    "dwarf.camera.dark_library_missing",
+                    progress=progress,
+                    continue_without_darks=continue_without_darks,
+                )
+            if continue_without_darks:
+                state.last_error = "dark_missing"
+                return False
+            raise DwarfCommandError(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_CHECK_GOT_DARK,
+                code,
+            )
+        logger.warning(
+            "dwarf.camera.dark_library_unexpected_code",
+            code=code,
+            progress=progress,
+            continue_without_darks=continue_without_darks,
+        )
+        if continue_without_darks:
+            state.last_error = f"dark_code:{code}"
+            return False
+        raise DwarfCommandError(
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            protocol_pb2.DwarfCMD.CMD_ASTRO_CHECK_GOT_DARK,
+            code,
+        )
+
     async def _start_photo_capture(self, *, timeout: float) -> None:
         if self.simulation:
             return
@@ -1015,7 +1329,7 @@ class DwarfSession:
         if self.simulation:
             return
         try:
-            request = ReqAstroStopCaptureRawLiveStacking()
+            request = astro_pb2.ReqStopCaptureRawLiveStacking()
             await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
@@ -1498,6 +1812,8 @@ def configure_session(settings: Settings) -> None:
         _session._ftp_client.timeout = settings.ftp_timeout_seconds
         _session._ftp_client.poll_interval = settings.ftp_poll_interval_seconds
         _session._ws_bootstrapped = False
+        _session._params_config = None
+        _session._filter_options = None
 
 
 async def get_session() -> DwarfSession:

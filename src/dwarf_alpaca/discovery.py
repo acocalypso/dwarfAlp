@@ -29,6 +29,12 @@ DEVICE_LIST = [
         "DeviceNumber": 0,
         "UniqueID": "DWARF3-Focuser",
     },
+    {
+        "DeviceName": "DWARF 3 Filter Wheel",
+        "DeviceType": "FilterWheel",
+        "DeviceNumber": 0,
+        "UniqueID": "DWARF3-FilterWheel",
+    },
 ]
 
 logger = structlog.get_logger(__name__)

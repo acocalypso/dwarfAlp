@@ -12,6 +12,6 @@ def test_discovery_payload_lists_all_devices():
     assert payload["AlpacaPort"] == settings.http_port
 
     device_types = {device["DeviceType"] for device in payload["Devices"]}
-    assert device_types == {"Telescope", "Camera", "Focuser"}
+    assert device_types == {"Telescope", "Camera", "Focuser", "FilterWheel"}
 
     assert payload["ServerUrl"] == "http://192.168.1.100:11111"

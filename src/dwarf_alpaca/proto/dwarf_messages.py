@@ -208,11 +208,47 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
             fields=(),
         ),
         MessageSpec(
+            name="ReqCheckDarkFrame",
+            fields=(),
+        ),
+        MessageSpec(
+            name="ResCheckDarkFrame",
+            fields=(
+                ("progress", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("code", 2, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+            ),
+        ),
+        MessageSpec(
+            name="ReqCaptureDarkFrame",
+            fields=(("reshoot", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),),
+        ),
+        MessageSpec(
+            name="ReqStopCaptureDarkFrame",
+            fields=(),
+        ),
+        MessageSpec(
+            name="ReqCaptureDarkFrameWithParam",
+            fields=(
+                ("exp_index", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("gain_index", 2, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("bin_index", 3, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("cap_size", 4, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+            ),
+        ),
+        MessageSpec(
+            name="ReqStopCaptureDarkFrameWithParam",
+            fields=(),
+        ),
+        MessageSpec(
             name="ReqAstroStartCaptureRawLiveStacking",
             fields=(),
         ),
         MessageSpec(
             name="ReqAstroStopCaptureRawLiveStacking",
+            fields=(),
+        ),
+        MessageSpec(
+            name="ReqGoLive",
             fields=(),
         ),
     )
@@ -272,8 +308,15 @@ ReqsetMasterLock = _prototype("ReqsetMasterLock")
 ResNotifyHostSlaveMode = _prototype("ResNotifyHostSlaveMode")
 ReqTrackSpecialTarget = _prototype("ReqTrackSpecialTarget")
 ReqStopTrackSpecialTarget = _prototype("ReqStopTrackSpecialTarget")
+ReqCheckDarkFrame = _prototype("ReqCheckDarkFrame")
+ResCheckDarkFrame = _prototype("ResCheckDarkFrame")
+ReqCaptureDarkFrame = _prototype("ReqCaptureDarkFrame")
+ReqStopCaptureDarkFrame = _prototype("ReqStopCaptureDarkFrame")
+ReqCaptureDarkFrameWithParam = _prototype("ReqCaptureDarkFrameWithParam")
+ReqStopCaptureDarkFrameWithParam = _prototype("ReqStopCaptureDarkFrameWithParam")
 ReqAstroStartCaptureRawLiveStacking = _prototype("ReqAstroStartCaptureRawLiveStacking")
 ReqAstroStopCaptureRawLiveStacking = _prototype("ReqAstroStopCaptureRawLiveStacking")
+ReqGoLive = _prototype("ReqGoLive")
 
 MessageTypeId = _POOL.FindEnumTypeByName("dwarf.MessageTypeId")
 
