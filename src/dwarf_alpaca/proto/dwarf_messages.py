@@ -76,8 +76,30 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
             ),
         ),
         MessageSpec(
+            name="ReqMotorRunTo",
+            fields=(
+                ("id", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("end_position", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("speed", 3, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("speed_ramping", 4, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("resolution_level", 5, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+            ),
+        ),
+        MessageSpec(
             name="ReqMotorStop",
             fields=(("id", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),),
+        ),
+        MessageSpec(
+            name="ReqMotorServiceJoystick",
+            fields=(
+                ("vector_angle", 1, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("vector_length", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                ("speed", 3, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+            ),
+        ),
+        MessageSpec(
+            name="ReqMotorServiceJoystickStop",
+            fields=(),
         ),
         MessageSpec(
             name="ResMotor",
@@ -309,7 +331,10 @@ WsPacket = _prototype("WsPacket")
 ComResponse = _prototype("ComResponse")
 CommonParam = _prototype("CommonParam")
 ReqMotorRun = _prototype("ReqMotorRun")
+ReqMotorRunTo = _prototype("ReqMotorRunTo")
 ReqMotorStop = _prototype("ReqMotorStop")
+ReqMotorServiceJoystick = _prototype("ReqMotorServiceJoystick")
+ReqMotorServiceJoystickStop = _prototype("ReqMotorServiceJoystickStop")
 ResMotor = _prototype("ResMotor")
 ReqOpenCamera = _prototype("ReqOpenCamera")
 ReqGetSystemWorkingState = _prototype("ReqGetSystemWorkingState")
