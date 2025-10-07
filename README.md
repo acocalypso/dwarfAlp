@@ -82,10 +82,6 @@ dwarf-alpaca start --ssid "MySSID" --password "MyPassword"
 - Provisions the telescope, waits for STA connectivity, acquires the master lock, and starts the HTTP + discovery services.
 - STA IP detection automatically updates `Settings.dwarf_ap_ip` before the server boots.
 
-### 5. Point your Alpaca client
-
-Configure clients like NINA to connect to `http://<server-ip>:11111`. Discovery responses advertise Telescope/0, Camera/0, Focuser/0, and FilterWheel/0.
-
 ---
 
 ## CLI Reference
