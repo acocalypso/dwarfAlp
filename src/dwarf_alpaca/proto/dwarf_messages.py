@@ -256,6 +256,34 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
             fields=(),
         ),
         MessageSpec(
+            name="ReqSetTime",
+            fields=(
+                (
+                    "timestamp",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT64,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "timezone_offset",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="ReqSetTimezone",
+            fields=(
+                (
+                    "timezone",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
             name="ReqsetMasterLock",
             fields=(
                 ("lock", 1, descriptor_pb2.FieldDescriptorProto.TYPE_BOOL, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
@@ -385,6 +413,8 @@ ReqStopGoto = _prototype("ReqStopGoto")
 ReqManualSingleStepFocus = _prototype("ReqManualSingleStepFocus")
 ReqManualContinuFocus = _prototype("ReqManualContinuFocus")
 ReqStopManualContinuFocus = _prototype("ReqStopManualContinuFocus")
+ReqSetTime = _prototype("ReqSetTime")
+ReqSetTimezone = _prototype("ReqSetTimezone")
 ReqsetMasterLock = _prototype("ReqsetMasterLock")
 ResNotifyHostSlaveMode = _prototype("ResNotifyHostSlaveMode")
 ReqTrackSpecialTarget = _prototype("ReqTrackSpecialTarget")

@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import math
 import time
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, Optional, Tuple, Type
 
@@ -18,6 +19,7 @@ from . import exposure
 from ..proto.dwarf_messages import (
     CommonParam,
     ComResponse,
+    ReqSetTime,
     ReqCloseCamera,
     ReqGetSystemWorkingState,
     ReqGotoDSO,
@@ -166,6 +168,7 @@ class DwarfSession:
         self._temperature_task = None  # type: asyncio.Task[None] | None
         self._last_goto_time: float | None = None
         self._last_goto_target: tuple[float, float] | None = None
+        self._time_synced = self.simulation
 
     @property
     def is_simulated(self) -> bool:
@@ -187,6 +190,7 @@ class DwarfSession:
         if not was_connected and self._ws_client.connected:
             self._master_lock_acquired = False
             self._ws_bootstrapped = False
+            self._time_synced = self.simulation
         await self._ensure_master_lock()
         self._ensure_temperature_monitor_task()
 
@@ -582,6 +586,50 @@ class DwarfSession:
                     type(exc).__name__,
                     exc,
                 )
+
+            if self._master_lock_acquired:
+                await self._sync_device_clock()
+
+    async def _sync_device_clock(self) -> None:
+        """Push the current host timestamp and timezone offset to the DWARF device."""
+
+        if self.simulation or self._time_synced:
+            return
+
+        request = ReqSetTime()
+        timestamp = int(time.time())
+        request.timestamp = timestamp
+
+        local_time = datetime.now()
+        utc_time = datetime.utcnow()
+        offset_hours = (local_time - utc_time).total_seconds() / 3600.0
+        timezone_offset = round(offset_hours * 4.0) / 4.0
+        request.timezone_offset = timezone_offset
+
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_SYSTEM,
+                protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_TIME,
+                request,
+                timeout=5.0,
+            )
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.system.time_sync_failed",
+                error=str(exc),
+                timestamp=timestamp,
+                timezone_offset=timezone_offset,
+                offset_raw=offset_hours,
+            )
+            return
+
+        self._time_synced = True
+        logger.info(
+            "dwarf.system.time_synced",
+            timestamp=timestamp,
+            timezone_offset=timezone_offset,
+            offset_raw=offset_hours,
+        )
 
     async def acquire(self, device: str) -> None:
         async with self._lock:
