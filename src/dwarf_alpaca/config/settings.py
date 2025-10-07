@@ -33,8 +33,6 @@ class Settings(BaseSettings):
     dwarf_rtsp_port: int = 554
     dwarf_ftp_port: int = 21
     dwarf_ws_client_id: str = "0000DAF3-0000-1000-8000-00805F9B34FB"
-    # dwarf2: "0000DAF2-0000-1000-8000-00805F9B34FB"
-    # dwarf_mini: "0000DAF5-0000-1000-8000-00805F9B34FB"
 
     http_timeout_seconds: float = 5.0
     http_retries: int = 3

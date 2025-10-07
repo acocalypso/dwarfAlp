@@ -1,176 +1,195 @@
 # DWARF 3 Alpaca Server
 
-An ASCOM Alpaca device server that bridges a DWARF 3 smart telescope to Alpaca clients such as NINA. The server exposes three logical devices (Telescope/0, Camera/0, Focuser/0) and coordinates DWARF-specific connectivity flows, including first-run Wi-Fi provisioning via BLE.
+An ASCOM Alpaca device hub for the DWARF 3 smart telescope. The project speaks the DWARF control protocols (websocket, HTTP/JSON, FTP, RTSP, BLE) and exposes Telescope/0, Camera/0, Focuser/0, and FilterWheel/0 devices that can be driven from clients such as NINA, Voyager, or ASCOM Remote.
+
+---
 
 ## Highlights
 
-- ✅ UDP discovery responder on port 32227 advertising Telescope, Camera, and Focuser devices.
-- ✅ Alpaca Management API stubbed with server description and device list for NINA enumeration.
-- ✅ Telescope, Camera, and Focuser HTTP endpoints implemented with simulated behaviour ready to be wired to real DWARF APIs.
-- ✅ DWARF HTTP/RTSP/BLE client scaffolding with retries, buffering, and state persistence helpers built on the official protobuf definitions.
-- ✅ CLI entrypoint for serving the Alpaca API or provisioning DWARF via BLE.
+- **End-to-end DWARF bridge** – `DwarfSession` maintains websocket, HTTP, FTP, and BLE clients, negotiates the master lock, and caches notifications for low-latency Alpaca responses.
+- **Full Alpaca surface area** – Telescope, camera, focuser, and filter wheel routers translate Alpaca verbs into real DWARF commands including go-to slews, joystick motion, exposure setup, filter selection, and temperature polling.
+- **Capture pipeline** – Exposure requests map durations to DWARF parameter tables, monitor dark-library status, trigger astro captures, and harvest results from the onboard FTP album.
+- **Filter handling** – Automatic discovery of filter definitions, IR-cut coordination, and persistence of the active slot for imaging tasks.
+- **Provisioning workflow** – BLE onboarding stores STA credentials in `var/connectivity.json`, updates settings dynamically, and feeds the combined `dwarf-alpaca start` command.
+- **Structured logging & tests** – `structlog` JSON output, rotating startup logs, and a pytest suite covering discovery, CLI flows, session orchestration, and device endpoints.
+
+---
 
 ## Project Layout
 
 ```
-├── docs/architecture.md       # Detailed component breakdown
+├── docs/
+│   ├── architecture.md       # Deep dive into services and data flow
+│   ├── integration_plan.md   # Future integration checkpoints
+│   └── DWARF API2.txt        # Vendor protocol notes
 ├── src/dwarf_alpaca/
-│   ├── server.py              # FastAPI app and discovery wiring
-│   ├── devices/               # Alpaca Telescope, Camera, Focuser stubs
-│   ├── dwarf/                 # DWARF connectivity clients (HTTP, RTSP, BLE, state)
-│   ├── provisioning/          # BLE-driven Wi-Fi onboarding workflow
-│   ├── management/            # Alpaca management endpoints
-│   └── config/                # Settings models and YAML loader
-├── pyproject.toml             # Dependencies and CLI entrypoint
+│   ├── cli.py                # CLI entry point (serve/start/provision/guide)
+│   ├── server.py             # FastAPI app, discovery service, filter preload
+│   ├── config/               # Pydantic settings + YAML loader
+│   ├── devices/              # Alpaca routers (telescope, camera, focuser, filter wheel)
+│   ├── discovery.py          # UDP discovery responder
+│   ├── dwarf/                # Session coordinator, ws/http/rtsp/ftp/BLE helpers
+│   ├── management/           # Alpaca management endpoints
+│   └── proto/                # Protobuf definitions generated from DWARF specs
+├── tests/                    # pytest-based coverage of routers and helpers
+├── var/                      # Runtime state (connectivity, logs, temp files)
+├── scripts/                  # Maintenance helpers (config dumps, etc.)
+├── pyproject.toml            # Packaging metadata and dependencies
 └── README.md
 ```
 
+---
+
 ## Quick Start
 
-1. **Install dependencies** (Python 3.10+):
+### 1. Prerequisites
 
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   pip install -e .
-   ```
+- Python 3.10+
+- Windows PowerShell (repo commands assume Windows; adjust paths for macOS/Linux)
+- System packages required by `aiortc` / `av` (FFmpeg, libopus, etc.)
+- Optional: Bluetooth adapter compatible with [Bleak](https://github.com/hbldh/bleak)
 
-2. **Run the server** (stub mode to verify FastAPI/UDP wiring):
+### 2. Create a virtual environment
 
-   ```powershell
-   dwarf-alpaca serve
-   ```
-
-   The server listens on `http://0.0.0.0:11111` by default. Discovery responses advertise the same endpoint so NINA should see `DWARF 3 Telescope`, `DWARF 3 Camera`, and `DWARF 3 Focuser` once UDP broadcast is reachable.
-
-3. **Provision DWARF over BLE** (official BLE workflow):
-
-   You can onboard the telescope to your Wi-Fi in two ways:
-
-   - **Interactive guide (recommended):** Scans for DWARF devices, lists nearby Wi-Fi networks, and prompts for credentials.
-
-     ```powershell
-     dwarf-alpaca guide --adapter bluetooth-adapter-name
-     ```
-
-     - Choose the BLE adapter (omit `--adapter` to use the default).
-     - Pick the DWARF device from the numbered list.
-     - Enter or confirm the BLE password (defaults to `DWARF_12345678`).
-     - Select the Wi-Fi SSID from the discovered list or type it manually.
-     - Provide the Wi-Fi password when prompted.
-  - The guide remembers passwords per SSID; select the same network again and press Enter to reuse the saved password or type a new one to replace it.
-
-   - **Direct command:** Useful for scripted environments once you know the DWARF BLE address and target SSID.
-
-   ```powershell
-   dwarf-alpaca provision --adapter bluetooth-adapter-name --ble-password DWARF_12345678 "MySSID" "MyPassword"
-   ```
-
-     Optional flags include `--device-address XX:XX:XX:XX:XX:XX` to pin the BLE connection to a specific telescope and custom BLE passwords via `--ble-password` or the `DWARF_ALPACA_BLE_PASSWORD` environment variable.
-
-   Both flows persist the reported STA IP to `var/connectivity.json`. Review that file after a successful run to confirm the address Alpaca clients should target.
-
-4. **Launch everything with one command** once credentials are known:
-
-  ```powershell
-  dwarf-alpaca start --ssid "MySSID" --password "MyPassword"
-  ```
-
-  - Omitting `--ssid`/`--password` reuses the most recent STA IP stored in `var/connectivity.json`.
-  - When no SSID is supplied and provisioning isn't skipped, the command launches the interactive BLE guide to discover the DWARF and configure Wi-Fi on the fly.
-  - Add `--skip-provision` to purely verify connectivity and start the server.
-  - Customise waits with `--wait-timeout`/`--wait-interval` if the DWARF takes longer to join Wi-Fi.
-  - Use `--ws-client-id` or `DWARF_ALPACA_DWARF_WS_CLIENT_ID` to supply the DWARF websocket client identifier (copy it from the DWARF log via the official toolkit if the default value doesn’t work for your unit).
-
-  The combined command provisions (when credentials are provided), waits for the DWARF to come online, acquires the master lock, logs the IP in use, and then launches the Alpaca server. Use `dwarf-alpaca serve --config config/profiles.yaml` if you prefer to start the server without the preflight checks.
-
-## Configuration
-
-Settings are managed via environment variables (`DWARF_ALPACA_*`) or a YAML profile referenced with `--config`. See `config/profiles.yaml` for annotated examples.
-
-Key options:
-
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `http_host` | `0.0.0.0` | Bind address for HTTP server |
-| `http_advertise_host` | `None` | Optional LAN IP to advertise via Alpaca discovery (auto-detected when unset) |
-| `http_port` | `11111` | Alpaca HTTP port |
-| `enable_https` | `False` | Toggle TLS (requires cert/key paths) |
-| `dwarf_ap_ip` | `192.168.88.1` | DWARF AP fallback IP |
-| `dwarf_http_port` | `8082` | DWARF control port |
-| `dwarf_jpeg_port` | `8092` | DWARF JPEG download port |
-| `discovery_port` | `32227` | Alpaca discovery UDP port |
-| `state_directory` | `var` | Folder where STA state and logs persist |
-| `ble_adapter` | `None` | Optional BLE adapter/device identifier |
-| `ble_password` | `None` | BLE provisioning password (defaults to `DWARF_12345678` when unset) |
-| `ble_response_timeout_seconds` | `15.0` | Timeout for individual BLE responses |
-| `provisioning_timeout_seconds` | `120.0` | Total timeout for provisioning workflow |
-| `dwarf_ws_client_id` | `0000DAF2-0000-1000-8000-00805F9B34FB` | Identifier presented to the DWARF websocket API when requesting the host/master lock. Override with the value extracted from your device logs if required. |
-
-## Command reference
-
-| Command | Purpose |
-| --- | --- |
-| `dwarf-alpaca start [options]` | Provision (optional), wait for connectivity, acquire the master lock, and launch the Alpaca server. If no SSID is provided, it automatically runs the interactive guide. Supports the provisioning flags as well as `--skip-provision`, `--wait-timeout`, `--wait-interval`, and `--ws-client-id`. |
-| `dwarf-alpaca guide [--adapter name] [--ble-password value]` | Guided BLE provisioning with device discovery and Wi-Fi selection. |
-| `dwarf-alpaca provision [options] <SSID> <password>` | Non-interactive provisioning when you already know the SSID/credentials. Supports `--adapter`, `--device-address`, and `--ble-password`. |
-| `dwarf-alpaca serve [--config path] [--ws-client-id value]` | Starts the Alpaca FastAPI server and UDP discovery responder using the active settings (override the websocket client identifier with `--ws-client-id` if required). |
-
-After provisioning, update your Alpaca client (e.g., NINA) to point at `http://<server-ip>:11111` (or the port you configured). The server exposes Telescope/0, Camera/0, and Focuser/0 devices that proxy commands to the DWARF hardware using the stored STA IP.
-
-### Example Profiles (`config/profiles.yaml`)
-
-```yaml
-# AP-first bootstrap profile
-bootstrap:
-  http_host: 0.0.0.0
-  http_port: 11111
-  dwarf_ap_ip: 192.168.88.1
-  dwarf_http_port: 8082
-  dwarf_jpeg_port: 8092
-  discovery_enabled: true
-
-# STA deployment profile
-production:
-  http_host: 0.0.0.0
-  http_port: 7654
-  http_scheme: http
-  discovery_enabled: true
-  state_directory: var
-  enable_https: false
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e .
 ```
 
-Select a profile by passing `--config config/profiles.yaml` and exporting the desired profile name via environment variable in a future enhancement (profile loader currently overlays raw key-values).
+For development extras (ruff, pytest, httpx CLI):
 
-## NINA Integration Roadmap
+```powershell
+pip install -e .[development]
+```
 
-1. **Discovery** – Confirm UDP broadcasts reach the NINA host. Update `http_host` to the LAN IP (e.g., `192.168.1.42`) so discovery responses advertise a routable address.
-2. **Telescope control** – Wire `TelescopeState` handlers to `DwarfHttpClient.slew_to_coordinates` and poll `get_mount_status` for RA/Dec feedback.
-3. **Camera streaming** – Instantiate two `DwarfRtspClient` instances (wide `ch1/stream0`, tele `ch0/stream0`) and map frames into Alpaca `ImageBytes` responses, downsampling as needed.
-4. **Exposure pipeline** – Replace simulated image buffer with DWARF capture requests (`trigger_exposure`) and album retrieval via `get_album_listing` plus JPEG downloads through `build_jpeg_url`.
-5. **Focuser moves** – Translate Alpaca move commands into DWARF focus increments and expose capability metadata (absolute/relative, range, step size) once documented.
-6. **BLE provisioning** – Fill in real GATT characteristic UUIDs and success signalling to transition seamlessly between AP and STA modes.
+### 3. Choose a connection mode
 
-## Testing Plan
+| Scenario | How to run |
+| --- | --- |
+| **Simulation** | `setx DWARF_ALPACA_FORCE_SIMULATION true` (or use PowerShell `$env:DWARF_ALPACA_FORCE_SIMULATION = "true"` in-session) then `dwarf-alpaca serve`. The routers respond with synthetic data, ideal for UI development and tests. |
+| **Hardware (existing Wi-Fi)** | Ensure the DWARF is connected to your Wi-Fi and that its STA IP is recorded in `var/connectivity.json` (or supply `--ssid`/`--password`). Run `dwarf-alpaca start --skip-provision --wait-timeout 180`. |
+| **Hardware (provisioning required)** | Use the BLE guide to onboard Wi-Fi credentials: `dwarf-alpaca guide --adapter <optional-device> --ble-password <password>`. Credentials and STA IP are saved for subsequent runs. |
 
-- **Unit Tests**: add `pytest` coverage for Alpaca endpoints using `fastapi.testclient`, mocking DWARF clients, verifying Alpaca response envelopes.
-- **Discovery**: use a local script to broadcast the Alpaca discovery request (`\x00\x10\x00\x00...`) and assert the JSON response contains the expected server URL.
-- **End-to-end (simulated)**: point NINA to the server IP/port manually to validate connection handshake prior to RTSP integration.
-- **Hardware-in-loop**: once RTSP and HTTP integrations are wired, run NINA through slews, exposures, and focus adjustments while monitoring logs for recovery behaviour.
+### 4. All-in-one launch
 
-## Current Limitations & Next Steps
+```powershell
+dwarf-alpaca start --ssid "MySSID" --password "MyPassword" 
+# ssid and password are optional arguments
+```
 
-- Alpaca device implementations currently simulate behaviour; they must be connected to `DwarfHttpClient` and `DwarfRtspClient` for real hardware control.
-- BLE provisioning still needs on-device testing to fine-tune retry logic and error surfacing for edge cases.
-- Discovery responses advertise the bind host; override `http_host` to the LAN IP or add network interface detection.
-- No authentication or TLS hardening yet; integrate mTLS or reverse proxy for production observatories.
-- Protobuf stubs were generated with an older compiler; regenerate `proto/*.proto` with protoc ≥ 5 to lift the temporary `protobuf 3.20.x` pin.
-- IMX678 sensor characteristics ship with placeholder gain/e⁻ tables (set to zero). Capture SharpCap Sensor Analysis CSVs for the DWARF 3 camera and update the `electrons_per_adu` and `full_well_capacity_e` arrays in `camera.py` to reflect the measured curve.
+- Prompts for BLE password if not provided (defaults to `DWARF_12345678`).
+- Provisions the telescope, waits for STA connectivity, acquires the master lock, and starts the HTTP + discovery services.
+- STA IP detection automatically updates `Settings.dwarf_ap_ip` before the server boots.
+
+### 5. Point your Alpaca client
+
+Configure clients like NINA to connect to `http://<server-ip>:11111`. Discovery responses advertise Telescope/0, Camera/0, Focuser/0, and FilterWheel/0.
+
+---
+
+## CLI Reference
+
+| Command | Description |
+| --- | --- |
+| `dwarf-alpaca serve [--config path] [--ws-client-id value]` | Start only the Alpaca/HTTP/UDP services using the current settings. |
+| `dwarf-alpaca start [options]` | Provision (optional), wait for connectivity, warm up the DWARF session, and then serve Alpaca. Supports `--skip-provision`, `--wait-timeout`, `--wait-interval`, and websocket client overrides. |
+| `dwarf-alpaca guide [--adapter name] [--ble-password value]` | Interactive Bluetooth guide that lists DWARF devices, nearby SSIDs, and saves credentials. |
+| `dwarf-alpaca provision [options] <SSID> <password>` | Non-interactive provisioning suitable for automation once you know the BLE address and Wi-Fi credentials. |
+
+Rotating startup logs live in `var/logs/dwarf-alpaca-start.log` for later diagnosis.
+
+---
+
+## Configuration Cheatsheet
+
+Settings may be supplied via env vars (`DWARF_ALPACA_*`), `.env`, or a YAML profile loaded with `--config`. Key options from `config/settings.py`:
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| `http_host` / `http_port` | `0.0.0.0` / `11111` | Bind address and port for Alpaca HTTP API. |
+| `http_scheme` | `http` | Switch to `https` when TLS files are provided. |
+| `http_advertise_host` | `None` | Override the host reported in discovery packets. Auto-detected when unset. |
+| `discovery_enabled` | `True` | Disable if another service handles UDP discovery. |
+| `dwarf_ap_ip` | `192.168.88.1` | Fallback AP address. Overridden with STA IP after provisioning. |
+| `dwarf_http_port` / `dwarf_jpeg_port` | `8082` / `8092` | DWARF REST/album ports. |
+| `dwarf_ws_port` / `dwarf_rtsp_port` / `dwarf_ftp_port` | `9900` / `554` / `21` | Control-plane websocket, RTSP streaming, and FTP album ports. |
+| `dwarf_ws_client_id` | `0000DAF3-0000-1000-8000-00805F9B34FB` | Client identifier required to acquire the master lock. Adjust per hardware variant. |
+| `ws_ping_interval_seconds` | `5.0` | Heartbeat cadence for the websocket. |
+| `go_live_before_exposure` | `True` | Enable/disable RTSP warm-up before astro captures. |
+| `allow_continue_without_darks` | `True` | Permit exposures when the dark library check fails. |
+| `temperature_refresh_interval_seconds` | `5.0` | How often to poll DWARF temperature notifications. |
+| `ble_adapter` / `ble_password` | `None` | Defaults for provisioning workflows. |
+| `force_simulation` | `False` | Bypass hardware access and return simulated data. |
+
+See `config/profiles.yaml` for sample overlays.
+
+---
+
+## Runtime Architecture (Summary)
+
+- **DiscoveryService** – Async UDP responder advertising device metadata and the HTTP URL.
+- **FastAPI app** – Mounts Alpaca management, telescope, camera, focuser, and filter wheel routers. Middleware emits structured access logs.
+- **DwarfSession** – Central orchestrator that:
+  - Manages the websocket client (`DwarfWsClient`) for commands/notifications and master lock stewardship.
+  - Wraps `DwarfHttpClient`, `DwarfFtpClient`, and `DwarfRtspClient` for REST, album, and live view access.
+  - Handles exposure scheduling, filter presets, gain/exposure lookup tables, dark-library enforcement, and temperature monitoring.
+  - Tracks device reference counts so connections tear down only when all Alpaca devices disconnect.
+- **Provisioning workflow** – Uses `DwarfBleProvisioner` to push Wi-Fi credentials and persists STA state via `StateStore`.
+- **Tests** – Cover CLI plumbing, UDP discovery packets, session behaviour, and endpoint compliance.
+
+For a deeper exploration see [`docs/architecture.md`](docs/architecture.md).
+
+---
+
+## Observing Workflow
+
+1. **Provision / connect** – Use `dwarf-alpaca start` to provision (if necessary) and acquire the DWARF master lock.
+2. **Discover** – Clients broadcast Alpaca discovery; this server replies with Telescope/0, Camera/0, Focuser/0, FilterWheel/0 entries.
+3. **Slew & track** – Telescope slews translate to DWARF astro GOTO commands; recent slews are cached for exposure validation.
+4. **Focus** – Manual and continuous focus moves map to DWARF focus commands with live position updates from notifications.
+5. **Filter selection** – Filter wheel positions are read from DWARF parameters; IR-cut toggles are applied when required.
+6. **Capture** – Exposure requests ensure gain/exposure indices, start astro capture, watch dark library state, and fetch the resulting image via FTP.
+7. **Telemetry** – Temperature and camera metadata stream back into Alpaca GET endpoints for real-time monitoring.
+
+---
+
+## Testing
+
+```powershell
+pytest
+```
+
+The suite includes UDP discovery tests, CLI smoke coverage, session logic (mocked hardware), and device API verification. Add `-k` or `-m` filters when iterating on specific components.
+
+---
+
+## Troubleshooting
+
+| Symptom | Suggestion |
+| --- | --- |
+| Discovery packets missing | Ensure UDP broadcasts reach the client network; set `http_advertise_host` to a routable IP. |
+| Master lock denied | Confirm the websocket client ID matches your hardware family (DWARF3 vs DWARF2/Mini). |
+| Exposures timeout | Check FTP connectivity to the STA IP; increase `ftp_timeout_seconds` / `ftp_poll_interval_seconds`. |
+| BLE provisioning stalls | Supply `--ble-password` explicitly and verify the adapter name via `Get-PnpDevice -Class Bluetooth`. |
+| RTSP preview unavailable | Install FFmpeg/AV dependencies and verify `dwarf_rtsp_port` (default 554) is reachable. |
+
+---
+
+## Roadmap
+
+- Populate telescope site coordinates from settings and persist between sessions.
+- Surface live pointing data (RA/Dec/Alt/Az) from websocket notifications rather than simulated motion when telemetry is available.
+- Integrate RTSP preview frames into Alpaca `ImageArray` for faster plate solving.
+- Expand automated tests with hardware-in-the-loop fixtures when a DWARF lab unit is available.
+- Optional authentication / TLS profile for remote observatories.
+
+---
 
 ## References
 
-- DWARF API documentation (IP modes, ports, album JSON)
-- NINA documentation on Alpaca device discovery and compatibility
-- Community DWARF control scripts demonstrating RA/Dec go-to operations
-- Alpaca API specification (management, telescope, camera, focuser interfaces)
-- Bleak (Python BLE) and aiortc/av (RTSP decoding) libraries for connectivity layers
+- DWARF API documentation and community research threads
+- ASCOM Alpaca API specification
+- NINA Alpaca integration guide
+- [Bleak](https://github.com/hbldh/bleak) for BLE control
+- [aiortc](https://github.com/aiortc/aiortc) and [PyAV](https://github.com/PyAV-Org/PyAV) for RTSP decoding
