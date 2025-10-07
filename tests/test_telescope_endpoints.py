@@ -4,10 +4,12 @@ import time
 from fastapi.testclient import TestClient
 
 from dwarf_alpaca.config.settings import Settings
+from dwarf_alpaca.devices import telescope as telescope_module
+from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
+from dwarf_alpaca.proto import protocol_pb2
 from dwarf_alpaca.server import build_app
 
 client = TestClient(build_app(Settings(force_simulation=True)))
-
 
 def _value(response):
     payload = response.json()
@@ -110,6 +112,8 @@ def test_move_axis_updates_rates_in_simulation():
         _disconnect_telescope()
 
 
+
+
 def test_move_axis_zero_rate_stops_motion():
     _connect_telescope()
     try:
@@ -173,6 +177,22 @@ def test_tracking_rates_list_contains_sidereal():
     assert _value(resp) == [0]
 
 
+def test_set_tracking_rate_accepts_sidereal():
+    telescope_module.state.tracking_rate = 3
+    resp = client.put("/api/v1/telescope/0/trackingrate", json={"TrackingRate": 0})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ErrorNumber"] == 0
+    assert telescope_module.state.tracking_rate == 0
+
+
+def test_set_tracking_rate_rejects_unsupported_values():
+    resp = client.put("/api/v1/telescope/0/trackingrate", json={"TrackingRate": 1})
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["detail"] == "TrackingRate not supported"
+
+
 def test_utcdate_matches_system_clock_within_tolerance():
     resp = client.get("/api/v1/telescope/0/utcdate")
     assert resp.status_code == 200
@@ -204,3 +224,50 @@ def test_setting_utcdate_with_local_time_keeps_running_clock():
     reset_target = datetime.now(timezone.utc)
     reset_resp = client.put("/api/v1/telescope/0/utcdate", json={"UTCDate": reset_target.isoformat()})
     assert reset_resp.status_code == 200
+
+
+def test_slew_to_coordinates_reports_goto_failure(monkeypatch):
+    class StubSession:
+        def __init__(self):
+            self.simulation = False
+
+        @property
+        def is_simulated(self):
+            return self.simulation
+
+        async def acquire(self, device: str):
+            return None
+
+        async def release(self, device: str):
+            return None
+
+        async def telescope_slew_to_coordinates(self, ra_hours: float, dec_degrees: float):
+            raise DwarfCommandError(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
+                protocol_pb2.CODE_ASTRO_GOTO_FAILED,
+            )
+
+        async def telescope_stop_axis(self, axis: int, *, ensure_ws: bool = True):
+            return None
+
+    stub_session = StubSession()
+
+    async def fake_get_session():
+        return stub_session
+
+    monkeypatch.setattr("dwarf_alpaca.devices.telescope.get_session", fake_get_session)
+
+    _connect_telescope()
+    try:
+        response = client.put(
+            "/api/v1/telescope/0/slewtocoordinatesasync",
+            json={"RightAscension": 1.5, "Declination": -45.0},
+        )
+        assert response.status_code == 502
+        body = response.json()
+        assert "DWARF reported the GOTO failed" in body["detail"]
+        assert "Alt=" in body["detail"]
+        assert telescope_module.state.slewing is False
+    finally:
+        _disconnect_telescope()

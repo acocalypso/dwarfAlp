@@ -9,6 +9,9 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from ..dwarf.ws_client import DwarfCommandError
+from ..proto import protocol_pb2
+
 from ..dwarf.session import get_session
 from .utils import alpaca_response, bind_request_context, resolve_parameter
 router = APIRouter(dependencies=[Depends(bind_request_context)])
@@ -267,6 +270,18 @@ def get_tracking_rate():
     return alpaca_response(value=state.tracking_rate)
 
 
+@router.put("/trackingrate")
+async def set_tracking_rate(
+    request: Request,
+    TrackingRate_query: int | None = Query(None, alias="TrackingRate"),
+):
+    value = await resolve_parameter(request, "TrackingRate", int, TrackingRate_query)
+    if value not in (0,):
+        raise HTTPException(status_code=400, detail="TrackingRate not supported")
+    state.tracking_rate = value
+    return alpaca_response()
+
+
 @router.get("/alignmentmode")
 def get_alignment_mode():
     return alpaca_response(value=1)
@@ -338,7 +353,36 @@ async def slew_to_coordinates_async(
         state.right_ascension_rate = (ra - state.right_ascension) / 2.0
         state.declination_rate = (dec - state.declination) / 2.0
     else:
-        await session.telescope_slew_to_coordinates(ra, dec)
+        try:
+            await session.telescope_slew_to_coordinates(ra, dec)
+        except DwarfCommandError as exc:
+            state.slewing = False
+            state.right_ascension_rate = 0.0
+            state.declination_rate = 0.0
+            state.target_ra = None
+            state.target_dec = None
+            altitude, azimuth = _compute_alt_az(
+                ra,
+                dec,
+                state.site_latitude,
+                state.site_longitude,
+            )
+            if exc.code == protocol_pb2.CODE_ASTRO_GOTO_FAILED:
+                hint = (
+                    "DWARF reported the GOTO failed. "
+                    "Confirm the target is above the DWARF safety limits and try again."
+                )
+                detail = (
+                    f"{hint} Requested RA={ra:.4f}h, Dec={dec:.4f}°, "
+                    f"derived Alt={altitude:.1f}°, Az={azimuth:.1f}°."
+                )
+            else:
+                detail = (
+                    "DWARF command "
+                    f"{exc.module_id}:{exc.command_id} failed with code {exc.code}"
+                )
+            raise HTTPException(status_code=502, detail=detail) from exc
+
         state.right_ascension_rate = 0.0
         state.declination_rate = 0.0
         if state.slew_task and not state.slew_task.done():
