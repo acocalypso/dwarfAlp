@@ -876,14 +876,13 @@ class DwarfSession:
         await self._ensure_ws()
         await self._ensure_exposure_settings(duration)
         await self._ensure_gain_settings()
-        await self._ensure_default_filter()
+        await self._ensure_selected_filter()
         command_timeout = max(duration + 10.0, 20.0)
-        fallback_to_photo = False
-        astro_attempted = False
 
         if light and self.settings.go_live_before_exposure:
             await self._astro_go_live()
 
+        dark_ready = True
         if light:
             try:
                 dark_ready = await self._ensure_dark_library(continue_without_darks=continue_without_darks)
@@ -895,10 +894,15 @@ class DwarfSession:
                     continue_without_darks=continue_without_darks,
                 )
                 raise
-            fallback_to_photo = not dark_ready
+            if not dark_ready:
+                state.last_error = "dark_missing"
+                logger.warning(
+                    "dwarf.camera.dark_library_missing_continuing",
+                    duration=duration,
+                    continue_without_darks=continue_without_darks,
+                )
 
-        if light and not fallback_to_photo and not self._has_recent_goto():
-            fallback_to_photo = True
+        if light and not self._has_recent_goto():
             state.last_error = "astro_need_goto"
             logger.warning(
                 "dwarf.camera.astro_capture_goto_missing",
@@ -908,83 +912,50 @@ class DwarfSession:
                 last_goto_time=self._last_goto_time,
                 last_goto_target=self._last_goto_target,
             )
+            self._clear_goto(reason="astro_need_goto_missing")
+            raise DwarfCommandError(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                protocol_pb2.CODE_ASTRO_NEED_GOTO,
+            )
 
-        if not fallback_to_photo:
-            state.capture_mode = "astro"
-            await self._configure_astro_capture(frames=1)
-            await self._refresh_capture_baseline(capture_kind=state.capture_mode)
-            astro_attempted = True
-            try:
-                astro_code = await self._start_astro_capture(timeout=command_timeout)
-            except DwarfCommandError as exc:
-                log_fields = {
-                    "duration": duration,
-                    "light": light,
-                    "module_id": exc.module_id,
-                    "command_id": exc.command_id,
-                    "error_code": exc.code,
-                }
-                if light and exc.code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
-                    state.last_error = "astro_need_goto"
-                    log_fields["error_hint"] = "goto_required"
-                    log_fields["fallback"] = "tele_raw"
-                    logger.warning("dwarf.camera.astro_capture_command_failed", **log_fields)
-                    self._clear_goto(reason="astro_need_goto_error")
-                    fallback_to_photo = True
-                elif exc.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
-                    state.last_error = "astro_busy"
-                    log_fields["error_hint"] = "astro_function_busy"
-                    log_fields["fallback"] = "tele_raw"
-                    logger.warning("dwarf.camera.astro_capture_command_failed", **log_fields)
-                    with contextlib.suppress(Exception):
-                        await self._stop_astro_capture()
-                    fallback_to_photo = True
-                else:
-                    state.last_error = f"command_error:{exc.code}"
-                    logger.error("dwarf.camera.astro_capture_command_failed", **log_fields)
-                    raise
+        state.capture_mode = "astro"
+        await self._configure_astro_capture(frames=1)
+        await self._refresh_capture_baseline(capture_kind=state.capture_mode)
+        try:
+            astro_code = await self._start_astro_capture(timeout=command_timeout)
+        except DwarfCommandError as exc:
+            if exc.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
+                state.last_error = "astro_busy"
+            elif exc.code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
+                state.last_error = "astro_need_goto"
+                self._clear_goto(reason="astro_need_goto_error")
             else:
-                if astro_code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
-                    logger.info(
-                        "dwarf.camera.astro_capture_goto_ignored",
-                        duration=duration,
-                        light=light,
-                    )
-                    if light:
-                        fallback_to_photo = True
-                        state.last_error = "astro_need_goto"
-                        self._clear_goto(reason="astro_need_goto_response")
-                        with contextlib.suppress(Exception):
-                            await self._stop_astro_capture()
-
-        if fallback_to_photo:
-            if astro_attempted:
-                with contextlib.suppress(Exception):
-                    await self._stop_astro_capture()
-            state.capture_mode = "photo"
-            await self._refresh_capture_baseline(capture_kind=state.capture_mode)
-            if light:
-                state.last_error = "dark_missing" if state.last_error is None else state.last_error
-            try:
-                await self._start_photo_capture(timeout=command_timeout)
-            except DwarfCommandError as exc:
                 state.last_error = f"command_error:{exc.code}"
-                logger.error(
-                    "dwarf.camera.tele_raw_capture_failed",
-                    duration=duration,
-                    light=light,
-                    module_id=exc.module_id,
-                    command_id=exc.command_id,
-                    error_code=exc.code,
+            raise
+        else:
+            if astro_code != protocol_pb2.OK:
+                if astro_code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
+                    state.last_error = "astro_need_goto"
+                    self._clear_goto(reason="astro_need_goto_response")
+                elif astro_code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
+                    state.last_error = "astro_busy"
+                else:
+                    state.last_error = f"command_error:{astro_code}"
+                raise DwarfCommandError(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                    astro_code,
                 )
-                raise
-            else:
-                state.last_error = None
-                logger.info(
-                    "dwarf.camera.tele_raw_capture_started",
-                    duration=duration,
-                    light=light,
-                )
+
+        state.last_error = None
+        logger.info(
+            "dwarf.camera.astro_capture_started",
+            duration=duration,
+            light=light,
+            dark_ready=dark_ready,
+            goto_target=self._last_goto_target,
+        )
         state.capture_task = asyncio.create_task(self._fetch_capture(state))
 
     async def camera_abort_exposure(self) -> None:
@@ -1539,6 +1510,56 @@ class DwarfSession:
                         error_type=type(inner_exc).__name__,
                     )
 
+    async def _ensure_selected_filter(self) -> None:
+        state = self.camera_state
+        index = state.filter_index
+        if index is None:
+            await self._ensure_default_filter()
+            return
+
+        options = await self._get_filter_options()
+        if not options:
+            await self._ensure_default_filter()
+            return
+
+        if index < 0 or index >= len(options):
+            logger.warning(
+                "dwarf.camera.filter_index_out_of_range",
+                index=index,
+                total_options=len(options),
+            )
+            state.filter_index = None
+            state.filter_name = ""
+            await self._ensure_default_filter()
+            return
+
+        option = options[index]
+        if not option.controllable:
+            if not state.filter_name:
+                state.filter_name = option.label
+            return
+
+        current_label = (state.filter_name or "").strip().lower()
+        desired_label = option.label.strip().lower()
+        if current_label == desired_label and state.filter_name:
+            return
+
+        try:
+            await self._apply_filter_option(index, option)
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.camera.filter_refresh_failed",
+                position=index,
+                filter=option.label,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            if current_label:
+                return
+            state.filter_index = None
+            state.filter_name = ""
+            await self._ensure_default_filter()
+
     async def _set_feature_param(
         self,
         feature: dict[str, Any],
@@ -1889,9 +1910,13 @@ class DwarfSession:
             state.last_album_file = self._album_entry_file(entry)
         state.pending_album_baseline = state.last_album_mod_time
 
-    async def _get_latest_album_entry(self) -> tuple[int | None, dict[str, Any] | None]:
+    async def _get_latest_album_entry(
+        self,
+        *,
+        media_type: int = 1,
+    ) -> tuple[int | None, dict[str, Any] | None]:
         try:
-            entries = await self._http_client.list_album_media_infos(media_type=1, page_size=1)
+            entries = await self._http_client.list_album_media_infos(media_type=media_type, page_size=1)
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.warning("dwarf.camera.album_list_failed", error=str(exc))
             return None, None
@@ -1998,8 +2023,9 @@ class DwarfSession:
         last_known_file = state.last_album_file
         deadline = time.time() + max(state.duration + 15.0, 20.0)
         entry: dict[str, Any] | None = None
+        media_type = 4 if state.capture_mode == "astro" else 1
         while time.time() < deadline:
-            mod_time, latest_entry = await self._get_latest_album_entry()
+            mod_time, latest_entry = await self._get_latest_album_entry(media_type=media_type)
             if latest_entry is None:
                 await asyncio.sleep(0.75)
                 continue
