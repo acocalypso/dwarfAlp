@@ -1,7 +1,11 @@
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
 from dwarf_alpaca.config.settings import Settings
+from dwarf_alpaca.devices.camera import state as camera_state
+from dwarf_alpaca.dwarf.session import get_session
 from dwarf_alpaca.server import build_app
 
 
@@ -203,7 +207,7 @@ def test_camera_subframe_and_cooling_controls():
     assert resp.status_code == 200 and _value(resp) == 0.0
 
     resp = client.get("/api/v1/camera/0/ccdtemperature")
-    assert resp.status_code == 200
+    assert resp.status_code == 200 and _value(resp) == pytest.approx(25.0)
 
 
 def test_camera_mutators_accept_json_payloads():
@@ -232,3 +236,20 @@ def test_camera_mutators_accept_json_payloads():
         json={"Duration": 0.05, "Light": True},
     )
     assert resp.status_code == 200
+
+
+def test_camera_temperature_reflects_session_state():
+    _connect_camera()
+
+    session = asyncio.run(get_session())
+    session.camera_state.temperature_c = 11.0
+
+    resp = client.get("/api/v1/camera/0/ccdtemperature")
+    assert resp.status_code == 200 and _value(resp) == pytest.approx(11.0)
+
+    resp = client.get("/api/v1/camera/0/heatsinktemperature")
+    assert resp.status_code == 200 and _value(resp) == pytest.approx(11.0)
+
+    session.camera_state.temperature_c = None
+    camera_state.ccd_temperature = 25.0
+    camera_state.heatsink_temperature = 25.0

@@ -170,6 +170,23 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
             ),
         ),
         MessageSpec(
+            name="ResNotifyTemperature",
+            fields=(
+                (
+                    "code",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "temperature",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
             name="ReqPhoto",
             fields=(
                 ("x", 1, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
@@ -189,6 +206,18 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         ),
         MessageSpec(
             name="ReqSetExp",
+            fields=(
+                ("index", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+            ),
+        ),
+        MessageSpec(
+            name="ReqSetGainMode",
+            fields=(
+                ("mode", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+            ),
+        ),
+        MessageSpec(
+            name="ReqSetGain",
             fields=(
                 ("index", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
             ),
@@ -343,10 +372,13 @@ ReqSetIrCut = _prototype("ReqSetIrCut")
 ReqCloseCamera = _prototype("ReqCloseCamera")
 ResNotifyParam = _prototype("ResNotifyParam")
 ResNotifyFocus = _prototype("ResNotifyFocus")
+ResNotifyTemperature = _prototype("ResNotifyTemperature")
 ReqPhoto = _prototype("ReqPhoto")
 ReqPhotoRaw = _prototype("ReqPhotoRaw")
 ReqSetExpMode = _prototype("ReqSetExpMode")
 ReqSetExp = _prototype("ReqSetExp")
+ReqSetGainMode = _prototype("ReqSetGainMode")
+ReqSetGain = _prototype("ReqSetGain")
 ReqGotoDSO = _prototype("ReqGotoDSO")
 ReqGotoSolarSystem = _prototype("ReqGotoSolarSystem")
 ReqStopGoto = _prototype("ReqStopGoto")

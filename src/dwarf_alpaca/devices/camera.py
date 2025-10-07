@@ -87,6 +87,8 @@ class CameraState:
     offset: int = 0
     offset_min: int = 0
     offset_max: int = 255
+    ccd_temperature: float = 25.0
+    heatsink_temperature: float = 25.0
 
 
 state = CameraState()
@@ -366,8 +368,13 @@ def get_bayer_offset_y():
 
 
 @router.get("/ccdtemperature")
-def get_ccd_temperature():
-    return alpaca_response(value=25.0)
+async def get_ccd_temperature():
+    session = await get_session()
+    runtime = session.camera_state
+    temperature = runtime.temperature_c
+    if temperature is not None:
+        state.ccd_temperature = float(temperature)
+    return alpaca_response(value=state.ccd_temperature)
 
 
 @router.get("/cooleron")
@@ -388,8 +395,13 @@ def get_cooler_power():
 
 
 @router.get("/heatsinktemperature")
-def get_heatsink_temperature():
-    return alpaca_response(value=25.0)
+async def get_heatsink_temperature():
+    session = await get_session()
+    runtime = session.camera_state
+    temperature = runtime.temperature_c
+    if temperature is not None:
+        state.heatsink_temperature = float(temperature)
+    return alpaca_response(value=state.heatsink_temperature)
 
 
 @router.get("/connected")
@@ -500,6 +512,7 @@ async def start_exposure(
         query_params=dict(request.query_params),
         headers=redacted_headers,
     )
+    session.camera_state.requested_gain = state.gain
     try:
         await session.camera_start_exposure(
             duration_value,

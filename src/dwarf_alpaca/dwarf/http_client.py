@@ -139,12 +139,48 @@ class DwarfHttpClient:
             )
             return []
         data = response.get("data") if isinstance(response, dict) else None
+        entries: list[dict[str, Any]] = []
+        skipped = 0
+
         if isinstance(data, list):
-            return data
+            for item in data:
+                if isinstance(item, dict):
+                    entries.append(item)
+                else:
+                    skipped += 1
+        elif isinstance(data, dict):
+            for key in ("mediaInfos", "list", "items", "records", "mediaList"):
+                value = data.get(key)
+                if isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict):
+                            entries.append(item)
+                        else:
+                            skipped += 1
+                    break
+            else:
+                if all(isinstance(v, dict) for v in data.values()):
+                    entries.extend(v for v in data.values() if isinstance(v, dict))
+                else:
+                    logger.debug(
+                        "dwarf.http.album_list_dict_unparsed",
+                        keys=list(data.keys()),
+                    )
+
+        if entries:
+            if skipped:
+                logger.debug(
+                    "dwarf.http.album_list_entries_skipped",
+                    skipped=skipped,
+                    total=len(entries) + skipped,
+                )
+            return entries
+
         logger.warning(
             "dwarf.http.album_list_unexpected",
             payload=payload,
             response_type=type(response).__name__,
+            data_type=type(data).__name__ if data is not None else None,
         )
         return []
 

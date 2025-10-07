@@ -32,12 +32,15 @@ from ..proto.dwarf_messages import (
     ReqSetFeatureParams,
     ReqSetExp,
     ReqSetExpMode,
+    ReqSetGain,
+    ReqSetGainMode,
     ReqStopGoto,
     ReqStopManualContinuFocus,
     ReqsetMasterLock,
     ResNotifyFocus,
     ResNotifyHostSlaveMode,
     ResNotifyParam,
+    ResNotifyTemperature,
 )
 from .ftp_client import DwarfFtpClient, FtpPhotoEntry
 from .http_client import DwarfHttpClient
@@ -91,6 +94,11 @@ class CameraState:
     pending_album_baseline: int | None = None
     last_ftp_entry: "FtpPhotoEntry | None" = field(default=None, repr=False)
     pending_ftp_baseline: "FtpPhotoEntry | None" = field(default=None, repr=False)
+    temperature_c: float | None = None
+    last_temperature_time: float | None = None
+    last_temperature_code: int | None = None
+    requested_gain: int | None = None
+    applied_gain_index: int | None = None
 
 
 @dataclass
@@ -123,6 +131,7 @@ class DwarfSession:
             major_version=1,
             minor_version=2,
             client_id=settings.dwarf_ws_client_id,
+            ping_interval=settings.ws_ping_interval_seconds,
         )
         self._focus_update_event = asyncio.Event()
         self._ws_client.register_notification_handler(self._handle_notification)
@@ -154,6 +163,9 @@ class DwarfSession:
         self._axis_direction_polarity = {0: 1, 1: 1}
         self._manual_axis_rates = {0: 0.0, 1: 0.0}
         self._joystick_active = False
+        self._temperature_task = None  # type: asyncio.Task[None] | None
+        self._last_goto_time: float | None = None
+        self._last_goto_target: tuple[float, float] | None = None
 
     @property
     def is_simulated(self) -> bool:
@@ -176,6 +188,7 @@ class DwarfSession:
             self._master_lock_acquired = False
             self._ws_bootstrapped = False
         await self._ensure_master_lock()
+        self._ensure_temperature_monitor_task()
 
     async def _bootstrap_ws(self) -> None:
         if self.simulation or self._ws_bootstrapped or not self._ws_client.connected:
@@ -257,6 +270,8 @@ class DwarfSession:
         command_id = getattr(packet, "cmd", None)
         if command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_FOCUS:
             self._handle_focus_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_TEMPERATURE:
+            self._handle_temperature_notification(packet)
 
     def _handle_focus_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -282,6 +297,111 @@ class DwarfSession:
         state.connected = True
         state.last_update = time.time()
         self._focus_update_event.set()
+
+    def _handle_temperature_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = ResNotifyTemperature()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.debug(
+                "dwarf.temperature.notification.decode_failed",
+                error=str(exc),
+            )
+            return
+        temperature_value = getattr(message, "temperature", None)
+        if temperature_value is None:
+            return
+        temperature_c = float(temperature_value)
+        code = getattr(message, "code", None)
+        state = self.camera_state
+        if state.temperature_c != temperature_c:
+            logger.info("dwarf.temperature.notification", temperature=temperature_c)
+        state.temperature_c = temperature_c
+        state.last_temperature_time = time.time()
+        state.last_temperature_code = code
+        if code not in (None, protocol_pb2.OK):
+            logger.warning(
+                "dwarf.temperature.notification.code_nonzero",
+                code=code,
+                temperature=temperature_c,
+            )
+
+    def _ensure_temperature_monitor_task(self) -> None:
+        task = self._temperature_task
+        if task and task.done():
+            with contextlib.suppress(Exception):
+                task.result()
+            self._temperature_task = None
+
+        if self.simulation:
+            return
+        if self.settings.temperature_refresh_interval_seconds <= 0:
+            return
+        if self._temperature_task is None:
+            self._temperature_task = asyncio.create_task(self._temperature_monitor_loop())
+
+    async def _temperature_monitor_loop(self) -> None:
+        try:
+            while True:
+                interval = self.settings.temperature_refresh_interval_seconds
+                if interval <= 0:
+                    await asyncio.sleep(1.0)
+                    continue
+
+                if not self.simulation and self._ws_client.connected and self.camera_state.connected:
+                    stale_after = self.settings.temperature_stale_after_seconds
+                    last_update = self.camera_state.last_temperature_time
+                    now = time.time()
+                    is_stale = last_update is None
+                    if not is_stale and stale_after > 0:
+                        is_stale = now - last_update >= stale_after
+
+                    if is_stale:
+                        try:
+                            await self._request_temperature_update()
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception as exc:  # pragma: no cover - hardware dependent
+                            logger.debug("dwarf.temperature.refresh_failed", error=str(exc))
+
+                try:
+                    await asyncio.sleep(interval)
+                except asyncio.CancelledError:
+                    raise
+        except asyncio.CancelledError:
+            logger.debug("dwarf.temperature.monitor.cancelled")
+            raise
+
+    async def _request_temperature_update(self) -> None:
+        await self._ensure_ws()
+        request = ReqGetSystemWorkingState()
+        expected_responses = {
+            (
+                protocol_pb2.ModuleId.MODULE_SYSTEM,
+                protocol_pb2.DwarfCMD.CMD_NOTIFY_WS_HOST_SLAVE_MODE,
+            ): ResNotifyHostSlaveMode,
+            (
+                protocol_pb2.ModuleId.MODULE_NOTIFY,
+                protocol_pb2.DwarfCMD.CMD_NOTIFY_WS_HOST_SLAVE_MODE,
+            ): ResNotifyHostSlaveMode,
+        }
+        try:
+            await self._send_command(
+                protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+                protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE,
+                request,
+                timeout=5.0,
+                expected_responses=expected_responses,
+            )
+            logger.debug("dwarf.temperature.refresh_requested")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.debug("dwarf.temperature.refresh_command_failed", error=str(exc))
+            raise
 
     async def _send_and_check(
         self,
@@ -490,6 +610,7 @@ class DwarfSession:
         target_name: str = "Custom",
     ) -> tuple[float, float]:
         if self.simulation:
+            self._record_goto(ra_hours, dec_degrees)
             return ra_hours, dec_degrees
 
         await self._ensure_ws()
@@ -516,11 +637,12 @@ class DwarfSession:
             raise ValueError(f"Unsupported axis {axis}")
 
         clamped_rate = max(min(rate, _MAX_JOYSTICK_SPEED), -_MAX_JOYSTICK_SPEED)
+        manual_motion = abs(clamped_rate) >= 1e-6
         if self.simulation:
             self._manual_axis_rates[axis] = 0.0 if abs(clamped_rate) < 1e-6 else clamped_rate
             return
 
-        if abs(clamped_rate) < 1e-6:
+        if not manual_motion:
             await self.telescope_stop_axis(axis)
             return
 
@@ -627,6 +749,35 @@ class DwarfSession:
             with contextlib.suppress(Exception):
                 await self.telescope_stop_axis(axis, ensure_ws=False)
 
+    def _record_goto(self, ra_hours: float, dec_degrees: float) -> None:
+        self._last_goto_time = time.time()
+        self._last_goto_target = (ra_hours, dec_degrees)
+        logger.debug(
+            "dwarf.telescope.goto_recorded",
+            ra_hours=ra_hours,
+            dec_degrees=dec_degrees,
+        )
+
+    def _clear_goto(self, *, reason: str | None = None) -> None:
+        if self._last_goto_time is None:
+            return
+        logger.debug(
+            "dwarf.telescope.goto_cleared",
+            reason=reason,
+            last_target=self._last_goto_target,
+        )
+        self._last_goto_time = None
+        self._last_goto_target = None
+
+    def _has_recent_goto(self) -> bool:
+        max_age_value = self.settings.goto_valid_seconds
+        max_age = float(max_age_value) if max_age_value is not None else 0.0
+        if max_age <= 0.0:
+            return True
+        if self._last_goto_time is None:
+            return False
+        return (time.time() - self._last_goto_time) <= max_age
+
     async def _start_goto_command(
         self,
         ra_hours: float,
@@ -642,8 +793,10 @@ class DwarfSession:
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
             request,
         )
+        self._record_goto(ra_hours, dec_degrees)
 
     async def telescope_abort_slew(self) -> None:
+        self._clear_goto(reason="slew_aborted")
         if self.simulation:
             return
         await self._ensure_ws()
@@ -722,9 +875,11 @@ class DwarfSession:
 
         await self._ensure_ws()
         await self._ensure_exposure_settings(duration)
+        await self._ensure_gain_settings()
         await self._ensure_default_filter()
         command_timeout = max(duration + 10.0, 20.0)
         fallback_to_photo = False
+        astro_attempted = False
 
         if light and self.settings.go_live_before_exposure:
             await self._astro_go_live()
@@ -742,10 +897,23 @@ class DwarfSession:
                 raise
             fallback_to_photo = not dark_ready
 
+        if light and not fallback_to_photo and not self._has_recent_goto():
+            fallback_to_photo = True
+            state.last_error = "astro_need_goto"
+            logger.warning(
+                "dwarf.camera.astro_capture_goto_missing",
+                duration=duration,
+                light=light,
+                goto_valid_seconds=self.settings.goto_valid_seconds,
+                last_goto_time=self._last_goto_time,
+                last_goto_target=self._last_goto_target,
+            )
+
         if not fallback_to_photo:
             state.capture_mode = "astro"
             await self._configure_astro_capture(frames=1)
             await self._refresh_capture_baseline(capture_kind=state.capture_mode)
+            astro_attempted = True
             try:
                 astro_code = await self._start_astro_capture(timeout=command_timeout)
             except DwarfCommandError as exc:
@@ -761,6 +929,15 @@ class DwarfSession:
                     log_fields["error_hint"] = "goto_required"
                     log_fields["fallback"] = "tele_raw"
                     logger.warning("dwarf.camera.astro_capture_command_failed", **log_fields)
+                    self._clear_goto(reason="astro_need_goto_error")
+                    fallback_to_photo = True
+                elif exc.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
+                    state.last_error = "astro_busy"
+                    log_fields["error_hint"] = "astro_function_busy"
+                    log_fields["fallback"] = "tele_raw"
+                    logger.warning("dwarf.camera.astro_capture_command_failed", **log_fields)
+                    with contextlib.suppress(Exception):
+                        await self._stop_astro_capture()
                     fallback_to_photo = True
                 else:
                     state.last_error = f"command_error:{exc.code}"
@@ -776,8 +953,14 @@ class DwarfSession:
                     if light:
                         fallback_to_photo = True
                         state.last_error = "astro_need_goto"
+                        self._clear_goto(reason="astro_need_goto_response")
+                        with contextlib.suppress(Exception):
+                            await self._stop_astro_capture()
 
         if fallback_to_photo:
+            if astro_attempted:
+                with contextlib.suppress(Exception):
+                    await self._stop_astro_capture()
             state.capture_mode = "photo"
             await self._refresh_capture_baseline(capture_kind=state.capture_mode)
             if light:
@@ -1558,12 +1741,18 @@ class DwarfSession:
         if self.simulation:
             return
         request = ReqPhotoRaw()
-        await self._send_and_check(
-            protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
-            protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_PHOTO_RAW,
-            request,
-            timeout=timeout,
-        )
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+                protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_PHOTO_RAW,
+                request,
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "dwarf.camera.photo_raw_timeout",
+                timeout=timeout,
+            )
 
     async def _stop_astro_capture(self) -> None:
         if self.simulation:
@@ -1594,6 +1783,71 @@ class DwarfSession:
         await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_EXP,
+            request,
+            expected_responses=self._tele_param_expected_responses(),
+        )
+
+    async def _ensure_gain_settings(self) -> None:
+        if self.simulation:
+            return
+        state = self.camera_state
+        gain_value = state.requested_gain
+        if gain_value is None:
+            return
+        try:
+            gain_index = int(round(gain_value))
+        except (TypeError, ValueError):
+            return
+        gain_index = max(0, min(gain_index, 255))
+        if state.applied_gain_index == gain_index:
+            return
+        try:
+            await self._set_gain_mode_manual()
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.debug(
+                "dwarf.camera.gain_mode_set_failed",
+                requested_gain=gain_index,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+        try:
+            await self._set_gain_index(gain_index)
+        except DwarfCommandError as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.camera.gain_set_failed",
+                requested_gain=gain_index,
+                error_code=exc.code,
+                module_id=exc.module_id,
+                command_id=exc.command_id,
+            )
+            return
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.camera.gain_set_error",
+                requested_gain=gain_index,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return
+        state.applied_gain_index = gain_index
+        logger.info("dwarf.camera.gain_applied", gain=gain_index)
+
+    async def _set_gain_mode_manual(self) -> None:
+        request = ReqSetGainMode()
+        request.mode = 1
+        await self._send_and_check(
+            protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+            protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_GAIN_MODE,
+            request,
+            expected_responses=self._tele_param_expected_responses(),
+        )
+
+    async def _set_gain_index(self, index: int) -> None:
+        request = ReqSetGain()
+        request.index = index
+        await self._send_and_check(
+            protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+            protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_GAIN,
             request,
             expected_responses=self._tele_param_expected_responses(),
         )
@@ -1687,7 +1941,7 @@ class DwarfSession:
                     await self._stop_astro_capture()
             if ftp_success:
                 return
-        if not astro_mode:
+        if not astro_mode or state.image is None:
             await self._attempt_album_capture(state)
 
     async def _attempt_ftp_capture(self, state: CameraState) -> bool:

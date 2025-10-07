@@ -6,8 +6,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple, Type, TypeVar
 
+import structlog
 import websockets
-from google.protobuf.message import Message
+from google.protobuf.message import DecodeError, Message
 from websockets.exceptions import ConnectionClosedOK
 
 from ..proto.dwarf_messages import (
@@ -21,6 +22,9 @@ from ..proto.dwarf_messages import (
 
 ResponseT = TypeVar("ResponseT", bound=Message)
 NotificationHandler = Callable[[WsPacket], Awaitable[None]]
+
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass
@@ -42,12 +46,14 @@ class DwarfWsClient:
         minor_version: int = 2,
         device_id: int = 1,
         client_id: str | None = None,
+        ping_interval: float | None = None,
     ) -> None:
         self.uri = f"ws://{host}:{port}/"
         self.major_version = major_version
         self.minor_version = minor_version
         self.device_id = device_id
         self._client_id = client_id or ""
+        self._ping_interval = None if not ping_interval or ping_interval <= 0 else float(ping_interval)
 
         self._lock = asyncio.Lock()
         self._conn: Optional[websockets.WebSocketClientProtocol] = None
@@ -56,6 +62,7 @@ class DwarfWsClient:
         self._pending_aliases: Dict[Tuple[int, int], Tuple[int, int]] = {}
         self._notifications: set[NotificationHandler] = set()
         self._connected_event = asyncio.Event()
+        self._ping_task: Optional[asyncio.Task[None]] = None
 
     def set_client_id(self, client_id: str | None) -> None:
         self._client_id = client_id or ""
@@ -98,9 +105,11 @@ class DwarfWsClient:
             self._conn = await websockets.connect(self.uri, ping_interval=None)
             self._connected_event.set()
             self._reader_task = asyncio.create_task(self._reader_loop())
+            self._start_ping_task()
 
     async def close(self) -> None:
         async with self._lock:
+            await self._stop_ping_task()
             if self._reader_task:
                 self._reader_task.cancel()
                 with contextlib.suppress(Exception):
@@ -186,14 +195,61 @@ class DwarfWsClient:
     def unregister_notification_handler(self, handler: NotificationHandler) -> None:
         self._notifications.discard(handler)
 
+    def _start_ping_task(self) -> None:
+        if self._ping_interval is None:
+            return
+        if self._ping_task and not self._ping_task.done():
+            return
+        self._ping_task = asyncio.create_task(self._ping_loop())
+
+    async def _stop_ping_task(self) -> None:
+        task = self._ping_task
+        if not task:
+            return
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        self._ping_task = None
+
+    async def _ping_loop(self) -> None:
+        assert self._ping_interval is not None
+        try:
+            while True:
+                try:
+                    await asyncio.sleep(self._ping_interval)
+                except asyncio.CancelledError:
+                    raise
+
+                if not self.connected:
+                    continue
+
+                conn = self._conn
+                if conn is None:
+                    continue
+
+                try:
+                    await conn.ping()
+                except Exception as exc:
+                    logger.debug("dwarf.ws.ping_failed", error=str(exc))
+                    continue
+
+        except asyncio.CancelledError:
+            logger.debug("dwarf.ws.ping_cancelled")
+            raise
+
     async def _reader_loop(self) -> None:
         assert self._conn is not None
         try:
             async for payload in self._conn:
                 if isinstance(payload, str):
-                    payload = payload.encode()
+                    logger.debug("dwarf.ws.unexpected_text_payload", payload=payload)
+                    continue
                 packet = WsPacket()
-                packet.ParseFromString(payload)
+                try:
+                    packet.ParseFromString(payload)
+                except DecodeError as exc:
+                    logger.warning("dwarf.ws.packet.decode_failed", error=str(exc))
+                    continue
                 await self._dispatch_packet(packet)
         except asyncio.CancelledError:
             pass
