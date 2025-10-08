@@ -88,6 +88,29 @@ def test_camera_capture_and_metadata():
     assert isinstance(variant_response["Dimensions"], list)
 
 
+def test_camera_startexposure_frame_count_and_bin():
+    _connect_camera()
+
+    resp = client.put("/api/v1/camera/0/binx", params={"BinX": 2})
+    assert resp.status_code == 200
+    resp = client.put("/api/v1/camera/0/biny", params={"BinY": 2})
+    assert resp.status_code == 200
+
+    resp = client.put(
+        "/api/v1/camera/0/startexposure",
+        params={"Duration": 0.05, "Light": True, "FrameCount": 3},
+    )
+    assert resp.status_code == 200
+
+    session = asyncio.get_event_loop().run_until_complete(get_session())
+    assert session.camera_state.requested_frame_count == 3
+    assert session.camera_state.requested_bin == (camera_state.bin_x, camera_state.bin_y)
+
+    camera_state.bin_x = 1
+    camera_state.bin_y = 1
+    camera_state.frame_count = 1
+
+
 def test_camera_static_metadata_properties():
     _connect_camera()
 
@@ -236,6 +259,7 @@ def test_camera_mutators_accept_json_payloads():
         json={"Duration": 0.05, "Light": True},
     )
     assert resp.status_code == 200
+
 
 
 def test_camera_temperature_reflects_session_state():

@@ -1,3 +1,6 @@
+import asyncio
+import time
+
 import pytest
 
 from dwarf_alpaca.config.settings import Settings
@@ -73,3 +76,68 @@ async def test_album_media_type_selection():
 
     assert result == (None, None)
     assert dummy_client.calls == [(4, 1)]
+
+
+@pytest.mark.asyncio
+async def test_camera_start_exposure_simulation_sets_astro_mode():
+    session = DwarfSession(Settings(force_simulation=True))
+    state = session.camera_state
+    state.requested_frame_count = 3
+    state.requested_bin = (2, 2)
+
+    await session.camera_start_exposure(0.1, True)
+
+    assert state.capture_mode == "astro"
+    assert state.requested_frame_count == 3
+    assert state.requested_bin == (2, 2)
+    assert state.image is not None
+
+
+@pytest.mark.asyncio
+async def test_camera_start_exposure_requires_goto(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True))
+    session.simulation = False
+    state = session.camera_state
+    state.requested_frame_count = 2
+    state.requested_bin = (2, 2)
+
+    async def noop(*_args, **_kwargs):
+        return None
+
+    async def ensure_dark_library(*_args, **_kwargs):
+        return True
+
+    config_calls: dict[str, object] = {}
+
+    async def fake_config(*, frames: int, binning: tuple[int, int]) -> None:
+        config_calls["frames"] = frames
+        config_calls["binning"] = binning
+
+    async def fake_start(*, timeout: float) -> int:
+        config_calls["timeout"] = timeout
+        return protocol_pb2.CODE_ASTRO_NEED_GOTO
+
+    async def fake_fetch(fetch_state) -> None:
+        fetch_state.last_end_time = time.time()
+
+    monkeypatch.setattr(session, "_ensure_ws", noop)
+    monkeypatch.setattr(session, "_ensure_exposure_settings", noop)
+    monkeypatch.setattr(session, "_ensure_gain_settings", noop)
+    monkeypatch.setattr(session, "_ensure_selected_filter", noop)
+    monkeypatch.setattr(session, "_astro_go_live", noop)
+    monkeypatch.setattr(session, "_ensure_dark_library", ensure_dark_library)
+    monkeypatch.setattr(session, "_configure_astro_capture", fake_config)
+    monkeypatch.setattr(session, "_refresh_capture_baseline", noop)
+    monkeypatch.setattr(session, "_start_astro_capture", fake_start)
+    monkeypatch.setattr(session, "_fetch_capture", fake_fetch)
+    monkeypatch.setattr(session, "_has_recent_goto", lambda: False)
+
+    await session.camera_start_exposure(0.5, True)
+
+    assert state.capture_mode == "astro"
+    assert state.last_error is None
+    assert config_calls["frames"] == 2
+    assert config_calls["binning"] == (2, 2)
+    assert state.capture_task is not None
+    await asyncio.wait_for(state.capture_task, timeout=0.1)
+    state.capture_task = None

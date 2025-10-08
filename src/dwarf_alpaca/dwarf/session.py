@@ -101,6 +101,8 @@ class CameraState:
     last_temperature_code: int | None = None
     requested_gain: int | None = None
     applied_gain_index: int | None = None
+    requested_bin: tuple[int, int] = (1, 1)
+    requested_frame_count: int = 1
 
 
 @dataclass
@@ -910,7 +912,9 @@ class DwarfSession:
         state.last_error = None
         state.image = None
         state.last_dark_check_code = None
-        state.capture_mode = "photo"
+        state.capture_mode = "astro"
+        frames_to_capture = max(1, int(state.requested_frame_count or 1))
+        state.requested_frame_count = frames_to_capture
         if state.capture_task and not state.capture_task.done():
             state.capture_task.cancel()
         if self.simulation:
@@ -925,7 +929,15 @@ class DwarfSession:
         await self._ensure_exposure_settings(duration)
         await self._ensure_gain_settings()
         await self._ensure_selected_filter()
+
         command_timeout = max(duration + 10.0, 20.0)
+        bin_x, bin_y = state.requested_bin or (1, 1)
+        try:
+            bin_x = max(1, int(bin_x))
+            bin_y = max(1, int(bin_y))
+        except (TypeError, ValueError):
+            bin_x, bin_y = (1, 1)
+        state.requested_bin = (bin_x, bin_y)
 
         if light and self.settings.go_live_before_exposure:
             await self._astro_go_live()
@@ -951,7 +963,6 @@ class DwarfSession:
                 )
 
         if light and not self._has_recent_goto():
-            state.last_error = "astro_need_goto"
             logger.warning(
                 "dwarf.camera.astro_capture_goto_missing",
                 duration=duration,
@@ -959,42 +970,40 @@ class DwarfSession:
                 goto_valid_seconds=self.settings.goto_valid_seconds,
                 last_goto_time=self._last_goto_time,
                 last_goto_target=self._last_goto_target,
-            )
-            self._clear_goto(reason="astro_need_goto_missing")
-            raise DwarfCommandError(
-                protocol_pb2.ModuleId.MODULE_ASTRO,
-                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
-                protocol_pb2.CODE_ASTRO_NEED_GOTO,
+                ignored=True,
             )
 
-        state.capture_mode = "astro"
-        await self._configure_astro_capture(frames=1)
+        await self._configure_astro_capture(frames=frames_to_capture, binning=(bin_x, bin_y))
         await self._refresh_capture_baseline(capture_kind=state.capture_mode)
+
+        astro_code = protocol_pb2.OK
         try:
             astro_code = await self._start_astro_capture(timeout=command_timeout)
         except DwarfCommandError as exc:
             if exc.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
                 state.last_error = "astro_busy"
-            elif exc.code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
-                state.last_error = "astro_need_goto"
-                self._clear_goto(reason="astro_need_goto_error")
             else:
                 state.last_error = f"command_error:{exc.code}"
             raise
-        else:
-            if astro_code != protocol_pb2.OK:
-                if astro_code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
-                    state.last_error = "astro_need_goto"
-                    self._clear_goto(reason="astro_need_goto_response")
-                elif astro_code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
-                    state.last_error = "astro_busy"
-                else:
-                    state.last_error = f"command_error:{astro_code}"
-                raise DwarfCommandError(
-                    protocol_pb2.ModuleId.MODULE_ASTRO,
-                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
-                    astro_code,
-                )
+
+        if astro_code not in (protocol_pb2.OK, protocol_pb2.CODE_ASTRO_NEED_GOTO):
+            if astro_code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
+                state.last_error = "astro_busy"
+            else:
+                state.last_error = f"command_error:{astro_code}"
+            raise DwarfCommandError(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                astro_code,
+            )
+
+        if astro_code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
+            logger.warning(
+                "dwarf.camera.astro_capture_goto_response",
+                duration=duration,
+                light=light,
+                goto_target=self._last_goto_target,
+            )
 
         state.last_error = None
         logger.info(
@@ -1003,6 +1012,8 @@ class DwarfSession:
             light=light,
             dark_ready=dark_ready,
             goto_target=self._last_goto_target,
+            frames=frames_to_capture,
+            binning=(bin_x, bin_y),
         )
         state.capture_task = asyncio.create_task(self._fetch_capture(state))
 
@@ -1645,19 +1656,51 @@ class DwarfSession:
                 error=str(exc),
             )
 
-    async def _configure_astro_capture(self, *, frames: int = 1) -> None:
+    async def _configure_astro_capture(
+        self,
+        *,
+        frames: int = 1,
+        binning: tuple[int, int] | None = None,
+    ) -> None:
         if self.simulation:
             return
         config = await self._ensure_params_config()
         if config is None:
             return
-        desired = (
-            ("Astro binning", 0, 0, 0.0),
-            ("Astro format", 0, 0, 0.0),
+        bin_x, bin_y = (binning or (1, 1))
+        try:
+            bin_x = max(1, int(bin_x))
+            bin_y = max(1, int(bin_y))
+        except (TypeError, ValueError):
+            bin_x, bin_y = (1, 1)
+
+        async def _set_feature_by_label(feature_name: str, label_tokens: tuple[str, ...]) -> None:
+            feature = self._find_feature_param(feature_name)
+            if feature is None:
+                logger.warning("dwarf.camera.feature_param_missing", name=feature_name)
+                return
+            options = self._extract_feature_options(feature)
+            for mode_index, index, label, continue_value in options:
+                lowered = label.strip().lower()
+                if all(token in lowered for token in label_tokens):
+                    await self._set_feature_param(
+                        feature,
+                        mode_index=mode_index or 0,
+                        index=index,
+                        continue_value=continue_value or 0.0,
+                    )
+                    return
+            logger.warning(
+                "dwarf.camera.feature_option_missing",
+                feature=feature_name,
+                label_tokens=label_tokens,
+            )
+
+        desired_fixed = (
             ("Astro display source", 0, 1, 0.0),
             ("Astro ai enhance", 0, 0, 0.0),
         )
-        for name, mode_index, index, continue_value in desired:
+        for name, mode_index, index, continue_value in desired_fixed:
             feature = self._find_feature_param(name)
             if feature is None:
                 logger.warning("dwarf.camera.feature_param_missing", name=name)
@@ -1668,6 +1711,11 @@ class DwarfSession:
                 index=index,
                 continue_value=continue_value,
             )
+
+        bin_label = f"{bin_x}x{bin_y}"
+        await _set_feature_by_label("Astro binning", (bin_label.lower(),))
+        await _set_feature_by_label("Astro format", ("fit",))
+
         frames = max(1, int(frames))
         frames_feature = self._find_feature_param("Astro img_to_take")
         if frames_feature is not None:
@@ -1701,6 +1749,20 @@ class DwarfSession:
                 code=code,
             )
             return code
+        if code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
+            logger.warning(
+                "dwarf.camera.astro_capture_busy",
+                module_id=protocol_pb2.ModuleId.MODULE_ASTRO,
+                command_id=protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                code=code,
+            )
+        else:
+            logger.warning(
+                "dwarf.camera.astro_capture_unexpected_code",
+                module_id=protocol_pb2.ModuleId.MODULE_ASTRO,
+                command_id=protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                code=code,
+            )
         raise DwarfCommandError(
             protocol_pb2.ModuleId.MODULE_ASTRO,
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,

@@ -76,6 +76,7 @@ class CameraState:
     subframe_start_y: int = 0
     subframe_width: int = IMX678_PROFILE.resolution_x
     subframe_height: int = IMX678_PROFILE.resolution_y
+    frame_count: int = 1
     max_bin_x: int = IMX678_PROFILE.max_binning
     max_bin_y: int = IMX678_PROFILE.max_binning
     pixel_size_x: float = IMX678_PROFILE.pixel_size_um
@@ -478,6 +479,9 @@ async def start_exposure(
     Duration: float | None = Query(None, alias="Duration"),
     Light: bool | None = Query(None, alias="Light"),
     ContinueWithoutDark: bool | None = Query(None, alias="ContinueWithoutDark"),
+    FrameCount: int | None = Query(None, alias="FrameCount"),
+    NumFrames: int | None = Query(None, alias="NumFrames"),
+    ImageCount: int | None = Query(None, alias="ImageCount"),
 ):
     _ensure_connected()
     session = await get_session()
@@ -490,6 +494,24 @@ async def start_exposure(
         if ContinueWithoutDark is not None
         else session.settings.allow_continue_without_darks
     )
+    frame_count_value: int | None = None
+    for name, raw in (
+        ("FrameCount", FrameCount),
+        ("NumFrames", NumFrames),
+        ("ImageCount", ImageCount),
+    ):
+        if raw is None:
+            continue
+        resolved = await resolve_parameter(request, name, int, raw)
+        frame_count_value = resolved
+        break
+    if frame_count_value is not None:
+        if frame_count_value < 1:
+            raise HTTPException(status_code=400, detail="Frame count must be at least 1")
+        state.frame_count = frame_count_value
+    else:
+        frame_count_value = max(state.frame_count, 1)
+        state.frame_count = frame_count_value
     client = request.client
     redacted_headers = [
         (
@@ -506,13 +528,17 @@ async def start_exposure(
         raw_duration=Duration,
         raw_light=Light,
         raw_continue_without_dark=ContinueWithoutDark,
+        raw_frame_count=(FrameCount if FrameCount is not None else NumFrames if NumFrames is not None else ImageCount),
         resolved_duration=duration_value,
         resolved_light=light_value,
         continue_without_dark=continue_without_dark,
+        frame_count=frame_count_value,
         query_params=dict(request.query_params),
         headers=redacted_headers,
     )
     session.camera_state.requested_gain = state.gain
+    session.camera_state.requested_bin = (state.bin_x, state.bin_y)
+    session.camera_state.requested_frame_count = frame_count_value
     try:
         await session.camera_start_exposure(
             duration_value,
@@ -520,15 +546,6 @@ async def start_exposure(
             continue_without_darks=continue_without_dark,
         )
     except DwarfCommandError as exc:
-        if exc.code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "DWARF rejected the astro exposure because no GOTO is active. "
-                    "Slew the telescope to a target (e.g. via the DWARF app or the Alpaca telescope device) "
-                    "and retry the capture."
-                ),
-            ) from exc
         raise HTTPException(
             status_code=502,
             detail=(
