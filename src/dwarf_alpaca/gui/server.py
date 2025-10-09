@@ -59,6 +59,7 @@ class ServerService(QObject):
         def _stop_server() -> None:
             if self._server:
                 self._server.should_exit = True
+                self._server.force_exit = True
 
         self._loop.call_soon_threadsafe(_stop_server)
 
@@ -73,6 +74,8 @@ class ServerService(QObject):
             self._running = False
             self._loop = None
             self._server = None
+            self._thread = None
+            self._shutdown_event.set()
 
     async def _run(self, settings: Settings) -> None:
         structlog.configure(

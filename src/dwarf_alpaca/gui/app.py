@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -264,6 +265,14 @@ class ProvisioningWidget(QGroupBox):
         value = password or "DWARF_12345678"
         self.ble_password_edit.setText(value)
 
+    def current_payload(self) -> dict[str, Optional[str]]:
+        return {
+            "ssid": self.ssid_edit.text().strip(),
+            "password": self.password_edit.text(),
+            "ble_password": self.ble_password_edit.text().strip() or None,
+            "device_address": self.device_address_edit.text().strip() or None,
+        }
+
 
 class ServerControlWidget(QGroupBox):
     start_requested = Signal()
@@ -293,6 +302,11 @@ class ServerControlWidget(QGroupBox):
         self.status_label.setText(message)
         self.start_button.setEnabled(not running)
         self.stop_button.setEnabled(running)
+
+    def set_busy(self, message: str) -> None:
+        self.status_label.setText(message)
+        self.start_button.setEnabled(False)
+        self.stop_button.setEnabled(False)
 
 
 def _load_app_icon() -> QIcon:
@@ -331,6 +345,9 @@ class MainWindow(QMainWindow):
         self.provisioning_widget = ProvisioningWidget()
         self.server_widget = ServerControlWidget()
         self._connectivity_summary: str = ""
+        self._saved_credentials: OrderedDict[str, str] = OrderedDict()
+        self._latest_state: Optional[ConnectivityState] = None
+        self._pending_start: Optional[tuple[Settings, bool]] = None
 
         self.provisioning_widget.provision_requested.connect(self._handle_provision)
         self.provisioning_widget.discovery_requested.connect(self._handle_discover)
@@ -445,14 +462,12 @@ class MainWindow(QMainWindow):
         settings = self._current_settings()
         store = create_state_store(settings.state_directory)
         state = store.load()
+        self._latest_state = state
         summary = self._format_state_summary(state)
         self._connectivity_summary = summary
-        saved_ssid: Optional[str] = None
-        saved_password: Optional[str] = None
-        for ssid, password in state.wifi_credentials.items():
-            saved_ssid = ssid
-            saved_password = password
-        self.provisioning_widget.populate_saved_credentials(saved_ssid, saved_password)
+        self._saved_credentials = OrderedDict(state.wifi_credentials.items())
+        ssid, password = self._get_last_saved_credentials()
+        self.provisioning_widget.populate_saved_credentials(ssid, password)
         self._update_help(self._tabs.currentIndex())
 
     @staticmethod
@@ -466,6 +481,12 @@ class MainWindow(QMainWindow):
             networks = ", ".join(state.wifi_credentials.keys())
             parts.append(f"Saved networks: {networks}")
         return "<br/>".join(parts)
+
+    def _get_last_saved_credentials(self) -> tuple[Optional[str], Optional[str]]:
+        if not self._saved_credentials:
+            return (None, None)
+        ssid, password = next(reversed(self._saved_credentials.items()))
+        return ssid, password
 
     def _update_help(self, index: int) -> None:
         title, body = self._help_messages.get(index, ("", ""))
@@ -502,6 +523,57 @@ class MainWindow(QMainWindow):
     # endregion
 
     # region provisioning
+    def _build_provisioning_payload(self) -> Optional[dict[str, Optional[str]]]:
+        payload = self.provisioning_widget.current_payload()
+        ssid = payload.get("ssid", "").strip()
+        password = payload.get("password", "") or ""
+        if not ssid or not password:
+            saved_ssid, saved_password = self._get_last_saved_credentials()
+            if saved_ssid and not ssid:
+                payload["ssid"] = saved_ssid
+                self.provisioning_widget.ssid_edit.setText(saved_ssid)
+                ssid = saved_ssid
+            if saved_password and not password:
+                payload["password"] = saved_password
+                self.provisioning_widget.password_edit.setText(saved_password)
+                password = saved_password or ""
+        if ssid and password:
+            payload["ssid"] = ssid
+            payload["password"] = password
+            return payload
+        return None
+
+    def _continue_start_after_provision(self) -> None:
+        if not self._pending_start:
+            return
+        settings, skip_preflight = self._pending_start
+        if not skip_preflight and not settings.force_simulation:
+            timeout = self.settings_widget.preflight_timeout_spin.value()
+            interval = self.settings_widget.preflight_interval_spin.value()
+            worker = AsyncWorker(lambda: _preflight_session(settings, timeout=timeout, interval=interval))
+            worker.finished_success.connect(lambda _: self._launch_server(settings))
+            worker.finished_error.connect(self._on_preflight_error)
+            self.server_widget.set_busy("Preflight in progress…")
+            self._start_worker(worker)
+        else:
+            self._launch_server(settings)
+
+    def _on_prestart_provision_success(self, _: object) -> None:
+        self.provisioning_widget.show_status("Provisioning succeeded")
+        self._refresh_state()
+        self._continue_start_after_provision()
+
+    def _on_prestart_provision_error(self, exc: Exception) -> None:
+        self._pending_start = None
+        self.provisioning_widget.show_status(f"Provisioning failed: {exc}")
+        self.server_widget.set_running(False, "Stopped")
+        self._handle_worker_error(exc, "Provisioning before start failed")
+
+    def _on_preflight_error(self, exc: Exception) -> None:
+        self._pending_start = None
+        self.server_widget.set_running(False, "Stopped")
+        self._handle_worker_error(exc, "Preflight failed")
+
     def _handle_discover(self, payload: dict) -> None:
         worker = AsyncWorker(lambda: self._discover_devices(payload))
         worker.finished_success.connect(self._on_discover_success)
@@ -590,22 +662,43 @@ class MainWindow(QMainWindow):
         if self.server_service.is_running():
             QMessageBox.information(self, "Server", "Server is already running")
             return
+        device_address = self.provisioning_widget.device_address_edit.text().strip()
+        if not device_address:
+            self.provisioning_widget.show_status("Device address is required before starting the server")
+            QMessageBox.warning(self, "Server", "Please select or enter a device address before starting.")
+            self.provisioning_widget.device_address_edit.setFocus()
+            return
         settings = self._build_settings_for_server()
         skip_preflight = self.settings_widget.skip_preflight_checkbox.isChecked()
-        if not skip_preflight and not settings.force_simulation:
-            timeout = self.settings_widget.preflight_timeout_spin.value()
-            interval = self.settings_widget.preflight_interval_spin.value()
-            worker = AsyncWorker(lambda: _preflight_session(settings, timeout=timeout, interval=interval))
-            worker.finished_success.connect(lambda _: self._launch_server(settings))
-            worker.finished_error.connect(lambda exc: self._handle_worker_error(exc, "Preflight failed"))
-            self.server_widget.set_running(False, "Preflight in progress…")
+        self._pending_start = (settings, skip_preflight)
+        provisioning_payload = self._build_provisioning_payload()
+        if provisioning_payload:
+            self.server_widget.set_busy("Provisioning before start…")
+            worker = AsyncWorker(lambda: self._provision(provisioning_payload))
+            worker.finished_success.connect(self._on_prestart_provision_success)
+            worker.finished_error.connect(self._on_prestart_provision_error)
             self._start_worker(worker)
         else:
-            self._launch_server(settings)
+            self.provisioning_widget.show_status("Skipping provisioning (no credentials provided)")
+            self._continue_start_after_provision()
 
     def _build_settings_for_server(self) -> Settings:
         base = self._current_settings()
         override = self.settings_widget.apply(base)
+        state = self._latest_state
+        if state is None:
+            store = create_state_store(override.state_directory)
+            state = store.load()
+            self._latest_state = state
+
+        if state:
+            detected_mode = (state.mode or "").lower()
+            if detected_mode in ("", "unknown"):
+                detected_mode = "sta" if state.sta_ip else "ap"
+            override.network_mode = detected_mode
+            if state.sta_ip:
+                override.dwarf_ap_ip = state.sta_ip
+                self.settings_widget.dwarf_ip_edit.setText(state.sta_ip)
         if override != base:
             self._settings = override
         return override
@@ -615,14 +708,16 @@ class MainWindow(QMainWindow):
             self.server_service.start(settings)
         except Exception as exc:
             self._handle_worker_error(exc, "Unable to start server")
+            self._pending_start = None
             return
+        self._pending_start = None
         self.server_widget.set_running(True, "Starting…")
 
     def _handle_stop_server(self) -> None:
         if not self.server_service.is_running():
             return
+        self.server_widget.set_busy("Stopping…")
         self.server_service.stop()
-        self.server_widget.set_running(False, "Stopping…")
 
     def _handle_server_status(self, status: ServerStatus) -> None:
         self.server_widget.set_running(status.running, status.message)

@@ -349,7 +349,7 @@ class DwarfSession:
     def _ensure_temperature_monitor_task(self) -> None:
         task = self._temperature_task
         if task and task.done():
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 task.result()
             self._temperature_task = None
 
@@ -743,7 +743,7 @@ class DwarfSession:
                 task = self._calibration_task
                 if task and not task.done():
                     task.cancel()
-                    with contextlib.suppress(Exception):
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
                         await task
                 self._calibration_task = None
                 await self._ws_client.close()
@@ -768,7 +768,7 @@ class DwarfSession:
         task = self._calibration_task
         if task and not task.done():
             task.cancel()
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
         self._calibration_task = None
 
