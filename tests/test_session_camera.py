@@ -139,5 +139,59 @@ async def test_camera_start_exposure_requires_goto(monkeypatch):
     assert config_calls["frames"] == 2
     assert config_calls["binning"] == (2, 2)
     assert state.capture_task is not None
-    await asyncio.wait_for(state.capture_task, timeout=0.1)
+    await asyncio.wait_for(state.capture_task, timeout=0.5)
     state.capture_task = None
+
+
+@pytest.mark.asyncio
+async def test_camera_go_live_after_capture(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True))
+    session.simulation = False
+    session.settings.go_live_before_exposure = False
+    state = session.camera_state
+    state.requested_frame_count = 1
+    state.requested_bin = (1, 1)
+
+    async def fake_start(*, timeout: float) -> int:
+        return protocol_pb2.OK
+
+    async def fake_stop(*_args, **_kwargs) -> None:
+        return None
+
+    async def fake_attempt_ftp(fetch_state) -> bool:
+        fetch_state.image = object()
+        fetch_state.last_end_time = time.time()
+        return True
+
+    async def ensure_dark(*_args, **_kwargs) -> bool:
+        return True
+
+    async def noop(*_args, **_kwargs):
+        return None
+
+    go_live_calls: list[bool] = []
+
+    async def fake_go_live() -> None:
+        go_live_calls.append(True)
+
+    monkeypatch.setattr(session, "_ensure_ws", noop)
+    monkeypatch.setattr(session, "_ensure_exposure_settings", noop)
+    monkeypatch.setattr(session, "_ensure_gain_settings", noop)
+    monkeypatch.setattr(session, "_ensure_selected_filter", noop)
+    monkeypatch.setattr(session, "_ensure_dark_library", ensure_dark)
+    monkeypatch.setattr(session, "_configure_astro_capture", noop)
+    monkeypatch.setattr(session, "_refresh_capture_baseline", noop)
+    monkeypatch.setattr(session, "_start_astro_capture", fake_start)
+    monkeypatch.setattr(session, "_stop_astro_capture", fake_stop)
+    monkeypatch.setattr(session, "_attempt_ftp_capture", fake_attempt_ftp)
+    monkeypatch.setattr(session, "_astro_go_live", fake_go_live)
+    monkeypatch.setattr(session, "_has_recent_goto", lambda: True)
+
+    await session.camera_start_exposure(0.2, True)
+
+    assert state.capture_task is not None
+    await asyncio.wait_for(state.capture_task, timeout=0.5)
+    state.capture_task = None
+
+    assert go_live_calls == [True]
+    assert state.image is not None

@@ -2067,6 +2067,7 @@ class DwarfSession:
     async def _fetch_capture(self, state: CameraState) -> None:
         await asyncio.sleep(max(state.duration, 0.1))
         astro_mode = state.capture_mode == "astro"
+        image_captured = state.image is not None
         if not self.simulation:
             ftp_success = False
             try:
@@ -2075,9 +2076,18 @@ class DwarfSession:
                 if astro_mode:
                     await self._stop_astro_capture()
             if ftp_success:
-                return
-        if not astro_mode or state.image is None:
-            await self._attempt_album_capture(state)
+                image_captured = True
+            else:
+                if not astro_mode or state.image is None:
+                    await self._attempt_album_capture(state)
+                image_captured = state.image is not None
+        else:
+            if not astro_mode or state.image is None:
+                await self._attempt_album_capture(state)
+            image_captured = state.image is not None
+
+        if astro_mode and image_captured:
+            await self._astro_go_live()
 
     async def _attempt_ftp_capture(self, state: CameraState) -> bool:
         baseline = state.pending_ftp_baseline
