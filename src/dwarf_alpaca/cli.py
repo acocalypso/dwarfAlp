@@ -139,15 +139,24 @@ async def start_command(
 
     state_store = create_state_store(settings.state_directory)
     state = state_store.load()
+    detected_mode = (state.mode or "").lower()
+    if detected_mode in ("", "unknown"):
+        detected_mode = "sta" if state.sta_ip else "ap"
+    settings.network_mode = detected_mode
     if state.sta_ip:
         settings.dwarf_ap_ip = state.sta_ip
-        logger.info("cli.start.using_sta_ip ip=%s mode=%s", state.sta_ip, state.mode)
+        logger.info(
+            "cli.start.using_sta_ip ip=%s mode=%s",
+            state.sta_ip,
+            settings.network_mode,
+        )
     else:
         logger.info(
             "cli.start.using_config_ip ip=%s mode=%s",
             settings.dwarf_ap_ip,
-            state.mode,
+            settings.network_mode,
         )
+    logger.info("cli.start.network_mode mode=%s", settings.network_mode)
 
     if not settings.force_simulation:
         await _preflight_session(

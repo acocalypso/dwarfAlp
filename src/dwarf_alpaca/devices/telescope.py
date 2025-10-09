@@ -108,8 +108,31 @@ async def put_connected(
     if value:
         if simulation_override is not None:
             session.simulation = simulation_override
-        await session.acquire("telescope")
-        state.using_simulation = session.is_simulated
+        acquired = False
+        try:
+            await session.acquire("telescope")
+            acquired = True
+            state.using_simulation = session.is_simulated
+        except DwarfCommandError as exc:
+            if acquired:
+                with contextlib.suppress(Exception):
+                    await session.release("telescope")
+            if simulation_override is not None:
+                session.simulation = simulation_override
+            state.using_simulation = session.is_simulated
+            detail = (
+                "DWARF command failed while acquiring telescope session. "
+                f"Command {exc.module_id}:{exc.command_id} returned code {exc.code}."
+            )
+            raise HTTPException(status_code=502, detail=detail) from exc
+        except Exception:
+            if acquired:
+                with contextlib.suppress(Exception):
+                    await session.release("telescope")
+            if simulation_override is not None:
+                session.simulation = simulation_override
+            state.using_simulation = session.is_simulated
+            raise
     else:
         state.motion_update_time = time.time()
         if not session.is_simulated:
@@ -343,6 +366,18 @@ async def slew_to_coordinates_async(
         raise HTTPException(status_code=400, detail="Telescope not connected")
     ra = await resolve_parameter(request, "RightAscension", float, RightAscension_query)
     dec = await resolve_parameter(request, "Declination", float, Declination_query)
+
+    ra_converted_from_degrees = False
+    if not 0.0 <= ra <= 24.0:
+        if 0.0 <= ra <= 360.0:
+            ra /= 15.0
+            ra_converted_from_degrees = True
+        else:
+            raise HTTPException(status_code=400, detail="RightAscension must be between 0 and 24 hours")
+
+    if not -90.0 <= dec <= 90.0:
+        raise HTTPException(status_code=400, detail="Declination must be between -90 and +90 degrees")
+
     session = await get_session()
     state.using_simulation = session.is_simulated
     state.target_ra = ra
@@ -376,6 +411,8 @@ async def slew_to_coordinates_async(
                     f"{hint} Requested RA={ra:.4f}h, Dec={dec:.4f}°, "
                     f"derived Alt={altitude:.1f}°, Az={azimuth:.1f}°."
                 )
+                if ra_converted_from_degrees:
+                    detail += " Input RA appeared to be in degrees and was converted to hours."
             else:
                 detail = (
                     "DWARF command "

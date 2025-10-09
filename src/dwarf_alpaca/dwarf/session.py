@@ -178,6 +178,8 @@ class DwarfSession:
         self._gain_value_options: list[tuple[int, int]] | None = None
         self._gain_manual_mode_supported: bool | None = None
         self._gain_last_skipped_value: int | None = None
+        self._calibration_lock = asyncio.Lock()
+        self._last_calibration_time: float | None = None
 
     @property
     def is_simulated(self) -> bool:
@@ -200,6 +202,7 @@ class DwarfSession:
             self._master_lock_acquired = False
             self._ws_bootstrapped = False
             self._time_synced = self.simulation
+            self._last_calibration_time = None
         await self._ensure_master_lock()
         self._ensure_temperature_monitor_task()
 
@@ -598,6 +601,16 @@ class DwarfSession:
 
             if self._master_lock_acquired:
                 await self._sync_device_clock()
+                try:
+                    await self.ensure_calibration()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # pragma: no cover - hardware dependent
+                    logger.warning(
+                        "dwarf.system.calibration_after_master_lock_failed",
+                        error=str(exc),
+                        error_type=type(exc).__name__,
+                    )
 
     async def _release_master_lock(self) -> None:
         if self.simulation:
@@ -738,6 +751,7 @@ class DwarfSession:
                 await self._ws_client.close()
                 await self._http_client.aclose()
                 self._master_lock_acquired = False
+                self._last_calibration_time = None
 
     async def shutdown(self) -> None:
         if self.camera_state.capture_task and not self.camera_state.capture_task.done():
@@ -763,6 +777,7 @@ class DwarfSession:
         self._ws_bootstrapped = False
         for key in self._refs:
             self._refs[key] = 0
+        self._last_calibration_time = None
 
     # --- Telescope -----------------------------------------------------------------
 
@@ -779,6 +794,7 @@ class DwarfSession:
 
         await self._ensure_ws()
         await self._halt_manual_motion()
+        await self.ensure_calibration()
         try:
             await self._start_goto_command(ra_hours, dec_degrees, target_name)
         except DwarfCommandError as exc:
@@ -793,6 +809,7 @@ class DwarfSession:
             await self.telescope_abort_slew()
             await asyncio.sleep(0.2)
             await self._halt_manual_motion()
+            await self.ensure_calibration()
             await self._start_goto_command(ra_hours, dec_degrees, target_name)
         return ra_hours, dec_degrees
 
@@ -941,6 +958,36 @@ class DwarfSession:
         if self._last_goto_time is None:
             return False
         return (time.time() - self._last_goto_time) <= max_age
+
+    def _has_recent_calibration(self) -> bool:
+        max_age_value = self.settings.calibration_valid_seconds
+        if self._last_calibration_time is None:
+            return False
+        if max_age_value is None:
+            return True
+        max_age = float(max_age_value)
+        if max_age <= 0.0:
+            return False
+        return (time.time() - self._last_calibration_time) <= max_age
+
+    async def ensure_calibration(self) -> None:
+        if self.simulation:
+            return
+        if self._has_recent_calibration():
+            return
+        async with self._calibration_lock:
+            if self._has_recent_calibration():
+                return
+            request = astro_pb2.ReqStartCalibration()
+            logger.info("dwarf.telescope.calibration.starting")
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
+                request,
+                timeout=30.0,
+            )
+            self._last_calibration_time = time.time()
+            logger.info("dwarf.telescope.calibration.completed")
 
     async def _start_goto_command(
         self,

@@ -1,4 +1,5 @@
 import math
+import time
 import types
 from typing import Any, Dict
 
@@ -9,6 +10,7 @@ from dwarf_alpaca.dwarf import session as session_module
 from dwarf_alpaca.dwarf.session import DwarfSession
 from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
 from dwarf_alpaca.proto import protocol_pb2
+from dwarf_alpaca.proto.dwarf_messages import ComResponse
 
 
 @pytest.mark.asyncio
@@ -60,6 +62,9 @@ async def test_telescope_slew_retries_after_busy(monkeypatch):
     assert len(goto_calls) == 2
     assert (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO) in actions
 
+    calibration_calls = [cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION]
+    assert calibration_calls == [(protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION)]
+
     assert len(stop_calls) >= 4
     assert {axis for axis, _ in stop_calls} == {0, 1}
 
@@ -97,6 +102,90 @@ async def test_telescope_slew_raises_after_repeated_busy(monkeypatch):
     goto_calls = [cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO]
     assert len(goto_calls) == 2
     assert (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO) in actions
+
+    calibration_calls = [cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION]
+    assert calibration_calls == [(protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION)]
+
+
+@pytest.mark.asyncio
+async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
+    settings = Settings()
+    settings.calibration_valid_seconds = 60.0
+    session = DwarfSession(settings)
+    session.simulation = False
+
+    async def noop(self, *args, **kwargs):
+        return None
+
+    session._ensure_ws = types.MethodType(noop, session)
+
+    actions: list[tuple[int, int]] = []
+
+    async def fake_send_and_check(self, module_id, command_id, request, *, timeout=10.0, expected_responses=None):
+        actions.append((module_id, command_id))
+        return None
+
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    await session.telescope_slew_to_coordinates(1.2, -3.4)
+
+    assert (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION) in actions
+    assert (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO) in actions
+
+    actions.clear()
+
+    await session.telescope_slew_to_coordinates(2.5, 1.0)
+
+    assert (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION) not in actions
+    assert (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO) in actions
+
+    session._last_calibration_time = time.time() - (settings.calibration_valid_seconds + 5.0)
+    actions.clear()
+
+    await session.telescope_slew_to_coordinates(-4.0, 0.5)
+
+    calibration_calls = [cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION]
+    assert calibration_calls == [(protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION)]
+    assert (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO) in actions
+
+
+@pytest.mark.asyncio
+async def test_master_lock_acquisition_triggers_calibration(monkeypatch):
+    session = DwarfSession(Settings())
+    session.simulation = False
+
+    async def noop(self, *args, **kwargs):
+        return None
+
+    session._bootstrap_ws = types.MethodType(noop, session)
+    session._ws_client._conn = types.SimpleNamespace(closed=False)
+
+    response = ComResponse()
+    response.code = protocol_pb2.OK
+
+    async def fake_send_request(self, module_id, command_id, request, response_cls, *, timeout=10.0, expected_responses=None):
+        return response
+
+    session._ws_client.send_request = types.MethodType(fake_send_request, session._ws_client)
+
+    sync_calls: list[None] = []
+
+    async def fake_sync(self):
+        sync_calls.append(None)
+
+    session._sync_device_clock = types.MethodType(fake_sync, session)
+
+    calibration_calls: list[None] = []
+
+    async def fake_calibration(self):
+        calibration_calls.append(None)
+
+    session.ensure_calibration = types.MethodType(fake_calibration, session)
+
+    await session._ensure_master_lock()
+
+    assert len(sync_calls) == 1
+    assert len(calibration_calls) == 1
 @pytest.mark.asyncio
 async def test_telescope_move_axis_sends_joystick_command(monkeypatch):
     session = DwarfSession(Settings())

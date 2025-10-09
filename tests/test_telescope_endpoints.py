@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
 from dwarf_alpaca.config.settings import Settings
@@ -230,6 +231,8 @@ def test_slew_to_coordinates_reports_goto_failure(monkeypatch):
     class StubSession:
         def __init__(self):
             self.simulation = False
+            self.captured: list[tuple[float, float]] = []
+            self.calibration_calls = 0
 
         @property
         def is_simulated(self):
@@ -241,7 +244,11 @@ def test_slew_to_coordinates_reports_goto_failure(monkeypatch):
         async def release(self, device: str):
             return None
 
+        async def ensure_calibration(self):
+            self.calibration_calls += 1
+
         async def telescope_slew_to_coordinates(self, ra_hours: float, dec_degrees: float):
+            self.captured.append((ra_hours, dec_degrees))
             raise DwarfCommandError(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
@@ -269,5 +276,129 @@ def test_slew_to_coordinates_reports_goto_failure(monkeypatch):
         assert "DWARF reported the GOTO failed" in body["detail"]
         assert "Alt=" in body["detail"]
         assert telescope_module.state.slewing is False
+        assert stub_session.captured[-1] == (1.5, -45.0)
     finally:
         _disconnect_telescope()
+
+
+def test_slew_to_coordinates_converts_degree_ra(monkeypatch):
+    class StubSession:
+        def __init__(self):
+            self.simulation = False
+            self.received: list[tuple[float, float]] = []
+            self.calibration_calls = 0
+
+        @property
+        def is_simulated(self):
+            return self.simulation
+
+        async def acquire(self, device: str):
+            return None
+
+        async def release(self, device: str):
+            return None
+
+        async def ensure_calibration(self):
+            self.calibration_calls += 1
+
+        async def telescope_slew_to_coordinates(self, ra_hours: float, dec_degrees: float):
+            self.received.append((ra_hours, dec_degrees))
+            raise DwarfCommandError(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
+                protocol_pb2.CODE_ASTRO_GOTO_FAILED,
+            )
+
+        async def telescope_stop_axis(self, axis: int, *, ensure_ws: bool = True):
+            return None
+
+    stub_session = StubSession()
+
+    async def fake_get_session():
+        return stub_session
+
+    monkeypatch.setattr("dwarf_alpaca.devices.telescope.get_session", fake_get_session)
+
+    _connect_telescope()
+    try:
+        response = client.put(
+            "/api/v1/telescope/0/slewtocoordinatesasync",
+            json={"RightAscension": 180.0, "Declination": 15.0},
+        )
+        assert response.status_code == 502
+        assert stub_session.received
+        ra_hours, dec_degrees = stub_session.received[-1]
+        assert ra_hours == pytest.approx(12.0)
+        assert dec_degrees == pytest.approx(15.0)
+        assert "converted to hours" in response.json()["detail"]
+    finally:
+        _disconnect_telescope()
+
+
+def test_slew_to_coordinates_rejects_invalid_ra():
+    _connect_telescope()
+    try:
+        response = client.put(
+            "/api/v1/telescope/0/slewtocoordinatesasync",
+            json={"RightAscension": 400.0, "Declination": 10.0},
+        )
+        assert response.status_code == 400
+        body = response.json()
+        assert body["detail"] == "RightAscension must be between 0 and 24 hours"
+    finally:
+        _disconnect_telescope()
+
+
+def test_slew_to_coordinates_rejects_invalid_dec():
+    _connect_telescope()
+    try:
+        response = client.put(
+            "/api/v1/telescope/0/slewtocoordinatesasync",
+            json={"RightAscension": 5.0, "Declination": 120.0},
+        )
+        assert response.status_code == 400
+        body = response.json()
+        assert body["detail"] == "Declination must be between -90 and +90 degrees"
+    finally:
+        _disconnect_telescope()
+
+
+def test_connect_does_not_trigger_calibration_when_hardware(monkeypatch):
+    class StubSession:
+        def __init__(self):
+            self.simulation = False
+            self.calibration_calls = 0
+            self.acquired = 0
+            self.settings = Settings()
+
+        @property
+        def is_simulated(self):
+            return self.simulation
+
+        async def acquire(self, device: str):
+            self.acquired += 1
+
+        async def release(self, device: str):
+            self.acquired = max(0, self.acquired - 1)
+
+        async def ensure_calibration(self):
+            self.calibration_calls += 1
+
+        async def telescope_stop_axis(self, axis: int, *, ensure_ws: bool = True):
+            return None
+
+    stub_session = StubSession()
+
+    async def fake_get_session():
+        return stub_session
+
+    monkeypatch.setattr("dwarf_alpaca.devices.telescope.get_session", fake_get_session)
+
+    connect_resp = client.put("/api/v1/telescope/0/connected", json={"Connected": True})
+    assert connect_resp.status_code == 200
+    assert stub_session.calibration_calls == 0
+    assert stub_session.acquired == 1
+
+    disconnect_resp = client.put("/api/v1/telescope/0/connected", json={"Connected": False})
+    assert disconnect_resp.status_code == 200
+    assert stub_session.acquired == 0
