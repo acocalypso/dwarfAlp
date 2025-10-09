@@ -88,7 +88,11 @@ async def test_guide_reuses_saved_wifi_password(tmp_path, monkeypatch):
     async def fake_discover_devices(*, adapter=None, timeout=10.0):
         return [FakeDevice()]
 
+    fetch_called = False
+
     async def fake_fetch_wifi_list(self, *, device, adapter, ble_password, timeout=None):
+        nonlocal fetch_called
+        fetch_called = True
         return ["MyHome", "Other"]
 
     prompts = []
@@ -97,10 +101,10 @@ async def test_guide_reuses_saved_wifi_password(tmp_path, monkeypatch):
         prompts.append((message, default, secret))
         if message.startswith("Select device"):
             return "1"
-        if message.startswith("Select Wi-Fi network"):
-            return "1"
         if message.startswith("Enter Wi-Fi password"):
             return ""  # reuse stored password
+        if message.startswith("Choose saved network"):
+            return "1"
         raise AssertionError(f"Unexpected prompt: {message}")
 
     recorded = {}
@@ -140,6 +144,86 @@ async def test_guide_reuses_saved_wifi_password(tmp_path, monkeypatch):
     assert recorded["ssid"] == "MyHome"
     assert recorded["password"] == "storedpass"
     assert ("Enter Wi-Fi password", None, True) in prompts
+    assert fetch_called is False
+
+
+@pytest.mark.asyncio
+async def test_guide_saved_wifi_fallbacks_to_scan(tmp_path, monkeypatch):
+    settings = Settings(state_directory=tmp_path, ble_password="blepass")
+
+    state_store = create_state_store(tmp_path)
+    state = state_store.load()
+    state.wifi_credentials["MyHome"] = "storedpass"
+    state_store.save(state)
+
+    class FakeDevice:
+        name = "DWARF3"
+        address = "AA:BB"
+
+    async def fake_discover_devices(*, adapter=None, timeout=10.0):
+        return [FakeDevice()]
+
+    fetch_calls = 0
+
+    async def fake_fetch_wifi_list(self, *, device, adapter, ble_password, timeout=None):
+        nonlocal fetch_calls
+        fetch_calls += 1
+        return ["MyHome", "Other"]
+
+    responses = iter(["1", "", "2", "fallbackpass"])
+    prompts: list[str] = []
+
+    async def fake_prompt(message: str, *, default: str | None = None, secret: bool = False) -> str:
+        prompts.append(message)
+        try:
+            return next(responses)
+        except StopIteration:  # pragma: no cover - safety
+            raise AssertionError(f"Unexpected prompt exhaustion for message: {message}")
+
+    calls: list[dict[str, str | None]] = []
+
+    async def fake_provision_sta(*, settings, ssid, password, adapter, ble_password, device_address):
+        calls.append(
+            dict(
+                ssid=ssid,
+                password=password,
+                adapter=adapter,
+                ble_password=ble_password,
+                device_address=device_address,
+            )
+        )
+        if len(calls) == 1:
+            raise RuntimeError("network unreachable")
+
+    monkeypatch.setattr(
+        "dwarf_alpaca.provisioning.cli.DwarfBleProvisioner.discover_devices",
+        staticmethod(fake_discover_devices),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "dwarf_alpaca.provisioning.cli.DwarfBleProvisioner.fetch_wifi_list",
+        fake_fetch_wifi_list,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "dwarf_alpaca.provisioning.cli._prompt",
+        fake_prompt,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "dwarf_alpaca.provisioning.cli.provision_sta",
+        fake_provision_sta,
+        raising=True,
+    )
+
+    await provision_guide_command(settings=settings, adapter=None, ble_password="blepass")
+
+    assert len(calls) == 2
+    assert calls[0]["ssid"] == "MyHome"
+    assert calls[1]["ssid"] == "Other"
+    assert calls[1]["password"] == "fallbackpass"
+    assert fetch_calls == 1
+    assert any(msg.startswith("Select Wi-Fi network") for msg in prompts)
 
 
 @pytest.mark.asyncio

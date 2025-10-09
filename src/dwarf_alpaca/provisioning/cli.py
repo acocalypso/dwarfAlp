@@ -92,6 +92,73 @@ async def provision_guide_command(
             secret=False,
         )
 
+    saved_credentials = {
+        ssid: password
+        for ssid, password in state.wifi_credentials.items()
+        if ssid and password
+    }
+    saved_ssids: Sequence[str] = sorted(saved_credentials)
+    if saved_ssids:
+        chosen_ssid: str | None
+        if len(saved_ssids) == 1:
+            chosen_ssid = saved_ssids[0]
+            print(f"📁 Using saved Wi-Fi network '{chosen_ssid}'.")
+        else:
+            print("📁 Saved Wi-Fi networks:")
+            for idx, candidate in enumerate(saved_ssids, start=1):
+                print(f"  [{idx}] {candidate}")
+            print("  [0] Select a different Wi-Fi network")
+            selection_raw = await _prompt("Choose saved network", default="1")
+            try:
+                selection = int(selection_raw)
+            except ValueError:
+                selection = 1
+            if selection <= 0 or selection > len(saved_ssids):
+                chosen_ssid = None
+            else:
+                chosen_ssid = saved_ssids[selection - 1]
+
+        if chosen_ssid:
+            saved_password = saved_credentials[chosen_ssid]
+            wifi_password: str | None = None
+            while True:
+                if saved_password:
+                    print(
+                        f"🔐 Found saved password for '{chosen_ssid}'. Press Enter to reuse it or type a new password."
+                    )
+                    entered = await _prompt("Enter Wi-Fi password", secret=True)
+                    wifi_password = entered or saved_password
+                else:
+                    wifi_password = await _prompt("Enter Wi-Fi password", secret=True)
+
+                if wifi_password:
+                    break
+
+                print(
+                    "⚠️  Wi-Fi password cannot be empty. Please enter a password or press Ctrl+C to cancel."
+                )
+
+            print(f"🚀 Starting provisioning with saved network '{chosen_ssid}'…")
+            try:
+                await provision_sta(
+                    settings=settings,
+                    ssid=chosen_ssid,
+                    password=wifi_password,
+                    adapter=resolved_adapter,
+                    ble_password=resolved_ble_password,
+                    device_address=chosen.address,
+                )
+            except RuntimeError as exc:
+                print(
+                    f"⚠️  Provisioning with saved Wi-Fi '{chosen_ssid}' failed: {exc}"
+                )
+                print("📡 Saved network unavailable, scanning for alternatives…")
+            else:
+                print(
+                    "✅ Provisioning completed. Check var/connectivity.json for the reported STA IP."
+                )
+                return
+
     ssid_options: Sequence[str] = []
     print("📡 Requesting Wi-Fi networks (this may take a few seconds)…")
     try:
