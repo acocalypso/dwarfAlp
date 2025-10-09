@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import math
+import re
 import time
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -173,6 +174,10 @@ class DwarfSession:
         self._time_synced = self.simulation
         self._gain_command_supported: bool | None = None
         self._gain_command_warning_logged = False
+        self._gain_support_param: dict[str, Any] | None = None
+        self._gain_value_options: list[tuple[int, int]] | None = None
+        self._gain_manual_mode_supported: bool | None = None
+        self._gain_last_skipped_value: int | None = None
 
     @property
     def is_simulated(self) -> bool:
@@ -1193,6 +1198,10 @@ class DwarfSession:
             return None
         self._params_config = payload
         self._filter_options = None
+        self._gain_support_param = None
+        self._gain_value_options = None
+        self._gain_manual_mode_supported = None
+        self._gain_last_skipped_value = None
         return payload
 
     async def _get_exposure_resolver(self) -> Optional[exposure.ExposureResolver]:
@@ -2027,6 +2036,84 @@ class DwarfSession:
             expected_responses=self._tele_param_expected_responses(),
         )
 
+    @staticmethod
+    def _parse_gain_label(label: str) -> int | None:
+        text = str(label).strip()
+        if not text:
+            return None
+        try:
+            return int(round(float(text)))
+        except (TypeError, ValueError):
+            match = re.search(r"-?\d+(?:\.\d+)?", text)
+            if not match:
+                return None
+            try:
+                return int(round(float(match.group(0))))
+            except (TypeError, ValueError):
+                return None
+
+    async def _get_gain_support_param(self) -> dict[str, Any] | None:
+        if self.simulation:
+            return None
+        if self._gain_support_param is not None:
+            return self._gain_support_param
+        await self._ensure_params_config()
+        if self._params_config is None:
+            self._gain_support_param = None
+            return None
+        param = self._find_support_param_contains("gain", camera_name="tele")
+        self._gain_support_param = param if isinstance(param, dict) else None
+        return self._gain_support_param
+
+    async def _get_gain_options(self) -> list[tuple[int, int]]:
+        if self._gain_value_options is not None:
+            return self._gain_value_options
+        options: list[tuple[int, int]] = []
+        param = await self._get_gain_support_param()
+        if isinstance(param, dict):
+            gear_mode = param.get("gearMode")
+            if isinstance(gear_mode, dict):
+                values = gear_mode.get("values")
+                if isinstance(values, list):
+                    for entry in values:
+                        if not isinstance(entry, dict):
+                            continue
+                        try:
+                            index_value = int(entry.get("index"))
+                        except (TypeError, ValueError):
+                            continue
+                        label_value = self._parse_gain_label(entry.get("name", ""))
+                        if label_value is None:
+                            continue
+                        options.append((label_value, index_value))
+        options.sort(key=lambda item: item[0])
+        self._gain_value_options = options
+        return options
+
+    async def _gain_manual_mode_enabled(self) -> bool:
+        if self._gain_manual_mode_supported is not None:
+            return self._gain_manual_mode_supported
+        param = await self._get_gain_support_param()
+        if not isinstance(param, dict):
+            self._gain_manual_mode_supported = True
+            return True
+        self._gain_manual_mode_supported = bool(param.get("hasAuto"))
+        return self._gain_manual_mode_supported
+
+    async def _resolve_gain_command(self, requested_gain: int) -> tuple[int, int]:
+        options = await self._get_gain_options()
+        if not options:
+            clamped_index = max(0, min(requested_gain, 255))
+            return requested_gain, clamped_index
+        min_value = options[0][0]
+        max_value = options[-1][0]
+        clamped_gain = max(min_value, min(requested_gain, max_value))
+        for value, index in options:
+            if value == clamped_gain:
+                return value, index
+        value, index = min(options, key=lambda opt: (abs(opt[0] - clamped_gain), opt[0]))
+        return value, index
+
     async def _ensure_gain_settings(self) -> None:
         if self.simulation:
             return
@@ -2035,71 +2122,99 @@ class DwarfSession:
         if gain_value is None:
             return
         try:
-            gain_index = int(round(gain_value))
+            requested_gain = int(round(gain_value))
         except (TypeError, ValueError):
             return
-        gain_index = max(0, min(gain_index, 255))
+        resolved_gain, command_index = await self._resolve_gain_command(requested_gain)
         if self._gain_command_supported is False:
-            if state.applied_gain_index != gain_index:
-                state.applied_gain_index = gain_index
+            if self._gain_last_skipped_value != resolved_gain:
                 logger.debug(
                     "dwarf.camera.gain_command_skipped",
-                    requested_gain=gain_index,
+                    requested_gain=resolved_gain,
+                    command_index=command_index,
                 )
+                self._gain_last_skipped_value = resolved_gain
             return
-        if state.applied_gain_index == gain_index and self._gain_command_supported is True:
+        if (
+            self._gain_command_supported is True
+            and state.applied_gain_index == resolved_gain
+        ):
             return
 
         command_timeout = max(self.settings.camera_gain_command_timeout_seconds, 0.5)
 
-        try:
-            await self._set_gain_mode_manual(timeout=command_timeout)
-        except Exception as exc:  # pragma: no cover - hardware dependent
-            logger.debug(
-                "dwarf.camera.gain_mode_set_failed",
-                requested_gain=gain_index,
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
-            self._disable_gain_commands(gain_index)
-            return
+        if await self._gain_manual_mode_enabled():
+            try:
+                await self._set_gain_mode_manual(timeout=command_timeout)
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.debug(
+                    "dwarf.camera.gain_mode_set_failed",
+                    requested_gain=resolved_gain,
+                    command_index=command_index,
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+                self._disable_gain_commands(resolved_gain, command_index=command_index)
+                return
 
         try:
-            await self._set_gain_index(gain_index, timeout=command_timeout)
+            await self._set_gain_index(command_index, timeout=command_timeout)
         except DwarfCommandError as exc:  # pragma: no cover - hardware dependent
             logger.warning(
                 "dwarf.camera.gain_set_failed",
-                requested_gain=gain_index,
+                requested_gain=resolved_gain,
+                command_index=command_index,
                 error_code=exc.code,
                 module_id=exc.module_id,
                 command_id=exc.command_id,
             )
-            self._disable_gain_commands(gain_index)
+            self._disable_gain_commands(resolved_gain, command_index=command_index)
             return
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.warning(
                 "dwarf.camera.gain_set_error",
-                requested_gain=gain_index,
+                requested_gain=resolved_gain,
+                command_index=command_index,
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
-            self._disable_gain_commands(gain_index)
+            self._disable_gain_commands(resolved_gain, command_index=command_index)
             return
 
-        state.applied_gain_index = gain_index
-        self._gain_command_supported = True
-        logger.info("dwarf.camera.gain_applied", gain=gain_index)
+        if resolved_gain != requested_gain:
+            logger.debug(
+                "dwarf.camera.gain_snapped",
+                requested_gain=requested_gain,
+                applied_gain=resolved_gain,
+                command_index=command_index,
+            )
 
-    def _disable_gain_commands(self, gain_index: int) -> None:
-        state = self.camera_state
-        state.applied_gain_index = gain_index
+        state.applied_gain_index = resolved_gain
+        self._gain_command_supported = True
+        self._gain_last_skipped_value = None
+        logger.info(
+            "dwarf.camera.gain_applied",
+            gain=resolved_gain,
+            command_index=command_index,
+        )
+
+    def _disable_gain_commands(self, gain_value: int, *, command_index: int | None = None) -> None:
         if self._gain_command_supported is False:
+            if self._gain_last_skipped_value != gain_value:
+                logger.debug(
+                    "dwarf.camera.gain_command_skipped",
+                    requested_gain=gain_value,
+                    command_index=command_index,
+                )
+                self._gain_last_skipped_value = gain_value
             return
         self._gain_command_supported = False
+        self._gain_last_skipped_value = gain_value
         if not self._gain_command_warning_logged:
             logger.warning(
                 "dwarf.camera.gain_commands_disabled",
-                requested_gain=gain_index,
+                requested_gain=gain_value,
+                command_index=command_index,
             )
             self._gain_command_warning_logged = True
 

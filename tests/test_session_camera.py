@@ -218,13 +218,21 @@ async def test_gain_commands_disable_after_timeout(monkeypatch):
         calls["index"] += 1
         raise asyncio.TimeoutError()
 
+    async def resolve_gain(value: int) -> tuple[int, int]:
+        return value, value
+
+    async def manual_supported() -> bool:
+        return True
+
     monkeypatch.setattr(session, "_set_gain_mode_manual", failing_mode)
     monkeypatch.setattr(session, "_set_gain_index", failing_index)
+    monkeypatch.setattr(session, "_resolve_gain_command", resolve_gain)
+    monkeypatch.setattr(session, "_gain_manual_mode_enabled", manual_supported)
 
     await session._ensure_gain_settings()
 
     assert session._gain_command_supported is False
-    assert session.camera_state.applied_gain_index == 42
+    assert session.camera_state.applied_gain_index is None
     assert calls == {"mode": 1, "index": 0}
 
     calls["mode"] = 0
@@ -247,11 +255,19 @@ async def test_gain_commands_applied_successfully(monkeypatch):
 
     async def successful_index(index: int, *, timeout=None):
         calls["index"] += 1
-        assert index == 17
+        assert index == 5
         assert timeout is not None
+
+    async def resolve_gain(value: int) -> tuple[int, int]:
+        return 17, 5
+
+    async def manual_supported() -> bool:
+        return True
 
     monkeypatch.setattr(session, "_set_gain_mode_manual", successful_mode)
     monkeypatch.setattr(session, "_set_gain_index", successful_index)
+    monkeypatch.setattr(session, "_resolve_gain_command", resolve_gain)
+    monkeypatch.setattr(session, "_gain_manual_mode_enabled", manual_supported)
 
     await session._ensure_gain_settings()
 
@@ -329,3 +345,43 @@ async def test_session_shutdown_unlocks_master_lock():
     assert session._ws_bootstrapped is False
     assert len(session._ws_client.send_requests) == 1  # type: ignore[attr-defined]
     assert session._ws_client.send_requests[0].lock is False  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_resolve_gain_command_uses_params_config():
+    session = DwarfSession(Settings(force_simulation=True))
+    session.simulation = False
+    session._params_config = {
+        "data": {
+            "cameras": [
+                {
+                    "name": "Tele",
+                    "supportParams": [
+                        {
+                            "name": "Gain",
+                            "hasAuto": False,
+                            "gearMode": {
+                                "values": [
+                                    {"index": 0, "name": "0"},
+                                    {"index": 24, "name": "80"},
+                                    {"index": 27, "name": "90"},
+                                ]
+                            },
+                            "supportMode": [{"index": 0, "name": "Gear Mode"}],
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+
+    applied_gain, command_index = await session._resolve_gain_command(80)
+    assert applied_gain == 80
+    assert command_index == 24
+
+    snapped_gain, snapped_index = await session._resolve_gain_command(83)
+    assert snapped_gain == 80
+    assert snapped_index == 24
+
+    manual_supported = await session._gain_manual_mode_enabled()
+    assert manual_supported is False
