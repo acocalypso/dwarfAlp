@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     dark_check_timeout_seconds: float = 5.0
     goto_valid_seconds: float = 300.0
     calibration_valid_seconds: float = 900.0
+    calibration_timeout_seconds: float = 60.0
+    calibration_wait_for_slew_seconds: float = 10.0
     focuser_target_tolerance_steps: int = 5
 
     ble_adapter: Optional[str] = None

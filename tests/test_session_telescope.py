@@ -1,3 +1,4 @@
+import asyncio
 import math
 import time
 import types
@@ -183,6 +184,7 @@ async def test_master_lock_acquisition_triggers_calibration(monkeypatch):
     session.ensure_calibration = types.MethodType(fake_calibration, session)
 
     await session._ensure_master_lock()
+    await asyncio.sleep(0)
 
     assert len(sync_calls) == 1
     assert len(calibration_calls) == 1

@@ -180,6 +180,7 @@ class DwarfSession:
         self._gain_last_skipped_value: int | None = None
         self._calibration_lock = asyncio.Lock()
         self._last_calibration_time: float | None = None
+        self._calibration_task = None  # type: asyncio.Task[None] | None
 
     @property
     def is_simulated(self) -> bool:
@@ -601,16 +602,7 @@ class DwarfSession:
 
             if self._master_lock_acquired:
                 await self._sync_device_clock()
-                try:
-                    await self.ensure_calibration()
-                except asyncio.CancelledError:
-                    raise
-                except Exception as exc:  # pragma: no cover - hardware dependent
-                    logger.warning(
-                        "dwarf.system.calibration_after_master_lock_failed",
-                        error=str(exc),
-                        error_type=type(exc).__name__,
-                    )
+                self._schedule_calibration()
 
     async def _release_master_lock(self) -> None:
         if self.simulation:
@@ -748,6 +740,12 @@ class DwarfSession:
         async with self._lock:
             self._refs[device] = max(0, self._refs[device] - 1)
             if not self.simulation and all(count == 0 for count in self._refs.values()):
+                task = self._calibration_task
+                if task and not task.done():
+                    task.cancel()
+                    with contextlib.suppress(Exception):
+                        await task
+                self._calibration_task = None
                 await self._ws_client.close()
                 await self._http_client.aclose()
                 self._master_lock_acquired = False
@@ -766,6 +764,13 @@ class DwarfSession:
             with contextlib.suppress(asyncio.CancelledError):
                 await temperature_task
             self._temperature_task = None
+
+        task = self._calibration_task
+        if task and not task.done():
+            task.cancel()
+            with contextlib.suppress(Exception):
+                await task
+        self._calibration_task = None
 
         await self._release_master_lock()
 
@@ -794,7 +799,7 @@ class DwarfSession:
 
         await self._ensure_ws()
         await self._halt_manual_motion()
-        await self.ensure_calibration()
+        await self._wait_for_calibration_ready()
         try:
             await self._start_goto_command(ra_hours, dec_degrees, target_name)
         except DwarfCommandError as exc:
@@ -809,7 +814,7 @@ class DwarfSession:
             await self.telescope_abort_slew()
             await asyncio.sleep(0.2)
             await self._halt_manual_motion()
-            await self.ensure_calibration()
+            await self._wait_for_calibration_ready()
             await self._start_goto_command(ra_hours, dec_degrees, target_name)
         return ra_hours, dec_degrees
 
@@ -970,6 +975,62 @@ class DwarfSession:
             return False
         return (time.time() - self._last_calibration_time) <= max_age
 
+    def _schedule_calibration(self) -> None:
+        if self.simulation or self._has_recent_calibration():
+            return
+        task = self._calibration_task
+        if task and not task.done():
+            return
+        self._calibration_task = asyncio.create_task(self._run_calibration_task())
+        self._calibration_task.add_done_callback(self._on_calibration_task_done)
+
+    async def _run_calibration_task(self) -> None:
+        try:
+            await self.ensure_calibration()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.telescope.calibration.background_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+
+    def _on_calibration_task_done(self, task: asyncio.Task[None]) -> None:
+        if task.cancelled():
+            logger.debug("dwarf.telescope.calibration.background_cancelled")
+        else:
+            with contextlib.suppress(Exception):
+                task.result()
+        if self._calibration_task is task:
+            self._calibration_task = None
+
+    async def _wait_for_calibration_ready(self) -> None:
+        if self.simulation:
+            return
+        self._schedule_calibration()
+        task = self._calibration_task
+        if not task:
+            return
+        timeout_value = float(self.settings.calibration_wait_for_slew_seconds)
+        if timeout_value <= 0.0:
+            return
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=timeout_value)
+        except asyncio.TimeoutError:
+            logger.info(
+                "dwarf.telescope.calibration.wait_timeout",
+                timeout=timeout_value,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.warning(
+                "dwarf.telescope.calibration.wait_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+
     async def ensure_calibration(self) -> None:
         if self.simulation:
             return
@@ -984,7 +1045,7 @@ class DwarfSession:
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
                 request,
-                timeout=30.0,
+                timeout=max(1.0, float(self.settings.calibration_timeout_seconds)),
             )
             self._last_calibration_time = time.time()
             logger.info("dwarf.telescope.calibration.completed")
