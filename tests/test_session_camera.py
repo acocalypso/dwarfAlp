@@ -203,6 +203,68 @@ async def test_camera_go_live_after_capture(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_gain_commands_disable_after_timeout(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True))
+    session.simulation = False
+    session.camera_state.requested_gain = 42
+
+    calls = {"mode": 0, "index": 0}
+
+    async def failing_mode(*, timeout):
+        calls["mode"] += 1
+        raise asyncio.TimeoutError()
+
+    async def failing_index(*args, **kwargs):  # pragma: no cover - unreachable in this test
+        calls["index"] += 1
+        raise asyncio.TimeoutError()
+
+    monkeypatch.setattr(session, "_set_gain_mode_manual", failing_mode)
+    monkeypatch.setattr(session, "_set_gain_index", failing_index)
+
+    await session._ensure_gain_settings()
+
+    assert session._gain_command_supported is False
+    assert session.camera_state.applied_gain_index == 42
+    assert calls == {"mode": 1, "index": 0}
+
+    calls["mode"] = 0
+
+    await session._ensure_gain_settings()
+
+    assert calls == {"mode": 0, "index": 0}
+
+
+@pytest.mark.asyncio
+async def test_gain_commands_applied_successfully(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True))
+    session.simulation = False
+    session.camera_state.requested_gain = 17
+
+    calls = {"mode": 0, "index": 0}
+
+    async def successful_mode(*, timeout):
+        calls["mode"] += 1
+
+    async def successful_index(index: int, *, timeout=None):
+        calls["index"] += 1
+        assert index == 17
+        assert timeout is not None
+
+    monkeypatch.setattr(session, "_set_gain_mode_manual", successful_mode)
+    monkeypatch.setattr(session, "_set_gain_index", successful_index)
+
+    await session._ensure_gain_settings()
+
+    assert session._gain_command_supported is True
+    assert session.camera_state.applied_gain_index == 17
+    assert calls == {"mode": 1, "index": 1}
+
+    await session._ensure_gain_settings()
+
+    assert calls == {"mode": 1, "index": 1}
+
+
+@pytest.mark.asyncio
 async def test_session_shutdown_unlocks_master_lock():
     session = DwarfSession(Settings(force_simulation=False))
     session.simulation = False

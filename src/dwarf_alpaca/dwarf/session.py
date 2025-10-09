@@ -171,6 +171,8 @@ class DwarfSession:
         self._last_goto_time: float | None = None
         self._last_goto_target: tuple[float, float] | None = None
         self._time_synced = self.simulation
+        self._gain_command_supported: bool | None = None
+        self._gain_command_warning_logged = False
 
     @property
     def is_simulated(self) -> bool:
@@ -2037,10 +2039,21 @@ class DwarfSession:
         except (TypeError, ValueError):
             return
         gain_index = max(0, min(gain_index, 255))
-        if state.applied_gain_index == gain_index:
+        if self._gain_command_supported is False:
+            if state.applied_gain_index != gain_index:
+                state.applied_gain_index = gain_index
+                logger.debug(
+                    "dwarf.camera.gain_command_skipped",
+                    requested_gain=gain_index,
+                )
             return
+        if state.applied_gain_index == gain_index and self._gain_command_supported is True:
+            return
+
+        command_timeout = max(self.settings.camera_gain_command_timeout_seconds, 0.5)
+
         try:
-            await self._set_gain_mode_manual()
+            await self._set_gain_mode_manual(timeout=command_timeout)
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.debug(
                 "dwarf.camera.gain_mode_set_failed",
@@ -2048,8 +2061,11 @@ class DwarfSession:
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
+            self._disable_gain_commands(gain_index)
+            return
+
         try:
-            await self._set_gain_index(gain_index)
+            await self._set_gain_index(gain_index, timeout=command_timeout)
         except DwarfCommandError as exc:  # pragma: no cover - hardware dependent
             logger.warning(
                 "dwarf.camera.gain_set_failed",
@@ -2058,6 +2074,7 @@ class DwarfSession:
                 module_id=exc.module_id,
                 command_id=exc.command_id,
             )
+            self._disable_gain_commands(gain_index)
             return
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.warning(
@@ -2066,27 +2083,47 @@ class DwarfSession:
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
+            self._disable_gain_commands(gain_index)
             return
+
         state.applied_gain_index = gain_index
+        self._gain_command_supported = True
         logger.info("dwarf.camera.gain_applied", gain=gain_index)
 
-    async def _set_gain_mode_manual(self) -> None:
+    def _disable_gain_commands(self, gain_index: int) -> None:
+        state = self.camera_state
+        state.applied_gain_index = gain_index
+        if self._gain_command_supported is False:
+            return
+        self._gain_command_supported = False
+        if not self._gain_command_warning_logged:
+            logger.warning(
+                "dwarf.camera.gain_commands_disabled",
+                requested_gain=gain_index,
+            )
+            self._gain_command_warning_logged = True
+
+    async def _set_gain_mode_manual(self, *, timeout: float | None = None) -> None:
         request = ReqSetGainMode()
         request.mode = 1
+        effective_timeout = timeout if timeout is not None else 10.0
         await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_GAIN_MODE,
             request,
+            timeout=effective_timeout,
             expected_responses=self._tele_param_expected_responses(),
         )
 
-    async def _set_gain_index(self, index: int) -> None:
+    async def _set_gain_index(self, index: int, *, timeout: float | None = None) -> None:
         request = ReqSetGain()
         request.index = index
+        effective_timeout = timeout if timeout is not None else 10.0
         await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_GAIN,
             request,
+            timeout=effective_timeout,
             expected_responses=self._tele_param_expected_responses(),
         )
 
