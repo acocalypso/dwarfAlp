@@ -180,6 +180,9 @@ class DwarfBleProvisioner:
         ble_password: str,
         timeout: float | None = None,
     ) -> list[str]:
+        if BleakScanner is None or BleakClient is None:
+            raise ProvisioningError("BLE provisioning not available (bleak library not installed)")
+
         device_obj = await self._ensure_device(device, adapter=adapter)
         if device_obj is None:
             logger.warning("ble.provision.wifi.device_missing")
@@ -249,7 +252,7 @@ class DwarfBleProvisioner:
         *,
         ble_psd: str,
         deadline: float,
-    ) -> ble_pb2.ResGetconfig:
+    ) -> Any:
         await client.write_gatt_char(
             DWARF_CHARACTERISTIC_UUID,
             build_req_getconfig(ble_psd),
@@ -279,7 +282,7 @@ class DwarfBleProvisioner:
         client: BleakClientType,
         queue: asyncio.Queue[ParsedPacket],
         *,
-        current_config: ble_pb2.ResGetconfig,
+    current_config: Any,
         ssid: str,
         password: str,
         ble_psd: str,

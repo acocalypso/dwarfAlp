@@ -27,7 +27,8 @@ dependencies = [
   "python-dotenv>=1.0.1",
   "python-multipart>=0.0.9",
   "protobuf>=3.20.3,<3.21",
-  "websockets>=12.0"
+  "websockets>=12.0",
+  "PySide6>=6.7.0"
 ]
 
 [project.optional-dependencies]
@@ -41,6 +42,7 @@ development = [
 
 [project.scripts]
 dwarf-alpaca = "dwarf_alpaca.cli:main"
+dwarf-alpaca-gui = "dwarf_alpaca.gui.app:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dwarf_alpaca"]
