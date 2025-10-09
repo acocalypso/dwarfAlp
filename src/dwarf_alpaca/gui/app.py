@@ -6,6 +6,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+import sys
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QIcon
@@ -316,6 +317,16 @@ def _load_app_icon() -> QIcon:
     return QIcon()
 
 
+def _resolve_state_directory(path: Path) -> Path:
+    if path.is_absolute():
+        return path
+    if getattr(sys, "frozen", False):
+        base = Path(sys.executable).resolve().parent
+    else:
+        base = Path.cwd()
+    return (base / path).resolve()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, *, app_icon: Optional[QIcon] = None) -> None:
         super().__init__()
@@ -434,6 +445,10 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Settings", f"Failed to load settings: {exc}")
             return
+        resolved_state_dir = _resolve_state_directory(settings.state_directory)
+        if resolved_state_dir != settings.state_directory:
+            settings = settings.model_copy(update={"state_directory": resolved_state_dir})
+        resolved_state_dir.mkdir(parents=True, exist_ok=True)
         self._settings_path = path
         self._settings = settings
         self.settings_widget.populate(settings)
