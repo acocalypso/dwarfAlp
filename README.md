@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="images/dwarfalplogo.png" alt="DWARF Alpaca Logo" width="200" />
+</p>
+
 # DWARF 3 Alpaca Server
 
 An ASCOM Alpaca device hub for the DWARF 3 smart telescope. The project speaks the DWARF control protocols (websocket, HTTP/JSON, FTP, RTSP, BLE) and exposes Telescope/0, Camera/0, Focuser/0, and FilterWheel/0 devices that can be driven from clients such as NINA, Voyager, or ASCOM Remote.
@@ -81,6 +85,41 @@ dwarf-alpaca start --ssid "MySSID" --password "MyPassword"
 - Prompts for BLE password if not provided (defaults to `DWARF_12345678`).
 - Provisions the telescope, waits for STA connectivity, acquires the master lock, and starts the HTTP + discovery services.
 - STA IP detection automatically updates `Settings.dwarf_ap_ip` before the server boots.
+
+---
+
+## Building the GUI Executable
+
+Package the PySide6 control center into a standalone Windows executable with [PyInstaller](https://pyinstaller.org):
+
+1. Activate the virtual environment (if not already active):
+
+  ```powershell
+  .\venv\Scripts\Activate.ps1
+  ```
+
+2. Install PyInstaller (one time per environment):
+
+  ```powershell
+  pip install pyinstaller
+  ```
+
+3. Build the executable:
+
+  ```powershell
+  pyinstaller --noconfirm `
+          --onefile `
+          --windowed `
+          --name DwarfAlpacaGUI `
+          --icon images\dwarfalplogo.ico `
+          --add-data "images;images" `
+          --add-data "var;var" `
+          src\dwarf_alpaca\gui\app.py
+  ```
+
+  The packaged binary will be created at `dist\DwarfAlpacaGUI.exe`. Update the `--add-data` entries if you need more resources bundled.
+
+4. Launch the app directly from the `dist` directory to verify everything runs as expected.
 
 ---
 

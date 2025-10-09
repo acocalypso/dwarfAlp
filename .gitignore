@@ -6,3 +6,6 @@ var/
 venv/
 .pytest_cache/
 dwarf_python_api/
+build/
+dist/
+DwarfAlpacaGUI.spec
