@@ -127,12 +127,23 @@ async def provision_guide_command(
         ssid = await _prompt("Enter Wi-Fi SSID")
 
     saved_password = state.wifi_credentials.get(ssid)
-    if saved_password:
-        print(f"🔐 Found saved password for '{ssid}'. Press Enter to reuse it or type a new password.")
-        entered = await _prompt("Enter Wi-Fi password", secret=True)
-        wifi_password = entered or saved_password
-    else:
-        wifi_password = await _prompt("Enter Wi-Fi password", secret=True)
+    wifi_password: str | None = None
+    while True:
+        if saved_password:
+            print(
+                f"🔐 Found saved password for '{ssid}'. Press Enter to reuse it or type a new password."
+            )
+            entered = await _prompt("Enter Wi-Fi password", secret=True)
+            wifi_password = entered or saved_password
+        else:
+            wifi_password = await _prompt("Enter Wi-Fi password", secret=True)
+
+        if wifi_password:
+            break
+
+        print(
+            "⚠️  Wi-Fi password cannot be empty. Please enter a password or press Ctrl+C to cancel."
+        )
 
     print("🚀 Starting provisioning…")
     await provision_sta(

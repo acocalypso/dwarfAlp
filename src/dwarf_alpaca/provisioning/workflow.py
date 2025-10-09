@@ -24,6 +24,14 @@ async def provision_sta(
     """Provision DWARF onto the local WLAN using BLE."""
 
     state_store = create_state_store(settings.state_directory)
+
+    if not ssid:
+        raise RuntimeError("Wi-Fi SSID is required for provisioning")
+
+    if password is None or password == "":
+        state_store.record_error("Wi-Fi password missing for provisioning")
+        raise RuntimeError("Wi-Fi password is required for provisioning")
+
     provisioner = DwarfBleProvisioner(
         response_timeout=settings.ble_response_timeout_seconds
     )
@@ -60,6 +68,8 @@ async def provision_sta(
     logger.error("provision.workflow.failure", message=message)
     state_store.record_error(message)
     raise RuntimeError(message)
+
+
 def create_state_store(state_dir: Path) -> StateStore:
     path = state_dir / "connectivity.json"
     return StateStore(path=path)
