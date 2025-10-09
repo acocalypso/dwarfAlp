@@ -18,6 +18,7 @@ class FocuserState:
     max_step: int = 20000
     max_increment: int = 20000
     is_inverted: bool = False
+    absolute: bool = True
 
 
 state = FocuserState()
@@ -50,7 +51,7 @@ def get_driver_info():
 
 @router.get("/absolute")
 def get_absolute():
-    return alpaca_response(value=True)
+    return alpaca_response(value=state.absolute)
 
 
 @router.get("/maxstep")
@@ -138,23 +139,35 @@ async def move(
 ):
     if not state.connected:
         raise HTTPException(status_code=400, detail="Focuser not connected")
-    delta_steps = await resolve_parameter(request, "Position", int, Position_query)
-    if abs(delta_steps) > state.max_increment:
-        raise HTTPException(status_code=400, detail="Move exceeds max increment")
+    requested_position = await resolve_parameter(request, "Position", int, Position_query)
 
     session = await get_session()
     runtime = session.focuser_state
     state.position = runtime.position
     state.is_moving = runtime.is_moving
     state.connected = runtime.connected
-    new_position = runtime.position + delta_steps
-    if new_position < 0 or new_position > state.max_step:
-        raise HTTPException(status_code=400, detail="Target position out of range")
+
+    if state.absolute:
+        target_position = requested_position
+        if target_position < 0 or target_position > state.max_step:
+            raise HTTPException(status_code=400, detail="Target position out of range")
+        delta_steps = target_position - runtime.position
+    else:
+        delta_steps = requested_position
+        if abs(delta_steps) > state.max_increment:
+            raise HTTPException(status_code=400, detail="Move exceeds max increment")
+        target_position = runtime.position + delta_steps
+        if target_position < 0 or target_position > state.max_step:
+            raise HTTPException(status_code=400, detail="Target position out of range")
+
     if delta_steps == 0:
         return alpaca_response()
 
+    if state.max_increment and abs(delta_steps) > state.max_increment:
+        raise HTTPException(status_code=400, detail="Move exceeds max increment")
+
     state.is_moving = True
-    await session.focuser_move(delta_steps)
+    await session.focuser_move(delta_steps, target=target_position)
     runtime = session.focuser_state
     state.position = runtime.position
     state.is_moving = runtime.is_moving

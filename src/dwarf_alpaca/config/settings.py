@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     allow_continue_without_darks: bool = True
     dark_check_timeout_seconds: float = 5.0
     goto_valid_seconds: float = 300.0
+    focuser_target_tolerance_steps: int = 5
 
     ble_adapter: Optional[str] = None
     ble_password: Optional[str] = None

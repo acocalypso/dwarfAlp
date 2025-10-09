@@ -2628,6 +2628,7 @@ class DwarfSession:
             return
 
         direction = 1 if delta > 0 else -1
+        command_direction = self._focus_command_direction(delta)
         steps = abs(delta)
 
         if self.simulation:
@@ -2657,7 +2658,7 @@ class DwarfSession:
             )
             if prefer_single_step:
                 request = ReqManualSingleStepFocus()
-                request.direction = 1 if direction > 0 else 0
+                request.direction = command_direction
                 for _ in range(steps):
                     self._focus_update_event.clear()
                     await self._send_and_check(
@@ -2682,7 +2683,7 @@ class DwarfSession:
                     await asyncio.sleep(0.02)
             else:
                 start_request = ReqManualContinuFocus()
-                start_request.direction = 1 if direction > 0 else 0
+                start_request.direction = command_direction
                 self._focus_update_event.clear()
                 await self._send_and_check(
                     protocol_pb2.ModuleId.MODULE_FOCUS,
@@ -2734,12 +2735,71 @@ class DwarfSession:
                 state.position = target
                 state.last_update = time.time()
             state.position = max(0, min(state.position, 20000))
+            tolerance = max(0, int(getattr(self.settings, "focuser_target_tolerance_steps", 0)))
+            if (
+                not prefer_single_step
+                and tolerance > 0
+                and abs(target - state.position) > tolerance
+            ):
+                try:
+                    await self._focus_nudge_to_target(target, tolerance=tolerance)
+                except Exception:
+                    logger.warning(
+                        "dwarf.focus.nudge_failed",
+                        target=target,
+                        position=state.position,
+                        exc_info=True,
+                    )
+                state.position = max(0, min(state.position, 20000))
             state.is_moving = False
             logger.info(
                 "dwarf.focus.move.completed",
                 position=state.position,
                 received_update=received_update,
             )
+
+    async def _focus_nudge_to_target(self, target: int, *, tolerance: int) -> None:
+        state = self.focuser_state
+        max_iterations = 60
+        for _ in range(max_iterations):
+            error = target - state.position
+            if abs(error) <= tolerance:
+                return
+
+            step_direction = 1 if error > 0 else -1
+            request = ReqManualSingleStepFocus()
+            request.direction = self._focus_command_direction(error)
+            self._focus_update_event.clear()
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_FOCUS,
+                protocol_pb2.DwarfCMD.CMD_FOCUS_MANUAL_SINGLE_STEP_FOCUS,
+                request,
+            )
+            try:
+                await asyncio.wait_for(self._focus_update_event.wait(), timeout=0.6)
+            except asyncio.TimeoutError:
+                state.position = max(0, min(state.position + step_direction, 20000))
+                state.last_update = time.time()
+            finally:
+                self._focus_update_event.clear()
+
+        logger.warning(
+            "dwarf.focus.nudge_incomplete",
+            target=target,
+            position=state.position,
+        )
+
+    @staticmethod
+    def _focus_command_direction(delta: int) -> int:
+        """Translate signed focus delta into DWARF direction codes.
+
+        The DWARF focus protocol uses 0 for "far" focus (increasing the
+        reported focus position) and 1 for "near" focus (decreasing the
+        reported focus position)."""
+
+        if delta < 0:
+            return 1
+        return 0
 
     async def focuser_halt(self) -> None:
         state = self.focuser_state

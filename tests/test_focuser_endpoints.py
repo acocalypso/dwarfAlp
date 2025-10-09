@@ -38,11 +38,14 @@ def test_focuser_capabilities_and_move():
     resp = client.get("/api/v1/focuser/0/position")
     assert resp.status_code == 200 and _value(resp) == 150
 
-    resp = client.put("/api/v1/focuser/0/move", json={"Position": -25})
+    resp = client.put("/api/v1/focuser/0/move", json={"Position": 125})
     assert resp.status_code == 200
 
     resp = client.get("/api/v1/focuser/0/position")
     assert resp.status_code == 200 and _value(resp) == 125
+
+    resp = client.put("/api/v1/focuser/0/move", json={"Position": -10})
+    assert resp.status_code == 400
 
     resp = client.put("/api/v1/focuser/0/moveabsolute", json={"Position": 75})
     assert resp.status_code == 200
