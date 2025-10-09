@@ -107,14 +107,7 @@ Package the PySide6 control center into a standalone Windows executable with [Py
 3. Build the executable:
 
   ```powershell
-  pyinstaller --noconfirm `
-          --onefile `
-          --windowed `
-          --name DwarfAlpacaGUI `
-          --icon images\dwarfalplogo.ico `
-          --add-data "images;images" `
-          --add-data "var;var" `
-          src\dwarf_alpaca\gui\app.py
+  pyinstaller --noconfirm --onefile --windowed --name DwarfAlpacaGUI --icon images/dwarfalplogo.ico --add-data "images;images" --add-data "var;var" --paths src run_gui.py
   ```
 
   The packaged binary will be created at `dist\DwarfAlpacaGUI.exe`. Update the `--add-data` entries if you need more resources bundled.

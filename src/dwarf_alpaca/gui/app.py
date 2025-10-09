@@ -312,7 +312,7 @@ class ServerControlWidget(QGroupBox):
 def _load_app_icon() -> QIcon:
     if APP_ICON_PATH.exists():
         return QIcon(str(APP_ICON_PATH))
-    logger.warning("gui.icon.missing", path=str(APP_ICON_PATH))
+    logger.warning("gui.icon.missing path=%s", APP_ICON_PATH)
     return QIcon()
 
 

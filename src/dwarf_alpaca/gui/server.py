@@ -105,6 +105,7 @@ class ServerService(QObject):
                 port=settings.http_port,
                 log_level="info",
                 access_log=False,
+                log_config=None,
             )
             if settings.enable_https and settings.tls_certfile and settings.tls_keyfile:
                 config.ssl_certfile = str(settings.tls_certfile)
