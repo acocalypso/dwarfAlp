@@ -6,7 +6,12 @@ import pytest
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.dwarf.session import DwarfSession
 from dwarf_alpaca.proto import protocol_pb2
-from dwarf_alpaca.proto.dwarf_messages import ResNotifyTemperature, WsPacket, TYPE_NOTIFICATION
+from dwarf_alpaca.proto.dwarf_messages import (
+    ComResponse,
+    ResNotifyTemperature,
+    WsPacket,
+    TYPE_NOTIFICATION,
+)
 
 
 @pytest.mark.asyncio
@@ -195,3 +200,70 @@ async def test_camera_go_live_after_capture(monkeypatch):
 
     assert go_live_calls == [True]
     assert state.image is not None
+
+
+@pytest.mark.asyncio
+async def test_session_shutdown_unlocks_master_lock():
+    session = DwarfSession(Settings(force_simulation=False))
+    session.simulation = False
+    session._master_lock_acquired = True
+    session._refs = {"camera": 1, "telescope": 1, "focuser": 1, "filterwheel": 1}
+
+    capture_task = asyncio.create_task(asyncio.sleep(10))
+    session.camera_state.capture_task = capture_task
+
+    class DummyWsClient:
+        def __init__(self) -> None:
+            self.connected = False
+            self.connect_calls = 0
+            self.send_requests = []
+            self.close_called = False
+
+        async def connect(self) -> None:
+            self.connected = True
+            self.connect_calls += 1
+
+        async def send_request(
+            self,
+            module_id,
+            command,
+            message,
+            response_type,
+            *,
+            timeout: float,
+            expected_responses,
+        ):
+            self.send_requests.append(message)
+            response = response_type()
+            if isinstance(response, ComResponse):
+                response.code = protocol_pb2.OK
+            return response
+
+        async def close(self) -> None:
+            self.close_called = True
+            self.connected = False
+
+        def register_notification_handler(self, *_args, **_kwargs) -> None:
+            pass
+
+    class DummyHttpClient:
+        def __init__(self) -> None:
+            self.closed = False
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    session._ws_client = DummyWsClient()  # type: ignore[assignment]
+    session._http_client = DummyHttpClient()  # type: ignore[assignment]
+
+    await session.shutdown()
+
+    assert capture_task.cancelled()
+    assert session._ws_client.close_called  # type: ignore[attr-defined]
+    assert session._http_client.closed  # type: ignore[attr-defined]
+    assert session._ws_client.connect_calls == 1  # type: ignore[attr-defined]
+    assert session._master_lock_acquired is False
+    assert all(count == 0 for count in session._refs.values())
+    assert session._ws_bootstrapped is False
+    assert len(session._ws_client.send_requests) == 1  # type: ignore[attr-defined]
+    assert session._ws_client.send_requests[0].lock is False  # type: ignore[attr-defined]

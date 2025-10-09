@@ -18,7 +18,7 @@ from .devices.telescope import router as telescope_router
 from .devices.camera import router as camera_router
 from .devices.filterwheel import preload_filters, router as filterwheel_router
 from .devices.focuser import router as focuser_router
-from .dwarf.session import configure_session
+from .dwarf.session import configure_session, shutdown_session
 
 logger = structlog.get_logger(__name__)
 
@@ -79,7 +79,10 @@ def build_app(settings: Settings) -> FastAPI:
     @asynccontextmanager
     async def _lifespan(app: FastAPI):
         await preload_filters()
-        yield
+        try:
+            yield
+        finally:
+            await shutdown_session()
 
     app.router.lifespan_context = _lifespan
 

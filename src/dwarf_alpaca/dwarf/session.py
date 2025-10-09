@@ -592,6 +592,88 @@ class DwarfSession:
             if self._master_lock_acquired:
                 await self._sync_device_clock()
 
+    async def _release_master_lock(self) -> None:
+        if self.simulation:
+            self._master_lock_acquired = False
+            return
+
+        async with self._master_lock_lock:
+            if not self._master_lock_acquired:
+                return
+
+            if not self._ws_client.connected:
+                try:
+                    await self._ws_client.connect()
+                except Exception as exc:  # pragma: no cover - hardware dependent
+                    logger.warning(
+                        "dwarf.system.master_lock_disconnect",
+                        error=str(exc),
+                        error_type=type(exc).__name__,
+                    )
+                    self._master_lock_acquired = False
+                    return
+
+            request = ReqsetMasterLock()
+            request.lock = False
+            expected_responses = {
+                (
+                    protocol_pb2.ModuleId.MODULE_SYSTEM,
+                    protocol_pb2.DwarfCMD.CMD_NOTIFY_WS_HOST_SLAVE_MODE,
+                ): ResNotifyHostSlaveMode,
+                (
+                    protocol_pb2.ModuleId.MODULE_NOTIFY,
+                    protocol_pb2.DwarfCMD.CMD_NOTIFY_WS_HOST_SLAVE_MODE,
+                ): ResNotifyHostSlaveMode,
+            }
+
+            try:
+                response = await self._ws_client.send_request(
+                    protocol_pb2.ModuleId.MODULE_SYSTEM,
+                    protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTERLOCK,
+                    request,
+                    ComResponse,
+                    timeout=10.0,
+                    expected_responses=expected_responses,
+                )
+
+                if isinstance(response, ComResponse):
+                    if response.code != protocol_pb2.OK:
+                        logger.warning(
+                            "dwarf.system.master_lock_release_failed",
+                            code=response.code,
+                        )
+                    else:
+                        logger.info(
+                            "dwarf.system.master_lock_released",
+                            ip=self.settings.dwarf_ap_ip,
+                        )
+                elif isinstance(response, ResNotifyHostSlaveMode):
+                    logger.info(
+                        "dwarf.system.master_lock_unlocked",
+                        ip=self.settings.dwarf_ap_ip,
+                        mode=getattr(response, "mode", None),
+                        lock=bool(getattr(response, "lock", False)),
+                    )
+                else:
+                    logger.warning(
+                        "dwarf.system.master_lock_release_unhandled_response",
+                        ip=self.settings.dwarf_ap_ip,
+                        response_type=type(response).__name__,
+                    )
+            except DwarfCommandError as exc:  # pragma: no cover - hardware dependent
+                logger.warning(
+                    "dwarf.system.master_lock_release_failed",
+                    code=exc.code,
+                )
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.warning(
+                    "dwarf.system.master_lock_release_error",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+            finally:
+                self._master_lock_acquired = False
+
     async def _sync_device_clock(self) -> None:
         """Push the current host timestamp and timezone offset to the DWARF device."""
 
@@ -649,6 +731,31 @@ class DwarfSession:
                 await self._ws_client.close()
                 await self._http_client.aclose()
                 self._master_lock_acquired = False
+
+    async def shutdown(self) -> None:
+        if self.camera_state.capture_task and not self.camera_state.capture_task.done():
+            self.camera_state.capture_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.camera_state.capture_task
+        self.camera_state.capture_task = None
+
+        temperature_task = self._temperature_task
+        if temperature_task:
+            temperature_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await temperature_task
+            self._temperature_task = None
+
+        await self._release_master_lock()
+
+        if not self.simulation:
+            await self._ws_client.close()
+            await self._http_client.aclose()
+
+        self._master_lock_acquired = False
+        self._ws_bootstrapped = False
+        for key in self._refs:
+            self._refs[key] = 0
 
     # --- Telescope -----------------------------------------------------------------
 
@@ -2546,3 +2653,10 @@ async def get_session() -> DwarfSession:
                 settings = _session_settings or Settings()
                 _session = DwarfSession(settings)
     return _session
+
+
+async def shutdown_session() -> None:
+    global _session
+    if _session is None:
+        return
+    await _session.shutdown()
