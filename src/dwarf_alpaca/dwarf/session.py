@@ -48,6 +48,7 @@ from ..proto.dwarf_messages import (
 from .ftp_client import DwarfFtpClient, FtpPhotoEntry
 from .http_client import DwarfHttpClient
 from .ws_client import DwarfCommandError, DwarfWsClient, send_and_check
+from websockets.exceptions import ConnectionClosed, ConnectionClosedOK
 
 logger = structlog.get_logger(__name__)
 
@@ -1116,11 +1117,18 @@ class DwarfSession:
             return
         await self._ensure_ws()
         request = ReqCloseCamera()
-        await self._send_and_check(
-            protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
-            protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_CLOSE_CAMERA,
-            request,
-        )
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+                protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_CLOSE_CAMERA,
+                request,
+            )
+        except (ConnectionClosed, ConnectionClosedOK) as exc:
+            logger.info(
+                "dwarf.camera.disconnect.socket_closed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
 
     async def camera_start_exposure(
         self,

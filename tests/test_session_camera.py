@@ -1,5 +1,6 @@
 import asyncio
 import time
+import types
 
 import pytest
 
@@ -12,6 +13,7 @@ from dwarf_alpaca.proto.dwarf_messages import (
     WsPacket,
     TYPE_NOTIFICATION,
 )
+from websockets.exceptions import ConnectionClosedOK
 
 
 @pytest.mark.asyncio
@@ -200,6 +202,27 @@ async def test_camera_go_live_after_capture(monkeypatch):
 
     assert go_live_calls == [True]
     assert state.image is not None
+
+
+@pytest.mark.asyncio
+async def test_camera_disconnect_handles_closed_socket(monkeypatch):
+    session = DwarfSession(Settings())
+    session.simulation = False
+    session.camera_state.capture_task = None
+    session.camera_state.connected = True
+
+    async def fake_ensure_ws(self):
+        return None
+
+    async def failing_send(self, *_args, **_kwargs):
+        raise ConnectionClosedOK(None, None)
+
+    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
+    session._send_and_check = types.MethodType(failing_send, session)
+
+    await session.camera_disconnect()
+
+    assert session.camera_state.connected is False
 
 
 @pytest.mark.asyncio
