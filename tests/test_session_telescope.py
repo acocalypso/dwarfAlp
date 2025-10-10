@@ -152,43 +152,74 @@ async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_master_lock_acquisition_triggers_calibration(monkeypatch):
+async def test_acquire_telescope_does_not_schedule_calibration(monkeypatch):
     session = DwarfSession(Settings())
     session.simulation = False
 
-    async def noop(self, *args, **kwargs):
-        return None
+    async def fake_ensure_ws(self, *args, **kwargs):
+        self._master_lock_acquired = True
 
-    session._bootstrap_ws = types.MethodType(noop, session)
-    session._ws_client._conn = types.SimpleNamespace(closed=False)
+    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
 
-    response = ComResponse()
-    response.code = protocol_pb2.OK
+    scheduled_tasks: list[Any] = []
 
-    async def fake_send_request(self, module_id, command_id, request, response_cls, *, timeout=10.0, expected_responses=None):
-        return response
+    def fake_create_task(coro):
+        scheduled_tasks.append(coro)
+        raise AssertionError("Calibration task should not be scheduled during acquire")
 
-    session._ws_client.send_request = types.MethodType(fake_send_request, session._ws_client)
+    monkeypatch.setattr(session_module.asyncio, "create_task", fake_create_task)
 
-    sync_calls: list[None] = []
+    await session.acquire("telescope")
 
-    async def fake_sync(self):
-        sync_calls.append(None)
+    assert scheduled_tasks == []
 
-    session._sync_device_clock = types.MethodType(fake_sync, session)
 
-    calibration_calls: list[None] = []
+@pytest.mark.asyncio
+async def test_acquire_telescope_does_not_schedule_even_without_recent_cal(monkeypatch):
+    session = DwarfSession(Settings())
+    session.simulation = False
+    session._last_calibration_time = None
+    session._last_calibration_ip = None
 
-    async def fake_calibration(self):
-        calibration_calls.append(None)
+    async def fake_ensure_ws(self, *args, **kwargs):
+        self._master_lock_acquired = True
 
-    session.ensure_calibration = types.MethodType(fake_calibration, session)
+    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
 
-    await session._ensure_master_lock()
-    await asyncio.sleep(0)
+    scheduled_tasks: list[Any] = []
 
-    assert len(sync_calls) == 1
-    assert len(calibration_calls) == 1
+    def fake_create_task(coro):
+        scheduled_tasks.append(coro)
+        raise AssertionError("Calibration task should not be scheduled during acquire")
+
+    monkeypatch.setattr(session_module.asyncio, "create_task", fake_create_task)
+
+    await session.acquire("telescope")
+
+    assert scheduled_tasks == []
+
+
+@pytest.mark.asyncio
+async def test_acquire_focuser_does_not_schedule_calibration(monkeypatch):
+    session = DwarfSession(Settings())
+    session.simulation = False
+
+    async def fake_ensure_ws(self, *args, **kwargs):
+        self._master_lock_acquired = True
+
+    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
+
+    scheduled_tasks: list[Any] = []
+
+    def fake_create_task(coro):
+        scheduled_tasks.append(coro)
+        raise AssertionError("Calibration task should not be scheduled for focuser acquire")
+
+    monkeypatch.setattr(session_module.asyncio, "create_task", fake_create_task)
+
+    await session.acquire("focuser")
+
+    assert scheduled_tasks == []
 
 
 @pytest.mark.asyncio

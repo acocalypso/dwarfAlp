@@ -605,7 +605,6 @@ class DwarfSession:
 
             if self._master_lock_acquired:
                 await self._sync_device_clock()
-                self._schedule_calibration()
 
     async def _release_master_lock(self) -> None:
         if self.simulation:
