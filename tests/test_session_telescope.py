@@ -141,6 +141,7 @@ async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
     assert (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO) in actions
 
     session._last_calibration_time = time.time() - (settings.calibration_valid_seconds + 5.0)
+    session._last_calibration_ip = settings.dwarf_ap_ip
     actions.clear()
 
     await session.telescope_slew_to_coordinates(-4.0, 0.5)
@@ -188,6 +189,38 @@ async def test_master_lock_acquisition_triggers_calibration(monkeypatch):
 
     assert len(sync_calls) == 1
     assert len(calibration_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_release_keeps_recent_calibration(monkeypatch):
+    settings = Settings()
+    session = DwarfSession(settings)
+    session.simulation = False
+
+    # Prepare calibration state
+    now = time.time()
+    session._last_calibration_time = now
+    session._last_calibration_ip = settings.dwarf_ap_ip
+
+    # Ensure release path thinks all refs are active then going to zero
+    for key in session._refs:
+        session._refs[key] = 0
+    session._refs["telescope"] = 1
+
+    async def fake_ws_close(_self=None):
+        return None
+
+    async def fake_http_close(_self=None):
+        return None
+
+    monkeypatch.setattr(type(session._ws_client), "close", fake_ws_close)
+    monkeypatch.setattr(type(session._http_client), "aclose", fake_http_close)
+
+    await session.release("telescope")
+
+    assert session._last_calibration_time == now
+    assert session._last_calibration_ip == settings.dwarf_ap_ip
+
 @pytest.mark.asyncio
 async def test_telescope_move_axis_sends_joystick_command(monkeypatch):
     session = DwarfSession(Settings())

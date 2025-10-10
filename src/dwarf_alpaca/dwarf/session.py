@@ -180,6 +180,7 @@ class DwarfSession:
         self._gain_last_skipped_value: int | None = None
         self._calibration_lock = asyncio.Lock()
         self._last_calibration_time: float | None = None
+        self._last_calibration_ip: str | None = None
         self._calibration_task = None  # type: asyncio.Task[None] | None
 
     @property
@@ -203,7 +204,9 @@ class DwarfSession:
             self._master_lock_acquired = False
             self._ws_bootstrapped = False
             self._time_synced = self.simulation
-            self._last_calibration_time = None
+            if self._last_calibration_ip != self.settings.dwarf_ap_ip:
+                self._last_calibration_time = None
+                self._last_calibration_ip = None
         await self._ensure_master_lock()
         self._ensure_temperature_monitor_task()
 
@@ -749,7 +752,6 @@ class DwarfSession:
                 await self._ws_client.close()
                 await self._http_client.aclose()
                 self._master_lock_acquired = False
-                self._last_calibration_time = None
 
     async def shutdown(self) -> None:
         if self.camera_state.capture_task and not self.camera_state.capture_task.done():
@@ -783,6 +785,7 @@ class DwarfSession:
         for key in self._refs:
             self._refs[key] = 0
         self._last_calibration_time = None
+        self._last_calibration_ip = None
 
     # --- Telescope -----------------------------------------------------------------
 
@@ -968,6 +971,8 @@ class DwarfSession:
         max_age_value = self.settings.calibration_valid_seconds
         if self._last_calibration_time is None:
             return False
+        if self._last_calibration_ip != self.settings.dwarf_ap_ip:
+            return False
         if max_age_value is None:
             return True
         max_age = float(max_age_value)
@@ -1048,6 +1053,7 @@ class DwarfSession:
                 timeout=max(1.0, float(self.settings.calibration_timeout_seconds)),
             )
             self._last_calibration_time = time.time()
+            self._last_calibration_ip = self.settings.dwarf_ap_ip
             logger.info("dwarf.telescope.calibration.completed")
 
     async def _start_goto_command(

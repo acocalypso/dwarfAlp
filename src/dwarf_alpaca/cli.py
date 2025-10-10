@@ -92,6 +92,16 @@ async def _preflight_session(
                 attempt,
                 has_master_lock,
             )
+            if has_master_lock and not settings.force_simulation:
+                try:
+                    await session.ensure_calibration()
+                    await session._wait_for_calibration_ready()
+                except Exception as exc:  # pragma: no cover - hardware dependent
+                    logger.warning(
+                        "cli.start.calibration_failed ip=%s error=%s",
+                        settings.dwarf_ap_ip,
+                        exc,
+                    )
         finally:
             await session.release("telescope")
         return
