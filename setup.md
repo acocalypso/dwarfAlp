@@ -21,7 +21,7 @@ This guide walks you through installing the precompiled **DwarfAlpacaGUI.exe**, 
 2. Allow the application through the Windows Defender firewall when prompted. The server exposes HTTP (default `11111`) and UDP discovery ports.
 3. The Control Center opens on the **Server** tab (Screenshot 1). This is where you start or stop the Alpaca service.
 
-![Server tab overview](images/Setup/1.jpg)
+![Server tab overview](images/Setup/2.jpg)
 
 ### 2.1 Server Tab
 
@@ -35,7 +35,8 @@ This guide walks you through installing the precompiled **DwarfAlpacaGUI.exe**, 
 
 The **Provisioning** tab lets you scan for DWARF units over BLE, push Wi-Fi credentials, and fetch available Wi-Fi networks.
 
-![Provisioning workflow](images/Setup/2.jpg)
+![Provisioning workflow](images/Setup/1.jpg)
+![Provisioning workflow2](images/Setup/3.jpg)
 
 Steps:
 
@@ -52,7 +53,7 @@ Provisioning results are saved in `var/connectivity.json`, so subsequent runs ca
 
 Use the **Settings** tab to override key runtime options before starting the server.
 
-![Settings overrides](images/Setup/3.jpg)
+![Settings overrides](images/Setup/3.1.jpg)
 
 | Field | Description |
 | --- | --- |
