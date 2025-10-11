@@ -70,7 +70,7 @@ All overrides apply when you press **Start server**. The defaults come from `src
 
 ## 5. Start and Verify the Server
 
-1. Confirm the DWARF is powered on and connected to your network (or enable **Force simulation mode**).
+1. Confirm the DWARF is powered on, connected to your network, and pointed at stars in the sky. (or enable **Force simulation mode**).
 2. Click **Start server**. The status label will update (e.g., *“Running preflight checks”* → *“Awaiting Alpaca clients on http://HOST:PORT”*).
 3. Open the **Logs** pane at the bottom for structured output; start/stop events and errors are mirrored here.
 4. If you need to stop the stack, press **Stop server**. The log will show graceful shutdown details.
