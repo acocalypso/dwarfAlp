@@ -31,7 +31,7 @@ This guide walks you through installing the precompiled **DwarfAlpacaGUI.exe**, 
 
 ---
 
-## 3. Provisioning the DWARF (Optional)
+## 3. Provisioning the DWARF
 
 The **Provisioning** tab lets you scan for DWARF units over BLE, push Wi-Fi credentials, and fetch available Wi-Fi networks.
 
