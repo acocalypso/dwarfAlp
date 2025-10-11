@@ -86,6 +86,8 @@ dwarf-alpaca start --ssid "MySSID" --password "MyPassword"
 - Provisions the telescope, waits for STA connectivity, acquires the master lock, and starts the HTTP + discovery services.
 - STA IP detection automatically updates `Settings.dwarf_ap_ip` before the server boots.
 
+> Looking for the packaged Windows GUI? Follow the step-by-step guide in [`setup.md`](setup.md) to launch the compiled Control Center and configure clients such as NINA.
+
 ---
 
 ## Building the GUI Executable
