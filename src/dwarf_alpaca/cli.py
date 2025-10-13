@@ -6,6 +6,8 @@ import time
 from logging.handlers import RotatingFileHandler
 from typing import Optional
 
+from datetime import datetime
+
 from .config.settings import Settings, load_settings
 from .server import run_server
 from .provisioning.cli import provision_command, provision_guide_command
@@ -23,15 +25,17 @@ def _configure_start_logging(settings: Settings) -> None:
     try:
         log_dir = settings.state_directory / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
-        log_path = log_dir / "dwarf-alpaca-start.log"
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_path = log_dir / f"dwarf-alpaca-start-{timestamp}.log"
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("cli.start.logfile_init_failed", error=str(exc))
         return
 
     root_logger = logging.getLogger()
-    for handler in root_logger.handlers:
+    for handler in list(root_logger.handlers):
         if getattr(handler, _START_LOG_HANDLER_FLAG, False):
-            return
+            root_logger.removeHandler(handler)
+            handler.close()
 
     handler = RotatingFileHandler(
         log_path,

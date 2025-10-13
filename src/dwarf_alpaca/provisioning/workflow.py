@@ -60,6 +60,8 @@ async def provision_sta(
         state.mode = "sta"
         state.last_error = None
         state.wifi_credentials[ssid] = password
+        if device_address:
+            state.last_device_address = device_address
         state_store.save(state)
         logger.info("provision.workflow.success", sta_ip=result.sta_ip)
         return

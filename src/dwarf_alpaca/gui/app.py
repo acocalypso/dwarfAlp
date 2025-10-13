@@ -37,7 +37,7 @@ from PySide6.QtWidgets import (
 
 from ..config.settings import Settings, load_settings
 from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
-from ..dwarf.state import ConnectivityState
+from ..dwarf.state import ConnectivityState, StateStore
 from ..provisioning.workflow import create_state_store, provision_sta
 from ..cli import _configure_start_logging, _preflight_session
 from .logging import QtLogHandler
@@ -152,6 +152,7 @@ class ProvisioningWidget(QGroupBox):
     provision_requested = Signal(dict)
     discovery_requested = Signal(dict)
     wifi_scan_requested = Signal(dict)
+    device_selected = Signal(str)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__("Provisioning", parent)
@@ -229,6 +230,7 @@ class ProvisioningWidget(QGroupBox):
         address = item.data(Qt.UserRole)
         if isinstance(address, str):
             self.device_address_edit.setText(address)
+            self.device_selected.emit(address)
 
     def _handle_wifi_selected(self, item: QListWidgetItem) -> None:
         ssid = item.text()
@@ -266,6 +268,9 @@ class ProvisioningWidget(QGroupBox):
         value = password or "DWARF_12345678"
         self.ble_password_edit.setText(value)
 
+    def set_device_address(self, address: Optional[str]) -> None:
+        self.device_address_edit.setText(address or "")
+
     def current_payload(self) -> dict[str, Optional[str]]:
         return {
             "ssid": self.ssid_edit.text().strip(),
@@ -294,10 +299,17 @@ class ServerControlWidget(QGroupBox):
         self.status_label = QLabel("Stopped")
         layout.addWidget(self.status_label)
 
+        self.master_lock_label = QLabel("Master lock status: unknown")
+        self.master_lock_hint_label = QLabel()
+        self.master_lock_hint_label.setWordWrap(True)
+        layout.addWidget(self.master_lock_label)
+        layout.addWidget(self.master_lock_hint_label)
+
         self.setLayout(layout)
 
         self.start_button.clicked.connect(self.start_requested)
         self.stop_button.clicked.connect(self.stop_requested)
+        self.set_master_lock_status(None)
 
     def set_running(self, running: bool, message: str) -> None:
         self.status_label.setText(message)
@@ -308,6 +320,22 @@ class ServerControlWidget(QGroupBox):
         self.status_label.setText(message)
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(False)
+
+    def set_master_lock_status(self, has_lock: Optional[bool]) -> None:
+        if has_lock is None:
+            status_text = "Master lock status: unknown"
+            hint_text = ""
+        elif has_lock:
+            status_text = "Master lock status: acquired"
+            hint_text = ""
+        else:
+            status_text = "Master lock status: not acquired"
+            hint_text = (
+                "Stop the server, shutdown the DWARF, do not use your phone app to connect to the DWARF as this will take the master lock."
+            )
+        self.master_lock_label.setText(status_text)
+        self.master_lock_hint_label.setText(hint_text)
+        self.master_lock_hint_label.setVisible(bool(hint_text))
 
 
 def _load_app_icon() -> QIcon:
@@ -337,6 +365,7 @@ class MainWindow(QMainWindow):
 
         self._settings_path: Optional[Path] = None
         self._settings: Optional[Settings] = None
+        self._state_store: Optional[StateStore] = None
         self._workers: set[AsyncWorker] = set()
 
         self.server_service = ServerService()
@@ -359,10 +388,12 @@ class MainWindow(QMainWindow):
         self._saved_credentials: OrderedDict[str, str] = OrderedDict()
         self._latest_state: Optional[ConnectivityState] = None
         self._pending_start: Optional[tuple[Settings, bool]] = None
+        self._server_status_message: str = "Stopped"
 
         self.provisioning_widget.provision_requested.connect(self._handle_provision)
         self.provisioning_widget.discovery_requested.connect(self._handle_discover)
         self.provisioning_widget.wifi_scan_requested.connect(self._handle_wifi_scan)
+        self.provisioning_widget.device_selected.connect(self._on_device_selected)
         self.server_widget.start_requested.connect(self._handle_start_server)
         self.server_widget.stop_requested.connect(self._handle_stop_server)
 
@@ -451,6 +482,7 @@ class MainWindow(QMainWindow):
         resolved_state_dir.mkdir(parents=True, exist_ok=True)
         self._settings_path = path
         self._settings = settings
+        self._state_store = create_state_store(settings.state_directory)
         self.settings_widget.populate(settings)
         self.provisioning_widget.set_ble_password(settings.ble_password or "DWARF_12345678")
         self.statusBar().showMessage(
@@ -475,7 +507,10 @@ class MainWindow(QMainWindow):
     # region state display
     def _refresh_state(self) -> None:
         settings = self._current_settings()
-        store = create_state_store(settings.state_directory)
+        store = self._state_store
+        if store is None:
+            store = create_state_store(settings.state_directory)
+            self._state_store = store
         state = store.load()
         self._latest_state = state
         summary = self._format_state_summary(state)
@@ -483,6 +518,7 @@ class MainWindow(QMainWindow):
         self._saved_credentials = OrderedDict(state.wifi_credentials.items())
         ssid, password = self._get_last_saved_credentials()
         self.provisioning_widget.populate_saved_credentials(ssid, password)
+        self.provisioning_widget.set_device_address(state.last_device_address)
         self._update_help(self._tabs.currentIndex())
 
     @staticmethod
@@ -492,6 +528,8 @@ class MainWindow(QMainWindow):
         parts.append(f"STA IP: {state.sta_ip or 'unknown'}")
         if state.last_error:
             parts.append(f"Last error: {state.last_error}")
+        if state.last_device_address:
+            parts.append(f"Last device: {state.last_device_address}")
         if state.wifi_credentials:
             networks = ", ".join(state.wifi_credentials.keys())
             parts.append(f"Saved networks: {networks}")
@@ -507,8 +545,9 @@ class MainWindow(QMainWindow):
         title, body = self._help_messages.get(index, ("", ""))
         sections: list[str] = []
         if index == 0:
-            status = "running" if self.server_service.is_running() else "stopped"
-            sections.append(f"<b>Server status</b><br/>Current state: {status}.")
+            sections.append(
+                f"<b>Server status</b><br/>Current state: {self._server_status_message}."
+            )
         if index == 1 and self._connectivity_summary:
             sections.append(self._connectivity_summary)
 
@@ -538,6 +577,19 @@ class MainWindow(QMainWindow):
     # endregion
 
     # region provisioning
+    def _on_device_selected(self, address: str) -> None:
+        normalized = address.strip()
+        if not normalized:
+            return
+        store = self._state_store
+        if store is None:
+            store = create_state_store(self._current_settings().state_directory)
+            self._state_store = store
+        state = self._latest_state or store.load()
+        state.last_device_address = normalized
+        self._latest_state = state
+        store.save(state)
+
     def _build_provisioning_payload(self) -> Optional[dict[str, Optional[str]]]:
         payload = self.provisioning_widget.current_payload()
         ssid = payload.get("ssid", "").strip()
@@ -735,9 +787,14 @@ class MainWindow(QMainWindow):
         self.server_service.stop()
 
     def _handle_server_status(self, status: ServerStatus) -> None:
+        self._server_status_message = status.message
         self.server_widget.set_running(status.running, status.message)
-        if not status.running:
+        if status.running:
+            self.server_widget.set_master_lock_status(status.has_master_lock)
+        else:
+            self.server_widget.set_master_lock_status(None)
             self._refresh_state()
+        self._update_help(self._tabs.currentIndex())
 
     def _handle_server_error(self, message: str) -> None:
         self._handle_worker_error(RuntimeError(message), "Server error")
