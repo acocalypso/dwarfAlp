@@ -981,7 +981,9 @@ class DwarfSession:
         return (time.time() - self._last_calibration_time) <= max_age
 
     def _schedule_calibration(self) -> None:
-        if self.simulation or self._has_recent_calibration():
+        if self.simulation or not self.settings.auto_calibrate_on_slew:
+            return
+        if self._has_recent_calibration():
             return
         task = self._calibration_task
         if task and not task.done():
@@ -1011,7 +1013,7 @@ class DwarfSession:
             self._calibration_task = None
 
     async def _wait_for_calibration_ready(self) -> None:
-        if self.simulation:
+        if self.simulation or not self.settings.auto_calibrate_on_slew:
             return
         self._schedule_calibration()
         task = self._calibration_task

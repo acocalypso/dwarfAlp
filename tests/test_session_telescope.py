@@ -16,7 +16,9 @@ from dwarf_alpaca.proto.dwarf_messages import ComResponse
 
 @pytest.mark.asyncio
 async def test_telescope_slew_retries_after_busy(monkeypatch):
-    session = DwarfSession(Settings())
+    settings = Settings()
+    settings.auto_calibrate_on_slew = True
+    session = DwarfSession(settings)
     session.simulation = False
 
     async def noop(self, *args, **kwargs):
@@ -72,7 +74,9 @@ async def test_telescope_slew_retries_after_busy(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_telescope_slew_raises_after_repeated_busy(monkeypatch):
-    session = DwarfSession(Settings())
+    settings = Settings()
+    settings.auto_calibrate_on_slew = True
+    session = DwarfSession(settings)
     session.simulation = False
 
     async def noop(self, *args, **kwargs):
@@ -111,6 +115,7 @@ async def test_telescope_slew_raises_after_repeated_busy(monkeypatch):
 @pytest.mark.asyncio
 async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
     settings = Settings()
+    settings.auto_calibrate_on_slew = True
     settings.calibration_valid_seconds = 60.0
     session = DwarfSession(settings)
     session.simulation = False
