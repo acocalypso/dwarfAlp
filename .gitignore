@@ -9,3 +9,4 @@ dwarf_python_api/
 build/
 dist/
 DwarfAlpacaGUI.spec
+logs/
