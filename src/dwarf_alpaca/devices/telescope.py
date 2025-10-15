@@ -419,6 +419,16 @@ async def slew_to_coordinates_async(
                     f"{exc.module_id}:{exc.command_id} failed with code {exc.code}"
                 )
             raise HTTPException(status_code=502, detail=detail) from exc
+        except asyncio.TimeoutError as exc:
+            state.slewing = False
+            state.right_ascension_rate = 0.0
+            state.declination_rate = 0.0
+            state.target_ra = None
+            state.target_dec = None
+            raise HTTPException(
+                status_code=504,
+                detail="Timed out while waiting for DWARF to acknowledge the GoTo command.",
+            ) from exc
 
         state.right_ascension_rate = 0.0
         state.declination_rate = 0.0

@@ -25,6 +25,14 @@ def test_exposure_resolver_chooses_expected_index(params_config: dict[str, objec
     assert any(abs(value - 1.0) < 1e-9 for value in resolver.available_durations())
 
 
+def test_format_timezone_label_handles_offsets() -> None:
+    session = DwarfSession(Settings())
+    assert session._format_timezone_label(0.0) == "UTC"
+    assert session._format_timezone_label(2.0) == "UTC+02:00"
+    assert session._format_timezone_label(-3.5) == "UTC-03:30"
+    assert session._format_timezone_label(5.75) == "UTC+05:45"
+
+
 @pytest.mark.asyncio
 async def test_ensure_default_filter_prefers_support_params(params_config: dict[str, object]) -> None:
     session = DwarfSession(Settings())

@@ -9,6 +9,11 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, Optional, Tuple, Type
 
+try:
+    from zoneinfo import ZoneInfo
+except Exception:  # pragma: no cover - Python < 3.9 or missing tzdata
+    ZoneInfo = None  # type: ignore[assignment]
+
 import numpy as np
 import structlog
 from google.protobuf.message import Message
@@ -21,6 +26,7 @@ from ..proto.dwarf_messages import (
     CommonParam,
     ComResponse,
     ReqSetTime,
+    ReqSetTimezone,
     ReqCloseCamera,
     ReqGetSystemWorkingState,
     ReqGotoDSO,
@@ -158,7 +164,8 @@ class DwarfSession:
         self._master_lock_acquired = False
         self._master_lock_lock = asyncio.Lock()
         self._lock = asyncio.Lock()
-        self._ws_command_lock = asyncio.Lock()
+        self._ws_command_lock: asyncio.Lock | None = None
+        self._ws_command_lock_loop: asyncio.AbstractEventLoop | None = None
         self._ws_bootstrapped = False
         self.camera_state = CameraState()
         self.focuser_state = FocuserState()
@@ -173,6 +180,8 @@ class DwarfSession:
         self._last_goto_time: float | None = None
         self._last_goto_target: tuple[float, float] | None = None
         self._time_synced = self.simulation
+        self._last_time_sync_offset: float | None = None
+        self._last_time_sync_timezone: str | None = None
         self._gain_command_supported: bool | None = None
         self._gain_command_warning_logged = False
         self._gain_support_param: dict[str, Any] | None = None
@@ -191,6 +200,32 @@ class DwarfSession:
     @property
     def has_master_lock(self) -> bool:
         return self._master_lock_acquired
+
+    def _get_ws_command_lock(self) -> asyncio.Lock:
+        loop = asyncio.get_running_loop()
+        lock = self._ws_command_lock
+        if lock is None or self._ws_command_lock_loop is not loop:
+            lock = asyncio.Lock()
+            self._ws_command_lock = lock
+            self._ws_command_lock_loop = loop
+        return lock
+
+    def _reset_ws_command_lock(self) -> None:
+        self._ws_command_lock = None
+        self._ws_command_lock_loop = None
+
+    async def _handle_ws_timeout(self, module_id: int, command_id: int, error: Exception) -> None:
+        logger.warning(
+            "dwarf.ws.command.timeout",
+            module_id=module_id,
+            command_id=command_id,
+            error=str(error),
+            error_type=type(error).__name__,
+        )
+        self._ws_client.cancel_pending(module_id, command_id, error)
+        self._reset_ws_command_lock()
+        with contextlib.suppress(Exception):
+            await self._ws_client.close()
 
     async def _ensure_ws(self) -> None:
         if self.simulation:
@@ -433,7 +468,8 @@ class DwarfSession:
         timeout: float = 10.0,
         expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
     ) -> None:
-        async with self._ws_command_lock:
+        lock = self._get_ws_command_lock()
+        async with lock:
             expected_summary = {
                 f"{mid}:{cid}": resp_cls.__name__
                 for (mid, cid), resp_cls in (expected_responses or {}).items()
@@ -447,14 +483,18 @@ class DwarfSession:
                 request_payload=_message_to_log(request),
                 expected_responses=expected_summary,
             )
-            await send_and_check(
-                self._ws_client,
-                module_id,
-                command_id,
-                request,
-                timeout=timeout,
-                expected_responses=expected_responses,
-            )
+            try:
+                await send_and_check(
+                    self._ws_client,
+                    module_id,
+                    command_id,
+                    request,
+                    timeout=timeout,
+                    expected_responses=expected_responses,
+                )
+            except asyncio.TimeoutError as exc:
+                await self._handle_ws_timeout(module_id, command_id, exc)
+                raise
             logger.info(
                 "dwarf.ws.command.send_and_check.completed",
                 module_id=module_id,
@@ -471,7 +511,8 @@ class DwarfSession:
         timeout: float = 10.0,
         expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
     ) -> Message:
-        async with self._ws_command_lock:
+        lock = self._get_ws_command_lock()
+        async with lock:
             expected_summary = {
                 f"{mid}:{cid}": resp_cls.__name__
                 for (mid, cid), resp_cls in (expected_responses or {}).items()
@@ -486,14 +527,18 @@ class DwarfSession:
                 expected_responses=expected_summary,
                 expected_response_type=response_cls.__name__,
             )
-            response = await self._ws_client.send_request(
-                module_id,
-                command_id,
-                request,
-                response_cls,
-                timeout=timeout,
-                expected_responses=expected_responses,
-            )
+            try:
+                response = await self._ws_client.send_request(
+                    module_id,
+                    command_id,
+                    request,
+                    response_cls,
+                    timeout=timeout,
+                    expected_responses=expected_responses,
+                )
+            except asyncio.TimeoutError as exc:
+                await self._handle_ws_timeout(module_id, command_id, exc)
+                raise
             logger.info(
                 "dwarf.ws.command.response",
                 module_id=module_id,
@@ -692,17 +737,20 @@ class DwarfSession:
     async def _sync_device_clock(self) -> None:
         """Push the current host timestamp and timezone offset to the DWARF device."""
 
-        if self.simulation or self._time_synced:
+        if self.simulation:
             return
 
-        request = ReqSetTime()
-        timestamp = int(time.time())
-        request.timestamp = timestamp
-
-        local_time = datetime.now()
-        utc_time = datetime.utcnow()
-        offset_hours = (local_time - utc_time).total_seconds() / 3600.0
+        timezone_label, offset_hours, offset_source = self._determine_timezone_details()
         timezone_offset = round(offset_hours * 4.0) / 4.0
+
+        if self._time_synced and self._last_time_sync_offset == timezone_offset:
+            if timezone_label == self._last_time_sync_timezone:
+                return
+
+        request = ReqSetTime()
+        timestamp_utc = time.time()
+        adjusted_timestamp = int(timestamp_utc - (timezone_offset * 3600.0))
+        request.timestamp = adjusted_timestamp
         request.timezone_offset = timezone_offset
 
         try:
@@ -716,19 +764,113 @@ class DwarfSession:
             logger.warning(
                 "dwarf.system.time_sync_failed",
                 error=str(exc),
-                timestamp=timestamp,
+                timestamp=adjusted_timestamp,
                 timezone_offset=timezone_offset,
                 offset_raw=offset_hours,
+                offset_source=offset_source,
+                timezone_label=timezone_label,
             )
             return
 
+        if timezone_label and "/" in timezone_label and timezone_label != self._last_time_sync_timezone:
+            tz_request = ReqSetTimezone()
+            tz_request.timezone = timezone_label
+            try:
+                await self._send_and_check(
+                    protocol_pb2.ModuleId.MODULE_SYSTEM,
+                    protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_TIME_ZONE,
+                    tz_request,
+                    timeout=5.0,
+                )
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.warning(
+                    "dwarf.system.timezone_sync_failed",
+                    error=str(exc),
+                    timezone=timezone_label,
+                    timezone_offset=timezone_offset,
+                    offset_source=offset_source,
+                )
+            else:
+                self._last_time_sync_timezone = timezone_label
+                logger.info(
+                    "dwarf.system.timezone_synced",
+                    timezone=timezone_label,
+                    timezone_offset=timezone_offset,
+                    offset_source=offset_source,
+                )
+        else:
+            self._last_time_sync_timezone = timezone_label
+
         self._time_synced = True
+        self._last_time_sync_offset = timezone_offset
         logger.info(
             "dwarf.system.time_synced",
-            timestamp=timestamp,
+            timestamp=adjusted_timestamp,
             timezone_offset=timezone_offset,
             offset_raw=offset_hours,
+            offset_source=offset_source,
+            timestamp_utc=int(timestamp_utc),
+            timezone_label=timezone_label or self._format_timezone_label(offset_hours),
         )
+
+    def _determine_timezone_details(self) -> tuple[str | None, float, str]:
+        configured_name = self._normalize_timezone_name(self.settings.timezone_name)
+        if configured_name:
+            offset = self._timezone_offset_for_label(configured_name)
+            if offset is not None:
+                return configured_name, offset, "configured"
+            logger.warning(
+                "dwarf.system.timezone_invalid",
+                timezone=configured_name,
+            )
+
+        system_label, system_offset = self._system_timezone_details()
+        return system_label, system_offset, "system"
+
+    @staticmethod
+    def _normalize_timezone_name(value: Optional[str]) -> str | None:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized:
+                return normalized
+        return None
+
+    def _timezone_offset_for_label(self, label: str) -> float | None:
+        if ZoneInfo is None:
+            return None
+        try:
+            zone = ZoneInfo(label)
+        except Exception:
+            return None
+        now = datetime.now(tz=zone)
+        offset = now.utcoffset()
+        if offset is None:
+            return None
+        return offset.total_seconds() / 3600.0
+
+    @staticmethod
+    def _system_timezone_details() -> tuple[str | None, float]:
+        local_dt = datetime.now().astimezone()
+        offset = local_dt.utcoffset()
+        offset_hours = offset.total_seconds() / 3600.0 if offset else 0.0
+        tzinfo = local_dt.tzinfo
+        label: str | None = None
+        if tzinfo is not None:
+            candidate = getattr(tzinfo, "key", None) or getattr(tzinfo, "zone", None)
+            if isinstance(candidate, str) and "/" in candidate:
+                label = candidate.strip() or None
+        return label, offset_hours
+
+    @staticmethod
+    def _format_timezone_label(offset_hours: float) -> str:
+        offset_seconds = int(round(offset_hours * 3600.0))
+        if offset_seconds == 0:
+            return "UTC"
+        sign = "+" if offset_seconds >= 0 else "-"
+        offset_seconds = abs(offset_seconds)
+        hours, remainder = divmod(offset_seconds, 3600)
+        minutes = remainder // 60
+        return f"UTC{sign}{hours:02d}:{minutes:02d}"
 
     async def acquire(self, device: str) -> None:
         async with self._lock:
@@ -1068,11 +1210,20 @@ class DwarfSession:
         request.ra = ra_hours * 15.0  # DWARF expects degrees
         request.dec = dec_degrees
         request.target_name = target_name
-        await self._send_and_check(
-            protocol_pb2.ModuleId.MODULE_ASTRO,
-            protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
-            request,
-        )
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
+                request,
+            )
+        except asyncio.TimeoutError as exc:
+            logger.warning(
+                "dwarf.telescope.goto.timeout",
+                ra_hours=ra_hours,
+                dec_degrees=dec_degrees,
+                target_name=target_name,
+            )
+            raise
         self._record_goto(ra_hours, dec_degrees)
 
     async def telescope_abort_slew(self) -> None:
@@ -1119,15 +1270,35 @@ class DwarfSession:
             return
         await self._ensure_ws()
         request = ReqCloseCamera()
+        timeout_value = max(float(self.settings.camera_disconnect_timeout_seconds), 0.5)
         try:
             await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
                 protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_CLOSE_CAMERA,
                 request,
+                timeout=timeout_value,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "dwarf.camera.disconnect.timeout",
+                timeout=timeout_value,
+            )
+        except DwarfCommandError as exc:
+            logger.warning(
+                "dwarf.camera.disconnect.command_failed",
+                code=exc.code,
+                module_id=exc.module_id,
+                command_id=exc.command_id,
             )
         except (ConnectionClosed, ConnectionClosedOK) as exc:
             logger.info(
                 "dwarf.camera.disconnect.socket_closed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.warning(
+                "dwarf.camera.disconnect.error",
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
@@ -1222,17 +1393,9 @@ class DwarfSession:
             else:
                 state.last_error = f"command_error:{exc.code}"
             raise
-
-        if astro_code not in (protocol_pb2.OK, protocol_pb2.CODE_ASTRO_NEED_GOTO):
-            if astro_code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
-                state.last_error = "astro_busy"
-            else:
-                state.last_error = f"command_error:{astro_code}"
-            raise DwarfCommandError(
-                protocol_pb2.ModuleId.MODULE_ASTRO,
-                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
-                astro_code,
-            )
+        except asyncio.TimeoutError:
+            state.last_error = "timeout"
+            raise
 
         if astro_code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
             logger.warning(
@@ -1973,15 +2136,23 @@ class DwarfSession:
         if self.simulation:
             return protocol_pb2.OK
         request = astro_pb2.ReqCaptureRawLiveStacking()
-        response = await self._send_command(
-            protocol_pb2.ModuleId.MODULE_ASTRO,
-            protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
-            request,
-            timeout=timeout,
-        )
+        try:
+            response = await self._send_command(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                request,
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError as exc:
+            logger.warning(
+                "dwarf.camera.astro_capture_timeout",
+                timeout=timeout,
+            )
+            raise
         code = getattr(response, "code", protocol_pb2.OK)
         if code == protocol_pb2.OK:
             return code
+
         if code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
             logger.warning(
                 "dwarf.camera.astro_capture_goto_ignored",
@@ -1990,6 +2161,7 @@ class DwarfSession:
                 code=code,
             )
             return code
+
         if code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
             logger.warning(
                 "dwarf.camera.astro_capture_busy",
@@ -2004,6 +2176,7 @@ class DwarfSession:
                 command_id=protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
                 code=code,
             )
+
         raise DwarfCommandError(
             protocol_pb2.ModuleId.MODULE_ASTRO,
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
@@ -2952,8 +3125,23 @@ class DwarfSession:
 
 
 _session: DwarfSession | None = None
-_session_lock = asyncio.Lock()
+_session_lock: asyncio.Lock | None = None
+_session_lock_loop: asyncio.AbstractEventLoop | None = None
 _session_settings: Settings | None = None
+
+
+def _get_session_lock() -> asyncio.Lock:
+    global _session_lock, _session_lock_loop
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.get_event_loop_policy().get_event_loop()
+    lock = _session_lock
+    if lock is None or _session_lock_loop is not loop:
+        lock = asyncio.Lock()
+        _session_lock = lock
+        _session_lock_loop = loop
+    return lock
 
 
 def configure_session(settings: Settings) -> None:
@@ -2983,7 +3171,8 @@ def configure_session(settings: Settings) -> None:
 async def get_session() -> DwarfSession:
     global _session
     if _session is None:
-        async with _session_lock:
+        lock = _get_session_lock()
+        async with lock:
             if _session is None:
                 settings = _session_settings or Settings()
                 _session = DwarfSession(settings)

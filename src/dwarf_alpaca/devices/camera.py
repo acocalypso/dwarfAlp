@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import time
 from dataclasses import dataclass
@@ -419,10 +420,16 @@ async def put_connected(
     session = await get_session()
     if value:
         await session.acquire("camera")
-        await session.camera_connect()
+        try:
+            await session.camera_connect()
+        except Exception:
+            await session.release("camera")
+            raise
     else:
-        await session.camera_disconnect()
-        await session.release("camera")
+        try:
+            await session.camera_disconnect()
+        finally:
+            await session.release("camera")
     runtime = session.camera_state
     state.connected = runtime.connected
     return alpaca_response()
@@ -546,12 +553,25 @@ async def start_exposure(
             continue_without_darks=continue_without_dark,
         )
     except DwarfCommandError as exc:
+        if exc.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "DWARF is still processing a previous astro capture. "
+                    "Wait for it to finish or abort it before retrying."
+                ),
+            ) from exc
         raise HTTPException(
             status_code=502,
             detail=(
                 "DWARF command "
                 f"{exc.module_id}:{exc.command_id} failed with code {exc.code}"
             ),
+        ) from exc
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail="Timed out while waiting for DWARF to start the exposure.",
         ) from exc
     return alpaca_response()
 

@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-import sys
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QCompleter,
     QCheckBox,
     QComboBox,
     QFileDialog,
@@ -35,6 +36,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+try:
+    from zoneinfo import available_timezones
+except Exception:  # pragma: no cover - Python < 3.9 or missing tzdata
+    available_timezones = None  # type: ignore[assignment]
+
 from ..config.settings import Settings, load_settings
 from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
 from ..dwarf.state import ConnectivityState, StateStore
@@ -49,6 +55,29 @@ logger = logging.getLogger(__name__)
 
 
 APP_ICON_PATH = Path(__file__).resolve().parents[3] / "images" / "dwarfalplogo.ico"
+
+
+def _load_timezone_choices() -> list[str]:
+    if callable(available_timezones):
+        try:
+            candidates = available_timezones()
+        except Exception:  # pragma: no cover - defensive fallback
+            candidates = {"UTC"}
+        choices = [
+            tz
+            for tz in candidates
+            if isinstance(tz, str)
+            and "/" in tz
+            and not tz.startswith("Etc/")
+            and tz[0].isalpha()
+        ]
+        if "UTC" not in choices:
+            choices.append("UTC")
+        return sorted(choices)
+    return ["UTC"]
+
+
+TIMEZONE_CHOICES = _load_timezone_choices()
 
 
 WS_CLIENT_CHOICES: list[tuple[str, str]] = [
@@ -105,6 +134,18 @@ class SettingsOverridesWidget(QGroupBox):
         self.preflight_interval_spin = QSpinBox()
         self.preflight_interval_spin.setRange(1, 120)
         self.preflight_interval_spin.setSuffix(" s")
+        self.timezone_combo = QComboBox()
+        self.timezone_combo.setEditable(True)
+        self.timezone_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.timezone_combo.setMinimumContentsLength(20)
+        self.timezone_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        completer = QCompleter(TIMEZONE_CHOICES, self.timezone_combo)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        self.timezone_combo.setCompleter(completer)
+        self.timezone_combo.addItem("Use system timezone (default)", None)
+        for tz in TIMEZONE_CHOICES:
+            self.timezone_combo.addItem(tz, tz)
 
         form.addRow("HTTP host", self.http_host_edit)
         form.addRow("HTTP port", self.http_port_spin)
@@ -114,6 +155,7 @@ class SettingsOverridesWidget(QGroupBox):
         form.addRow(self.skip_preflight_checkbox)
         form.addRow("Preflight timeout", self.preflight_timeout_spin)
         form.addRow("Preflight interval", self.preflight_interval_spin)
+        form.addRow("Timezone", self.timezone_combo)
         self.setLayout(form)
 
     def populate(self, settings: Settings) -> None:
@@ -129,6 +171,7 @@ class SettingsOverridesWidget(QGroupBox):
         self.skip_preflight_checkbox.setChecked(False)
         self.preflight_timeout_spin.setValue(180)
         self.preflight_interval_spin.setValue(5)
+        self.set_timezone_name(settings.timezone_name)
 
     def apply(self, settings: Settings) -> Settings:
         data = settings.model_dump()
@@ -136,6 +179,14 @@ class SettingsOverridesWidget(QGroupBox):
         if not isinstance(selected_client_id, str) or not selected_client_id.strip():
             selected_client_id = self.ws_client_id_combo.currentText().strip()
         selected_client_id = selected_client_id or settings.dwarf_ws_client_id
+        combo_index = self.timezone_combo.currentIndex()
+        combo_data = self.timezone_combo.itemData(combo_index) if combo_index >= 0 else None
+        timezone_name = None
+        if isinstance(combo_data, str) and combo_data.strip():
+            timezone_name = combo_data.strip()
+        else:
+            text_value = self.timezone_combo.currentText().strip()
+            timezone_name = text_value or None
         data.update(
             {
                 "http_host": self.http_host_edit.text().strip() or settings.http_host,
@@ -143,9 +194,22 @@ class SettingsOverridesWidget(QGroupBox):
                 "dwarf_ap_ip": self.dwarf_ip_edit.text().strip() or settings.dwarf_ap_ip,
                 "dwarf_ws_client_id": selected_client_id,
                 "force_simulation": self.force_sim_checkbox.isChecked(),
+                "timezone_name": timezone_name,
             }
         )
         return settings.model_validate(data)
+
+    def set_timezone_name(self, name: Optional[str]) -> None:
+        if not isinstance(name, str) or not name.strip():
+            self.timezone_combo.setCurrentIndex(0)
+            self.timezone_combo.setEditText("")
+            return
+        normalized = name.strip()
+        index = self.timezone_combo.findData(normalized)
+        if index >= 0:
+            self.timezone_combo.setCurrentIndex(index)
+        else:
+            self.timezone_combo.setEditText(normalized)
 
 
 class ProvisioningWidget(QGroupBox):
@@ -513,6 +577,16 @@ class MainWindow(QMainWindow):
             self._state_store = store
         state = store.load()
         self._latest_state = state
+        current_settings = self._current_settings()
+        updated_settings = current_settings
+
+        tz_name = state.timezone_name
+        if tz_name != updated_settings.timezone_name:
+            updated_settings = updated_settings.with_timezone_name(tz_name)
+        self.settings_widget.set_timezone_name(tz_name)
+
+        if updated_settings is not current_settings:
+            self._settings = updated_settings
         summary = self._format_state_summary(state)
         self._connectivity_summary = summary
         self._saved_credentials = OrderedDict(state.wifi_credentials.items())
@@ -533,6 +607,8 @@ class MainWindow(QMainWindow):
         if state.wifi_credentials:
             networks = ", ".join(state.wifi_credentials.keys())
             parts.append(f"Saved networks: {networks}")
+        if state.timezone_name:
+            parts.append(f"Timezone name: {state.timezone_name}")
         return "<br/>".join(parts)
 
     def _get_last_saved_credentials(self) -> tuple[Optional[str], Optional[str]]:
@@ -752,9 +828,12 @@ class MainWindow(QMainWindow):
     def _build_settings_for_server(self) -> Settings:
         base = self._current_settings()
         override = self.settings_widget.apply(base)
+        store = self._state_store
+        if store is None:
+            store = create_state_store(override.state_directory)
+            self._state_store = store
         state = self._latest_state
         if state is None:
-            store = create_state_store(override.state_directory)
             state = store.load()
             self._latest_state = state
 
@@ -766,6 +845,18 @@ class MainWindow(QMainWindow):
             if state.sta_ip:
                 override.dwarf_ap_ip = state.sta_ip
                 self.settings_widget.dwarf_ip_edit.setText(state.sta_ip)
+            needs_save = False
+            normalized_name = (
+                override.timezone_name.strip()
+                if isinstance(override.timezone_name, str) and override.timezone_name.strip()
+                else None
+            )
+            if normalized_name != state.timezone_name:
+                state.timezone_name = normalized_name
+                needs_save = True
+            if needs_save:
+                store.save(state)
+                self._latest_state = state
         if override != base:
             self._settings = override
         return override

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     state_directory: Path = Path("var")
     profiles_path: Optional[Path] = None
 
+    timezone_name: Optional[str] = None
+
     dwarf_ap_ip: str = "192.168.88.1"
     dwarf_http_port: int = 8082
     dwarf_jpeg_port: int = 8092
@@ -43,6 +45,7 @@ class Settings(BaseSettings):
     temperature_refresh_interval_seconds: float = 5.0
     temperature_stale_after_seconds: float = 20.0
     camera_gain_command_timeout_seconds: float = 2.0
+    camera_disconnect_timeout_seconds: float = 5.0
     go_live_before_exposure: bool = True
     go_live_timeout_seconds: float = 5.0
     allow_continue_without_darks: bool = True
@@ -61,6 +64,11 @@ class Settings(BaseSettings):
 
     force_simulation: bool = False
     network_mode: str = "ap"
+
+    def with_timezone_name(self, tz_name: Optional[str]) -> "Settings":
+        data = self.model_dump()
+        data["timezone_name"] = tz_name
+        return type(self).model_validate(data)
 
 
 def load_settings(config_path: Optional[str]) -> Settings:

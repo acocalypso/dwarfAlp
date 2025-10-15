@@ -102,7 +102,7 @@ def test_camera_startexposure_frame_count_and_bin():
     )
     assert resp.status_code == 200
 
-    session = asyncio.get_event_loop().run_until_complete(get_session())
+    session = asyncio.run(get_session())
     assert session.camera_state.requested_frame_count == 3
     assert session.camera_state.requested_bin == (camera_state.bin_x, camera_state.bin_y)
 

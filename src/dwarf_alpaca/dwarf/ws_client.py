@@ -189,6 +189,26 @@ class DwarfWsClient:
         )
         return response
 
+    def cancel_pending(
+        self,
+        module_id: int,
+        command_id: int,
+        reason: Exception | None = None,
+    ) -> bool:
+        """Cancel a single pending request if it still exists."""
+
+        pending = self._pop_pending_request((module_id, command_id))
+        if not pending:
+            return False
+        future = pending.future
+        if future.done():
+            return True
+        if reason is None:
+            future.cancel()
+        else:
+            future.set_exception(reason)
+        return True
+
     def register_notification_handler(self, handler: NotificationHandler) -> None:
         self._notifications.add(handler)
 
