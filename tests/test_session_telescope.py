@@ -157,6 +157,32 @@ async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_telescope_slew_uses_configured_timeout(monkeypatch):
+    settings = Settings()
+    settings.goto_command_timeout_seconds = 42.5
+    session = DwarfSession(settings)
+    session.simulation = False
+
+    async def noop(self, *args, **kwargs):
+        return None
+
+    session._ensure_ws = types.MethodType(noop, session)
+
+    captured_timeout = {}
+
+    async def fake_send_and_check(self, module_id, command_id, request, *, timeout=10.0, expected_responses=None):
+        captured_timeout["value"] = timeout
+        return None
+
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    await session.telescope_slew_to_coordinates(1.2, 3.4)
+
+    assert "value" in captured_timeout
+    assert captured_timeout["value"] == pytest.approx(settings.goto_command_timeout_seconds)
+
+
+@pytest.mark.asyncio
 async def test_acquire_telescope_does_not_schedule_calibration(monkeypatch):
     session = DwarfSession(Settings())
     session.simulation = False

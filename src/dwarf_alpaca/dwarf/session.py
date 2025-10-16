@@ -1210,11 +1210,13 @@ class DwarfSession:
         request.ra = ra_hours * 15.0  # DWARF expects degrees
         request.dec = dec_degrees
         request.target_name = target_name
+        timeout_value = max(float(self.settings.goto_command_timeout_seconds), 1.0)
         try:
             await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
                 request,
+                timeout=timeout_value,
             )
         except asyncio.TimeoutError as exc:
             logger.warning(
@@ -1222,6 +1224,7 @@ class DwarfSession:
                 ra_hours=ra_hours,
                 dec_degrees=dec_degrees,
                 target_name=target_name,
+                timeout=timeout_value,
             )
             raise
         self._record_goto(ra_hours, dec_degrees)

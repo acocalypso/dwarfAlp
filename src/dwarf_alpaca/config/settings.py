@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     ws_ping_interval_seconds: float = 5.0
     temperature_refresh_interval_seconds: float = 5.0
     temperature_stale_after_seconds: float = 20.0
+    goto_command_timeout_seconds: float = 45.0
     camera_gain_command_timeout_seconds: float = 2.0
     camera_disconnect_timeout_seconds: float = 5.0
     go_live_before_exposure: bool = True
