@@ -749,7 +749,7 @@ class DwarfSession:
 
         request = ReqSetTime()
         timestamp_utc = time.time()
-        adjusted_timestamp = int(timestamp_utc - (timezone_offset * 3600.0))
+        adjusted_timestamp = int(timestamp_utc + (timezone_offset * 3600.0))
         request.timestamp = adjusted_timestamp
         request.timezone_offset = timezone_offset
 
