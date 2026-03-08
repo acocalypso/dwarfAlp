@@ -15,3 +15,12 @@ def test_discovery_payload_lists_all_devices():
     assert device_types == {"Telescope", "Camera", "Focuser", "FilterWheel"}
 
     assert payload["ServerUrl"] == "http://192.168.1.100:11111"
+
+
+def test_discovery_payload_uses_mini_model_labels():
+    settings = Settings(dwarf_device_model="dwarfmini")
+    payload = build_discovery_payload(settings, "192.168.1.100")
+
+    assert payload["ServerName"] == "DWARF mini Alpaca Server"
+    assert payload["ServerID"].startswith("DWARFmini")
+    assert all("DWARF mini" in device["DeviceName"] for device in payload["Devices"])

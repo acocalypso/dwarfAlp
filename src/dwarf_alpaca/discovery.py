@@ -8,7 +8,7 @@ from typing import Any
 
 import structlog
 
-from .config.settings import Settings
+from .config.settings import Settings, normalize_dwarf_device_model
 
 DEVICE_LIST = [
     {
@@ -36,6 +36,45 @@ DEVICE_LIST = [
         "UniqueID": "DWARF3-FilterWheel",
     },
 ]
+
+_MODEL_DISPLAY = {
+    "dwarf2": "DWARF 2",
+    "dwarf3": "DWARF 3",
+    "dwarfmini": "DWARF mini",
+}
+
+
+def _device_list_for_settings(settings: Settings) -> list[dict[str, Any]]:
+    model = normalize_dwarf_device_model(settings.dwarf_device_model)
+    display = _MODEL_DISPLAY.get(model, "DWARF 3")
+    server_prefix = display.replace(" ", "")
+
+    return [
+        {
+            "DeviceName": f"{display} Telescope",
+            "DeviceType": "Telescope",
+            "DeviceNumber": 0,
+            "UniqueID": f"{server_prefix}-Telescope",
+        },
+        {
+            "DeviceName": f"{display} Camera",
+            "DeviceType": "Camera",
+            "DeviceNumber": 0,
+            "UniqueID": f"{server_prefix}-Camera",
+        },
+        {
+            "DeviceName": f"{display} Focuser",
+            "DeviceType": "Focuser",
+            "DeviceNumber": 0,
+            "UniqueID": f"{server_prefix}-Focuser",
+        },
+        {
+            "DeviceName": f"{display} Filter Wheel",
+            "DeviceType": "FilterWheel",
+            "DeviceNumber": 0,
+            "UniqueID": f"{server_prefix}-FilterWheel",
+        },
+    ]
 
 logger = structlog.get_logger(__name__)
 
@@ -131,16 +170,20 @@ def _resolve_advertised_host(settings: Settings) -> str:
 
 
 def build_discovery_payload(settings: Settings, advertised_host: str) -> dict[str, Any]:
+    devices = _device_list_for_settings(settings)
+    model = normalize_dwarf_device_model(settings.dwarf_device_model)
+    display = _MODEL_DISPLAY.get(model, "DWARF 3")
+    server_prefix = display.replace(" ", "")
     return {
         "AlpacaVersion": 1,
         "AlpacaPort": settings.http_port,
-        "ServerName": "DWARF 3 Alpaca Server",
+        "ServerName": f"{display} Alpaca Server",
         "Manufacturer": "Astro Tools",
         "ManufacturerVersion": "0.1.0",
         "Location": "Observatory",
-        "ServerID": "DWARF3-0001",
+        "ServerID": f"{server_prefix}-0001",
         "ServerUrl": f"{settings.http_scheme}://{advertised_host}:{settings.http_port}",
-        "DeviceCount": len(DEVICE_LIST),
-        "Devices": DEVICE_LIST,
-        "DeviceList": DEVICE_LIST,
+        "DeviceCount": len(devices),
+        "Devices": devices,
+        "DeviceList": devices,
     }

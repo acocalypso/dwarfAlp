@@ -205,6 +205,32 @@ async def test_camera_go_live_after_capture(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_camera_connect_uses_v3_open_for_mini(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    captured: dict[str, object] = {}
+
+    async def fake_ensure_ws(*_args, **_kwargs):
+        return None
+
+    async def fake_send_and_check(module_id, command_id, request, **_kwargs):
+        captured["module_id"] = module_id
+        captured["command_id"] = command_id
+        captured["action"] = getattr(request, "action", None)
+        return None
+
+    monkeypatch.setattr(session, "_ensure_ws", fake_ensure_ws)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    await session.camera_connect()
+
+    assert captured["module_id"] == protocol_pb2.ModuleId.MODULE_CAMERA_TELE
+    assert captured["command_id"] == 10050
+    assert captured["action"] == 1
+
+
+@pytest.mark.asyncio
 async def test_camera_disconnect_handles_closed_socket(monkeypatch):
     session = DwarfSession(Settings())
     session.simulation = False

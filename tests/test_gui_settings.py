@@ -58,3 +58,18 @@ def test_start_blocked_when_device_address_missing(qapp, monkeypatch):
         assert warnings, "Expected warning dialog when device address is missing"
     finally:
         window.close()
+
+
+def test_settings_widget_can_select_dwarf_mini(qapp):
+    window = MainWindow()
+    try:
+        model_combo = window.settings_widget.device_model_combo
+        idx = model_combo.findData("dwarfmini")
+        assert idx >= 0
+
+        model_combo.setCurrentIndex(idx)
+        settings = window._build_settings_for_server()
+
+        assert settings.dwarf_device_model == "dwarfmini"
+    finally:
+        window.close()

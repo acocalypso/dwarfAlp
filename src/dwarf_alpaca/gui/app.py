@@ -41,7 +41,7 @@ try:
 except Exception:  # pragma: no cover - Python < 3.9 or missing tzdata
     available_timezones = None  # type: ignore[assignment]
 
-from ..config.settings import Settings, load_settings
+from ..config.settings import Settings, load_settings, normalize_dwarf_device_model
 from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
 from ..dwarf.state import ConnectivityState, StateStore
 from ..provisioning.workflow import create_state_store, provision_sta
@@ -80,10 +80,18 @@ def _load_timezone_choices() -> list[str]:
 TIMEZONE_CHOICES = _load_timezone_choices()
 
 
-WS_CLIENT_CHOICES: list[tuple[str, str]] = [
-    ("DWARF 3", "0000DAF3-0000-1000-8000-00805F9B34FB"),
-    ("DWARF 2", "0000DAF2-0000-1000-8000-00805F9B34FB"),
+DWARF_MODEL_CHOICES: list[tuple[str, str, str]] = [
+    ("DWARF 3", "dwarf3", "0000DAF3-0000-1000-8000-00805F9B34FB"),
+    ("DWARF 2", "dwarf2", "0000DAF2-0000-1000-8000-00805F9B34FB"),
+    ("DWARF mini", "dwarfmini", "0000DAF4-0000-1000-8000-00805F9B34FB"),
 ]
+
+WS_CLIENT_CHOICES: list[tuple[str, str]] = [
+    (label, client_id) for label, _, client_id in DWARF_MODEL_CHOICES
+]
+
+_MODEL_DEFAULT_CLIENT_ID = {model: client_id for _, model, client_id in DWARF_MODEL_CHOICES}
+_CLIENT_ID_MODEL = {client_id: model for _, model, client_id in DWARF_MODEL_CHOICES}
 
 
 @dataclass
@@ -120,6 +128,9 @@ class SettingsOverridesWidget(QGroupBox):
         self.http_port_spin = QSpinBox()
         self.http_port_spin.setRange(1, 65535)
         self.dwarf_ip_edit = QLineEdit()
+        self.device_model_combo = QComboBox()
+        for label, value, _ in DWARF_MODEL_CHOICES:
+            self.device_model_combo.addItem(label, value)
         self.ws_client_id_combo = QComboBox()
         self.ws_client_id_combo.setEditable(True)
         for label, value in WS_CLIENT_CHOICES:
@@ -147,9 +158,12 @@ class SettingsOverridesWidget(QGroupBox):
         for tz in TIMEZONE_CHOICES:
             self.timezone_combo.addItem(tz, tz)
 
+        self.device_model_combo.currentIndexChanged.connect(self._sync_client_id_for_selected_model)
+
         form.addRow("HTTP host", self.http_host_edit)
         form.addRow("HTTP port", self.http_port_spin)
         form.addRow("DWARF IP", self.dwarf_ip_edit)
+        form.addRow("DWARF model", self.device_model_combo)
         form.addRow("WS client ID", self.ws_client_id_combo)
         form.addRow(self.force_sim_checkbox)
         form.addRow(self.skip_preflight_checkbox)
@@ -162,6 +176,10 @@ class SettingsOverridesWidget(QGroupBox):
         self.http_host_edit.setText(settings.http_host)
         self.http_port_spin.setValue(settings.http_port)
         self.dwarf_ip_edit.setText(settings.dwarf_ap_ip)
+        model = normalize_dwarf_device_model(settings.dwarf_device_model)
+        model_index = self.device_model_combo.findData(model)
+        if model_index >= 0:
+            self.device_model_combo.setCurrentIndex(model_index)
         index = self.ws_client_id_combo.findData(settings.dwarf_ws_client_id)
         if index >= 0:
             self.ws_client_id_combo.setCurrentIndex(index)
@@ -175,10 +193,12 @@ class SettingsOverridesWidget(QGroupBox):
 
     def apply(self, settings: Settings) -> Settings:
         data = settings.model_dump()
+        selected_model = normalize_dwarf_device_model(self.device_model_combo.currentData())
         selected_client_id = self.ws_client_id_combo.currentData()
         if not isinstance(selected_client_id, str) or not selected_client_id.strip():
             selected_client_id = self.ws_client_id_combo.currentText().strip()
         selected_client_id = selected_client_id or settings.dwarf_ws_client_id
+        selected_model = _CLIENT_ID_MODEL.get(selected_client_id, selected_model)
         combo_index = self.timezone_combo.currentIndex()
         combo_data = self.timezone_combo.itemData(combo_index) if combo_index >= 0 else None
         timezone_name = None
@@ -192,12 +212,33 @@ class SettingsOverridesWidget(QGroupBox):
                 "http_host": self.http_host_edit.text().strip() or settings.http_host,
                 "http_port": self.http_port_spin.value(),
                 "dwarf_ap_ip": self.dwarf_ip_edit.text().strip() or settings.dwarf_ap_ip,
+                "dwarf_device_model": selected_model,
                 "dwarf_ws_client_id": selected_client_id,
                 "force_simulation": self.force_sim_checkbox.isChecked(),
                 "timezone_name": timezone_name,
             }
         )
         return settings.model_validate(data)
+
+    def _sync_client_id_for_selected_model(self) -> None:
+        model = normalize_dwarf_device_model(self.device_model_combo.currentData())
+        target_client_id = _MODEL_DEFAULT_CLIENT_ID.get(model)
+        if not target_client_id:
+            return
+
+        current_client_id = self.ws_client_id_combo.currentData()
+        if not isinstance(current_client_id, str) or not current_client_id.strip():
+            current_client_id = self.ws_client_id_combo.currentText().strip()
+
+        # Respect custom UUIDs; only auto-switch known built-in IDs.
+        if current_client_id and current_client_id not in _MODEL_DEFAULT_CLIENT_ID.values():
+            return
+
+        idx = self.ws_client_id_combo.findData(target_client_id)
+        if idx >= 0:
+            self.ws_client_id_combo.setCurrentIndex(idx)
+        else:
+            self.ws_client_id_combo.setEditText(target_client_id)
 
     def set_timezone_name(self, name: Optional[str]) -> None:
         if not isinstance(name, str) or not name.strip():
@@ -504,8 +545,8 @@ class MainWindow(QMainWindow):
             2: (
                 "Settings",
                 "<b>Settings tab</b><br/>Override server host/port, DWARF IP, and websocket client ID."
-                " Choose the correct DWARF generation from the WebSocket Client ID dropdown"
-                " (DWARF 3 or DWARF 2) and adjust simulation/preflight controls before launch."
+                " Choose the correct DWARF model (DWARF 3, DWARF 2, or DWARF mini)"
+                " and adjust simulation/preflight controls before launch."
             ),
         }
         self._refresh_state()

@@ -7,6 +7,7 @@ import re
 import time
 from datetime import datetime
 from dataclasses import dataclass, field
+from enum import IntEnum
 from typing import Any, Dict, Iterator, Optional, Tuple, Type
 
 try:
@@ -19,7 +20,7 @@ import structlog
 from google.protobuf.message import Message
 from google.protobuf.json_format import MessageToDict
 
-from ..config.settings import Settings
+from ..config.settings import Settings, normalize_dwarf_device_model
 from ..proto import astro_pb2, protocol_pb2
 from . import exposure
 from ..proto.dwarf_messages import (
@@ -37,6 +38,7 @@ from ..proto.dwarf_messages import (
     ReqMotorServiceJoystickStop,
     ReqPhotoRaw,
     ReqOpenCamera,
+    V3ReqOpenTeleCamera,
     ReqSetIrCut,
     ReqSetFeatureParams,
     ReqSetExp,
@@ -49,6 +51,8 @@ from ..proto.dwarf_messages import (
     ResNotifyFocus,
     ResNotifyHostSlaveMode,
     ResNotifyParam,
+    ResNotifyStateAstroGoto,
+    ResNotifyStateAstroTracking,
     ResNotifyTemperature,
 )
 from .ftp_client import DwarfFtpClient, FtpPhotoEntry
@@ -63,6 +67,32 @@ FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "Duo-Band Filter"]
 
 _MAX_JOYSTICK_SPEED = 30.0
 _MIN_JOYSTICK_SPEED = 0.1
+
+_GOTO_KIND_DSO = "dso"
+
+
+def _resolve_ws_protocol_profile(settings: Settings) -> tuple[int, int]:
+    """Return websocket (minor_version, device_id) based on configured DWARF model."""
+
+    model = normalize_dwarf_device_model(settings.dwarf_device_model)
+    if model == "dwarfmini":
+        return (20, 4)
+    return (2, 1)
+
+
+class _AstroState(IntEnum):
+    IDLE = 0
+    RUNNING = 1
+    STOPPING = 2
+    STOPPED = 3
+    PLATE_SOLVING = 4
+
+
+class _OperationState(IntEnum):
+    IDLE = 0
+    RUNNING = 1
+    STOPPING = 2
+    STOPPED = 3
 
 
 def _canonical_filter_label(raw_label: str, index: int) -> str:
@@ -137,11 +167,13 @@ class DwarfSession:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.simulation = settings.force_simulation
+        ws_minor_version, ws_device_id = _resolve_ws_protocol_profile(settings)
         self._ws_client = DwarfWsClient(
             settings.dwarf_ap_ip,
             port=settings.dwarf_ws_port,
             major_version=1,
-            minor_version=2,
+            minor_version=ws_minor_version,
+            device_id=ws_device_id,
             client_id=settings.dwarf_ws_client_id,
             ping_interval=settings.ws_ping_interval_seconds,
         )
@@ -179,6 +211,15 @@ class DwarfSession:
         self._temperature_task = None  # type: asyncio.Task[None] | None
         self._last_goto_time: float | None = None
         self._last_goto_target: tuple[float, float] | None = None
+        self._last_goto_kind: str | None = None
+        self._goto_completion_event = asyncio.Event()
+        self._goto_completion_event.set()
+        self._goto_result: str | None = None
+        self._goto_reason: str | None = None
+        self._goto_pending = False
+        self._goto_waiting_for_tracking = False
+        self._goto_target_name: str | None = None
+        self._goto_start_time: float | None = None
         self._time_synced = self.simulation
         self._last_time_sync_offset: float | None = None
         self._last_time_sync_timezone: str | None = None
@@ -200,6 +241,9 @@ class DwarfSession:
     @property
     def has_master_lock(self) -> bool:
         return self._master_lock_acquired
+
+    def _is_dwarf_mini(self) -> bool:
+        return normalize_dwarf_device_model(self.settings.dwarf_device_model) == "dwarfmini"
 
     def _get_ws_command_lock(self) -> asyncio.Lock:
         loop = asyncio.get_running_loop()
@@ -248,6 +292,11 @@ class DwarfSession:
 
     async def _bootstrap_ws(self) -> None:
         if self.simulation or self._ws_bootstrapped or not self._ws_client.connected:
+            return
+
+        # DWARF mini does not reliably answer V2 bootstrap probes.
+        if self._is_dwarf_mini():
+            self._ws_bootstrapped = True
             return
 
         commands = (
@@ -328,6 +377,10 @@ class DwarfSession:
             self._handle_focus_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_TEMPERATURE:
             self._handle_temperature_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_GOTO:
+            self._handle_goto_state_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_TRACKING:
+            self._handle_tracking_state_notification(packet)
 
     def _handle_focus_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -385,6 +438,90 @@ class DwarfSession:
                 temperature=temperature_c,
             )
 
+    def _handle_goto_state_notification(self, packet: Message) -> None:
+        if self.simulation:
+            return
+        if not self._goto_pending or self._last_goto_kind != _GOTO_KIND_DSO:
+            return
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = ResNotifyStateAstroGoto()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug(
+                "dwarf.goto.notification.decode_failed",
+                error=str(exc),
+            )
+            return
+        state_value = getattr(message, "state", None)
+        if state_value is None:
+            return
+        try:
+            state = _AstroState(int(state_value))
+        except ValueError:
+            logger.debug(
+                "dwarf.goto.notification.unknown_state",
+                state_value=state_value,
+            )
+            return
+        logger.debug(
+            "dwarf.goto.notification.state",
+            state=state.name,
+            state_value=state_value,
+        )
+        if state in (_AstroState.RUNNING, _AstroState.PLATE_SOLVING, _AstroState.STOPPING):
+            self._goto_waiting_for_tracking = True
+        elif state == _AstroState.IDLE and self._goto_waiting_for_tracking:
+            self._resolve_goto("failed", reason="goto_idle", keep_record=False)
+
+    def _handle_tracking_state_notification(self, packet: Message) -> None:
+        if self.simulation:
+            return
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = ResNotifyStateAstroTracking()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug(
+                "dwarf.tracking.notification.decode_failed",
+                error=str(exc),
+            )
+            return
+        state_value = getattr(message, "state", None)
+        if state_value is None:
+            return
+        try:
+            state = _OperationState(int(state_value))
+        except ValueError:
+            logger.debug(
+                "dwarf.tracking.notification.unknown_state",
+                state_value=state_value,
+            )
+            return
+        target_name = getattr(message, "target_name", "") or None
+        logger.debug(
+            "dwarf.tracking.notification.state",
+            state=state.name,
+            state_value=state_value,
+            target_name=target_name,
+        )
+        if not self._goto_pending or self._last_goto_kind != _GOTO_KIND_DSO:
+            return
+        if state == _OperationState.RUNNING:
+            reason = "tracking_running"
+            if target_name:
+                reason = f"tracking_running:{target_name}"
+            self._resolve_goto("success", reason=reason, keep_record=True)
+        elif state in (_OperationState.STOPPED, _OperationState.IDLE) and self._goto_waiting_for_tracking:
+            reason = "tracking_not_running"
+            if target_name:
+                reason = f"tracking_not_running:{target_name}"
+            self._resolve_goto("failed", reason=reason, keep_record=False)
+
     def _ensure_temperature_monitor_task(self) -> None:
         task = self._temperature_task
         if task and task.done():
@@ -432,6 +569,8 @@ class DwarfSession:
             raise
 
     async def _request_temperature_update(self) -> None:
+        if self._is_dwarf_mini():
+            return
         await self._ensure_ws()
         request = ReqGetSystemWorkingState()
         expected_responses = {
@@ -748,10 +887,10 @@ class DwarfSession:
                 return
 
         request = ReqSetTime()
-        timestamp_utc = time.time()
-        adjusted_timestamp = int(timestamp_utc - (timezone_offset * 3600.0))
-        request.timestamp = adjusted_timestamp
+        timestamp_utc = math.floor(time.time())
+        request.timestamp = timestamp_utc
         request.timezone_offset = timezone_offset
+        local_timestamp = timestamp_utc + int(round(timezone_offset * 3600.0))
 
         try:
             await self._send_and_check(
@@ -764,10 +903,11 @@ class DwarfSession:
             logger.warning(
                 "dwarf.system.time_sync_failed",
                 error=str(exc),
-                timestamp=adjusted_timestamp,
+                timestamp=timestamp_utc,
                 timezone_offset=timezone_offset,
                 offset_raw=offset_hours,
                 offset_source=offset_source,
+                timestamp_local=local_timestamp,
                 timezone_label=timezone_label,
             )
             return
@@ -805,11 +945,12 @@ class DwarfSession:
         self._last_time_sync_offset = timezone_offset
         logger.info(
             "dwarf.system.time_synced",
-            timestamp=adjusted_timestamp,
+            timestamp=timestamp_utc,
             timezone_offset=timezone_offset,
             offset_raw=offset_hours,
             offset_source=offset_source,
-            timestamp_utc=int(timestamp_utc),
+            timestamp_utc=timestamp_utc,
+            timestamp_local=local_timestamp,
             timezone_label=timezone_label or self._format_timezone_label(offset_hours),
         )
 
@@ -1080,14 +1221,68 @@ class DwarfSession:
             with contextlib.suppress(Exception):
                 await self.telescope_stop_axis(axis, ensure_ws=False)
 
-    def _record_goto(self, ra_hours: float, dec_degrees: float) -> None:
+    def _record_goto(self, ra_hours: float, dec_degrees: float, *, kind: str = _GOTO_KIND_DSO) -> None:
         self._last_goto_time = time.time()
         self._last_goto_target = (ra_hours, dec_degrees)
+        self._last_goto_kind = kind
         logger.debug(
             "dwarf.telescope.goto_recorded",
             ra_hours=ra_hours,
             dec_degrees=dec_degrees,
         )
+
+    def _drop_goto_record(self) -> None:
+        self._last_goto_time = None
+        self._last_goto_target = None
+        self._last_goto_kind = None
+        self._goto_target_name = None
+
+    def _mark_goto_pending(self, *, kind: str, target_name: str | None) -> None:
+        if self._goto_pending:
+            self._resolve_goto("superseded", reason="new_goto_started", keep_record=False)
+        self._goto_pending = True
+        self._goto_waiting_for_tracking = (kind == _GOTO_KIND_DSO) and not self.simulation
+        self._goto_result = None
+        self._goto_reason = None
+        self._goto_target_name = target_name or None
+        self._goto_start_time = time.time()
+        self._goto_completion_event.clear()
+        logger.info(
+            "dwarf.telescope.goto.pending",
+            kind=kind,
+            target_name=self._goto_target_name,
+        )
+
+    def _resolve_goto(self, result: str, *, reason: str | None = None, keep_record: bool) -> None:
+        if not self._goto_pending and result not in {"success", "simulation"}:
+            return
+        duration = None
+        if self._goto_start_time is not None:
+            duration = time.time() - self._goto_start_time
+        self._goto_pending = False
+        self._goto_waiting_for_tracking = False
+        self._goto_result = result
+        self._goto_reason = reason
+        self._goto_start_time = None
+        if keep_record:
+            self._last_goto_time = time.time()
+        else:
+            self._drop_goto_record()
+        self._goto_completion_event.set()
+        logger.info(
+            "dwarf.telescope.goto.resolved",
+            result=result,
+            reason=reason,
+            duration=duration,
+            target_name=self._goto_target_name,
+        )
+        self._goto_target_name = None
+
+    def _cancel_goto(self, result: str, *, reason: str | None = None) -> None:
+        if self._goto_pending:
+            self._resolve_goto(result, reason=reason, keep_record=False)
+        else:
+            self._clear_goto(reason=reason)
 
     def _clear_goto(self, *, reason: str | None = None) -> None:
         if self._last_goto_time is None:
@@ -1097,8 +1292,10 @@ class DwarfSession:
             reason=reason,
             last_target=self._last_goto_target,
         )
-        self._last_goto_time = None
-        self._last_goto_target = None
+        self._goto_completion_event.set()
+        self._goto_pending = False
+        self._goto_waiting_for_tracking = False
+        self._drop_goto_record()
 
     def _has_recent_goto(self) -> bool:
         max_age_value = self.settings.goto_valid_seconds
@@ -1183,6 +1380,9 @@ class DwarfSession:
     async def ensure_calibration(self) -> None:
         if self.simulation:
             return
+        if self._is_dwarf_mini():
+            logger.info("dwarf.telescope.calibration.skipped_for_mini")
+            return
         if self._has_recent_calibration():
             return
         async with self._calibration_lock:
@@ -1227,10 +1427,28 @@ class DwarfSession:
                 timeout=timeout_value,
             )
             raise
-        self._record_goto(ra_hours, dec_degrees)
+        self._record_goto(ra_hours, dec_degrees, kind=_GOTO_KIND_DSO)
+        self._mark_goto_pending(kind=_GOTO_KIND_DSO, target_name=target_name)
+
+    async def wait_for_goto_completion(self, *, timeout: float | None = None) -> tuple[str, str | None]:
+        if self.simulation:
+            return "simulation", None
+        if not self._goto_pending:
+            return self._goto_result or "idle", self._goto_reason
+
+        wait_timeout = timeout if timeout is not None else float(self.settings.goto_completion_timeout_seconds)
+        if wait_timeout is not None and wait_timeout <= 0.0:
+            wait_timeout = None
+
+        if wait_timeout is None:
+            await self._goto_completion_event.wait()
+        else:
+            await asyncio.wait_for(self._goto_completion_event.wait(), timeout=wait_timeout)
+
+        return self._goto_result or "unknown", self._goto_reason
 
     async def telescope_abort_slew(self) -> None:
-        self._clear_goto(reason="slew_aborted")
+        self._cancel_goto("aborted", reason="slew_aborted")
         if self.simulation:
             return
         await self._ensure_ws()
@@ -1251,6 +1469,16 @@ class DwarfSession:
         if self.simulation:
             return
         await self._ensure_ws()
+        if self._is_dwarf_mini():
+            request = V3ReqOpenTeleCamera()
+            request.action = 1
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+                10050,
+                request,
+            )
+            return
+
         request = ReqOpenCamera()
         request.binning = False
         request.rtsp_encode_type = 0
@@ -1272,6 +1500,42 @@ class DwarfSession:
         if self.simulation:
             return
         await self._ensure_ws()
+        if self._is_dwarf_mini():
+            request = V3ReqOpenTeleCamera()
+            timeout_value = max(float(self.settings.camera_disconnect_timeout_seconds), 0.5)
+            try:
+                await self._send_and_check(
+                    protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+                    10050,
+                    request,
+                    timeout=timeout_value,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "dwarf.camera.disconnect.timeout",
+                    timeout=timeout_value,
+                )
+            except DwarfCommandError as exc:
+                logger.warning(
+                    "dwarf.camera.disconnect.command_failed",
+                    code=exc.code,
+                    module_id=exc.module_id,
+                    command_id=exc.command_id,
+                )
+            except (ConnectionClosed, ConnectionClosedOK) as exc:
+                logger.info(
+                    "dwarf.camera.disconnect.socket_closed",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+            except Exception as exc:  # pragma: no cover - defensive logging helper
+                logger.warning(
+                    "dwarf.camera.disconnect.error",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+            return
+
         request = ReqCloseCamera()
         timeout_value = max(float(self.settings.camera_disconnect_timeout_seconds), 0.5)
         try:
@@ -3151,9 +3415,12 @@ def configure_session(settings: Settings) -> None:
     global _session_settings, _session
     _session_settings = settings
     if _session is not None:
+        ws_minor_version, ws_device_id = _resolve_ws_protocol_profile(settings)
         _session.settings = settings
         _session.simulation = settings.force_simulation
         _session._ws_client.set_client_id(settings.dwarf_ws_client_id)
+        _session._ws_client.minor_version = ws_minor_version
+        _session._ws_client.device_id = ws_device_id
         _session._ws_client.uri = f"ws://{settings.dwarf_ap_ip}:{settings.dwarf_ws_port}/"
         _session._http_client.host = settings.dwarf_ap_ip
         _session._http_client.api_port = settings.dwarf_http_port
@@ -3166,7 +3433,9 @@ def configure_session(settings: Settings) -> None:
         _session._ftp_client.port = settings.dwarf_ftp_port
         _session._ftp_client.timeout = settings.ftp_timeout_seconds
         _session._ftp_client.poll_interval = settings.ftp_poll_interval_seconds
+        _session._master_lock_acquired = False
         _session._ws_bootstrapped = False
+        _session._time_synced = settings.force_simulation
         _session._params_config = None
         _session._filter_options = None
 

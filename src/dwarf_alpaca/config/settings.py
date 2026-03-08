@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     dwarf_ws_port: int = 9900
     dwarf_rtsp_port: int = 554
     dwarf_ftp_port: int = 21
+    dwarf_device_model: str = "dwarf3"
     dwarf_ws_client_id: str = "0000DAF3-0000-1000-8000-00805F9B34FB"
 
     http_timeout_seconds: float = 5.0
@@ -45,6 +46,7 @@ class Settings(BaseSettings):
     temperature_refresh_interval_seconds: float = 5.0
     temperature_stale_after_seconds: float = 20.0
     goto_command_timeout_seconds: float = 45.0
+    goto_completion_timeout_seconds: float = 120.0
     camera_gain_command_timeout_seconds: float = 2.0
     camera_disconnect_timeout_seconds: float = 5.0
     go_live_before_exposure: bool = True
@@ -70,6 +72,22 @@ class Settings(BaseSettings):
         data = self.model_dump()
         data["timezone_name"] = tz_name
         return type(self).model_validate(data)
+
+
+def normalize_dwarf_device_model(value: Optional[str]) -> str:
+    """Normalize user-facing DWARF model labels to internal profile ids."""
+
+    normalized = (value or "").strip().lower().replace("_", " ").replace("-", " ")
+    collapsed = " ".join(part for part in normalized.split() if part)
+
+    if collapsed in {"dwarf mini", "mini", "dwarfmini", "dwarf4", "dwarf 4"}:
+        return "dwarfmini"
+    if collapsed in {"dwarf 2", "dwarf2"}:
+        return "dwarf2"
+    if collapsed in {"dwarf 3", "dwarf3"}:
+        return "dwarf3"
+
+    return "dwarf3"
 
 
 def load_settings(config_path: Optional[str]) -> Settings:

@@ -115,6 +115,18 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
                 ("rtsp_encode_type", 2, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
             ),
         ),
+        MessageSpec(
+            name="V3ReqOpenTeleCamera",
+            fields=(
+                ("action", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+            ),
+        ),
+        MessageSpec(
+            name="V3ReqOpenWideCamera",
+            fields=(
+                ("action", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+            ),
+        ),
             MessageSpec(
                 name="ReqGetSystemWorkingState",
                 fields=(),
@@ -182,6 +194,34 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
                     "temperature",
                     2,
                     descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="ResNotifyStateAstroGoto",
+            fields=(
+                (
+                    "state",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="ResNotifyStateAstroTracking",
+            fields=(
+                (
+                    "state",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "target_name",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
                     descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
                 ),
             ),
@@ -394,6 +434,8 @@ ReqMotorServiceJoystick = _prototype("ReqMotorServiceJoystick")
 ReqMotorServiceJoystickStop = _prototype("ReqMotorServiceJoystickStop")
 ResMotor = _prototype("ResMotor")
 ReqOpenCamera = _prototype("ReqOpenCamera")
+V3ReqOpenTeleCamera = _prototype("V3ReqOpenTeleCamera")
+V3ReqOpenWideCamera = _prototype("V3ReqOpenWideCamera")
 ReqGetSystemWorkingState = _prototype("ReqGetSystemWorkingState")
 ReqSetFeatureParams = _prototype("ReqSetFeatureParams")
 ReqSetIrCut = _prototype("ReqSetIrCut")
@@ -401,6 +443,8 @@ ReqCloseCamera = _prototype("ReqCloseCamera")
 ResNotifyParam = _prototype("ResNotifyParam")
 ResNotifyFocus = _prototype("ResNotifyFocus")
 ResNotifyTemperature = _prototype("ResNotifyTemperature")
+ResNotifyStateAstroGoto = _prototype("ResNotifyStateAstroGoto")
+ResNotifyStateAstroTracking = _prototype("ResNotifyStateAstroTracking")
 ReqPhoto = _prototype("ReqPhoto")
 ReqPhotoRaw = _prototype("ReqPhotoRaw")
 ReqSetExpMode = _prototype("ReqSetExpMode")

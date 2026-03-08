@@ -33,6 +33,18 @@ def test_format_timezone_label_handles_offsets() -> None:
     assert session._format_timezone_label(5.75) == "UTC+05:45"
 
 
+def test_dwarf_mini_uses_v3_ws_profile() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    assert session._ws_client.minor_version == 20
+    assert session._ws_client.device_id == 4
+
+
+def test_non_mini_uses_v2_ws_profile() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
+    assert session._ws_client.minor_version == 2
+    assert session._ws_client.device_id == 1
+
+
 @pytest.mark.asyncio
 async def test_ensure_default_filter_prefers_support_params(params_config: dict[str, object]) -> None:
     session = DwarfSession(Settings())

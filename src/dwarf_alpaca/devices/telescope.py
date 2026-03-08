@@ -14,6 +14,7 @@ from ..proto import protocol_pb2
 
 from ..dwarf.session import get_session
 from .utils import alpaca_response, bind_request_context, resolve_parameter
+import structlog
 router = APIRouter(dependencies=[Depends(bind_request_context)])
 
 _MAX_MANUAL_AXIS_RATE = 4.0
@@ -47,6 +48,8 @@ class TelescopeState:
 
 
 state = TelescopeState()
+
+logger = structlog.get_logger(__name__)
 
 
 def _parse_float(value: str | float) -> float:
@@ -738,14 +741,62 @@ def _process_motion() -> None:
 
 
 async def _complete_hardware_slew(target_ra: float, target_dec: float) -> None:
+    session = None
     try:
-        await asyncio.sleep(2.0)
+        session = await get_session()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("dwarf.telescope.goto.session_unavailable", error=str(exc))
+
+    if session is None or session.is_simulated:
+        try:
+            await asyncio.sleep(2.0)
+        except asyncio.CancelledError:
+            return
+        state.right_ascension = target_ra
+        state.declination = target_dec
+        state.slewing = False
+        state.right_ascension_rate = 0.0
+        state.declination_rate = 0.0
+        _update_alt_az()
+        state.slew_task = None
+        return
+
+    timeout = float(session.settings.goto_completion_timeout_seconds)
+    try:
+        result, reason = await session.wait_for_goto_completion(
+            timeout=timeout if timeout > 0.0 else None
+        )
     except asyncio.CancelledError:
         return
-    state.right_ascension = target_ra
-    state.declination = target_dec
+    except asyncio.TimeoutError:
+        logger.warning(
+            "dwarf.telescope.goto.wait_timeout",
+            timeout=timeout,
+            target_ra=target_ra,
+            target_dec=target_dec,
+        )
+        result = "timeout"
+        reason = None
+    else:
+        log_kwargs = {
+            "result": result,
+            "reason": reason,
+            "target_ra": target_ra,
+            "target_dec": target_dec,
+        }
+        if result == "success":
+            logger.info("dwarf.telescope.goto.wait_result", **log_kwargs)
+        else:
+            logger.warning("dwarf.telescope.goto.wait_result", **log_kwargs)
+
+    if result == "success":
+        state.right_ascension = target_ra
+        state.declination = target_dec
     state.slewing = False
+    state.right_ascension_rate = 0.0
+    state.declination_rate = 0.0
     _update_alt_az()
+    state.slew_task = None
 
 
 def _update_alt_az() -> None:

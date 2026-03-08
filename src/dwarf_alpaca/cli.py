@@ -8,7 +8,7 @@ from typing import Optional
 
 from datetime import datetime
 
-from .config.settings import Settings, load_settings
+from .config.settings import Settings, load_settings, normalize_dwarf_device_model
 from .server import run_server
 from .provisioning.cli import provision_command, provision_guide_command
 from .provisioning.workflow import create_state_store
@@ -61,6 +61,11 @@ async def _preflight_session(
     """Ensure the DWARF is reachable and master lock is acquired before serving."""
 
     configure_session(settings)
+    logger.info(
+        "cli.start.profile model=%s ws_client_id=%s",
+        normalize_dwarf_device_model(settings.dwarf_device_model),
+        settings.dwarf_ws_client_id,
+    )
     session = await get_session()
     deadline = time.monotonic() + max(timeout, 0.0)
     attempt = 1
