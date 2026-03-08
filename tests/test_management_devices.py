@@ -57,3 +57,16 @@ def test_management_device_list_matches_discovery_devices():
         entry["UniqueID"],
     ) for entry in device_list}
     assert expected == observed
+
+
+def test_management_device_list_omits_filterwheel_for_mini():
+    mini_client = TestClient(build_app(Settings(force_simulation=True, dwarf_device_model="dwarfmini")))
+    resp = mini_client.get("/management/v1/devicelist")
+    assert resp.status_code == 200
+    device_list = _value(resp)
+    device_types = {entry["DeviceType"] for entry in device_list}
+    assert "FilterWheel" not in device_types
+    assert any("DWARF mini" in entry["DeviceName"] for entry in device_list)
+
+    # Reset shared profile state for other test modules.
+    build_app(Settings(force_simulation=True))

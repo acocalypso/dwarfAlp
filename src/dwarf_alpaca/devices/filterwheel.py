@@ -6,6 +6,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..dwarf.session import get_session
+from ..device_profile import get_active_device_profile
 from .utils import alpaca_response, bind_request_context, resolve_parameter
 
 router = APIRouter(dependencies=[Depends(bind_request_context)])
@@ -58,14 +59,22 @@ def _require_connected() -> None:
         raise HTTPException(status_code=400, detail="Filter wheel not connected")
 
 
+def _require_available() -> None:
+    profile = get_active_device_profile()
+    if not profile.has_filterwheel:
+        raise HTTPException(status_code=400, detail="Filter wheel not available for this model")
+
+
 @router.get("/description")
 def get_description():
-    return alpaca_response(value="DWARF 3 Filter Wheel")
+    profile = get_active_device_profile()
+    return alpaca_response(value=f"{profile.display_name} Filter Wheel")
 
 
 @router.get("/name")
 def get_name():
-    return alpaca_response(value="DWARF 3 Filter Wheel")
+    profile = get_active_device_profile()
+    return alpaca_response(value=f"{profile.display_name} Filter Wheel")
 
 
 @router.get("/driverversion")
@@ -102,6 +111,7 @@ async def put_connected(
     session = await get_session()
 
     if value:
+        _require_available()
         await session.acquire("filterwheel")
         try:
             names = await session.get_filter_labels()
@@ -155,6 +165,7 @@ async def put_connected(
 
 @router.get("/names")
 async def get_names():
+    _require_available()
     if not state.names and state.connected:
         session = await get_session()
         try:
@@ -170,6 +181,7 @@ async def get_names():
 
 @router.get("/focusoffsets")
 def get_focus_offsets():
+    _require_available()
     if len(state.focus_offsets) != len(state.names):
         state.focus_offsets = [0] * len(state.names)
     return alpaca_response(value=state.focus_offsets)
@@ -177,6 +189,7 @@ def get_focus_offsets():
 
 @router.get("/position")
 async def get_position():
+    _require_available()
     _require_connected()
     session = await get_session()
     position = session.get_filter_position()
@@ -191,6 +204,7 @@ async def put_position(
     request: Request,
     Position_query: int | None = Query(None, alias="Position"),
 ):
+    _require_available()
     _require_connected()
     position = await resolve_parameter(request, "Position", int, Position_query)
     if position < 0 or position >= len(state.names):

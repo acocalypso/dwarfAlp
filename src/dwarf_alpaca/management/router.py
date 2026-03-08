@@ -3,14 +3,21 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from ..devices.utils import alpaca_response, bind_request_context
-from ..discovery import DEVICE_LIST
+from ..device_profile import build_device_list, get_active_device_profile
 
-SERVER_DESCRIPTION = {
-    "ServerName": "DWARF 3 Alpaca Server",
-    "Manufacturer": "Astro Tools",
-    "ManufacturerVersion": "0.1.0",
-    "Location": "Observatory",
-}
+
+def _server_description() -> dict[str, str]:
+    profile = get_active_device_profile()
+    return {
+        "ServerName": f"{profile.display_name} Alpaca Server",
+        "Manufacturer": "Astro Tools",
+        "ManufacturerVersion": "0.1.0",
+        "Location": "Observatory",
+    }
+
+
+def _device_list() -> list[dict[str, object]]:
+    return build_device_list(get_active_device_profile())
 
 router = APIRouter(dependencies=[Depends(bind_request_context)])
 
@@ -28,15 +35,15 @@ def get_api_versions():
 
 @router.get("/v1/description")
 def get_description():
-    return alpaca_response(value=SERVER_DESCRIPTION)
+    return alpaca_response(value=_server_description())
 
 
 @router.get("/v1/configureddevices")
 def get_configured_devices():
-    devices = [dict(device) for device in DEVICE_LIST]
+    devices = [dict(device) for device in _device_list()]
     return alpaca_response(value=devices)
 
 
 @router.get("/v1/devicelist")
 def get_device_list():
-    return alpaca_response(value=DEVICE_LIST)
+    return alpaca_response(value=_device_list())

@@ -8,73 +8,10 @@ from typing import Any
 
 import structlog
 
-from .config.settings import Settings, normalize_dwarf_device_model
+from .config.settings import Settings
+from .device_profile import build_device_list, get_device_profile
 
-DEVICE_LIST = [
-    {
-        "DeviceName": "DWARF 3 Telescope",
-        "DeviceType": "Telescope",
-        "DeviceNumber": 0,
-        "UniqueID": "DWARF3-Telescope",
-    },
-    {
-        "DeviceName": "DWARF 3 Camera",
-        "DeviceType": "Camera",
-        "DeviceNumber": 0,
-        "UniqueID": "DWARF3-Camera",
-    },
-    {
-        "DeviceName": "DWARF 3 Focuser",
-        "DeviceType": "Focuser",
-        "DeviceNumber": 0,
-        "UniqueID": "DWARF3-Focuser",
-    },
-    {
-        "DeviceName": "DWARF 3 Filter Wheel",
-        "DeviceType": "FilterWheel",
-        "DeviceNumber": 0,
-        "UniqueID": "DWARF3-FilterWheel",
-    },
-]
-
-_MODEL_DISPLAY = {
-    "dwarf2": "DWARF 2",
-    "dwarf3": "DWARF 3",
-    "dwarfmini": "DWARF mini",
-}
-
-
-def _device_list_for_settings(settings: Settings) -> list[dict[str, Any]]:
-    model = normalize_dwarf_device_model(settings.dwarf_device_model)
-    display = _MODEL_DISPLAY.get(model, "DWARF 3")
-    server_prefix = display.replace(" ", "")
-
-    return [
-        {
-            "DeviceName": f"{display} Telescope",
-            "DeviceType": "Telescope",
-            "DeviceNumber": 0,
-            "UniqueID": f"{server_prefix}-Telescope",
-        },
-        {
-            "DeviceName": f"{display} Camera",
-            "DeviceType": "Camera",
-            "DeviceNumber": 0,
-            "UniqueID": f"{server_prefix}-Camera",
-        },
-        {
-            "DeviceName": f"{display} Focuser",
-            "DeviceType": "Focuser",
-            "DeviceNumber": 0,
-            "UniqueID": f"{server_prefix}-Focuser",
-        },
-        {
-            "DeviceName": f"{display} Filter Wheel",
-            "DeviceType": "FilterWheel",
-            "DeviceNumber": 0,
-            "UniqueID": f"{server_prefix}-FilterWheel",
-        },
-    ]
+DEVICE_LIST = build_device_list(get_device_profile("dwarf3"))
 
 logger = structlog.get_logger(__name__)
 
@@ -170,14 +107,13 @@ def _resolve_advertised_host(settings: Settings) -> str:
 
 
 def build_discovery_payload(settings: Settings, advertised_host: str) -> dict[str, Any]:
-    devices = _device_list_for_settings(settings)
-    model = normalize_dwarf_device_model(settings.dwarf_device_model)
-    display = _MODEL_DISPLAY.get(model, "DWARF 3")
-    server_prefix = display.replace(" ", "")
+    profile = get_device_profile(settings.dwarf_device_model)
+    devices = build_device_list(profile)
+    server_prefix = profile.display_name.replace(" ", "")
     return {
         "AlpacaVersion": 1,
         "AlpacaPort": settings.http_port,
-        "ServerName": f"{display} Alpaca Server",
+        "ServerName": f"{profile.display_name} Alpaca Server",
         "Manufacturer": "Astro Tools",
         "ManufacturerVersion": "0.1.0",
         "Location": "Observatory",

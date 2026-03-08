@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from .config.settings import Settings
+from .device_profile import configure_device_profile, get_device_profile
 from .discovery import DiscoveryService
 from .management.router import router as management_router
 from .devices.telescope import router as telescope_router
@@ -67,7 +68,9 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
 
 def build_app(settings: Settings) -> FastAPI:
     """Create the FastAPI application with Alpaca management endpoints mounted."""
-    app = FastAPI(title="DWARF 3 Alpaca Server", version="0.1.0")
+    configure_device_profile(settings)
+    profile = get_device_profile(settings.dwarf_device_model)
+    app = FastAPI(title=f"{profile.display_name} Alpaca Server", version="0.1.0")
     configure_session(settings)
     app.include_router(management_router, prefix="/management")
     app.include_router(telescope_router, prefix="/api/v1/telescope/0")

@@ -261,6 +261,33 @@ def test_camera_mutators_accept_json_payloads():
     assert resp.status_code == 200
 
 
+def test_camera_metadata_uses_mini_sensor_profile():
+    local_mini_client = TestClient(build_app(Settings(force_simulation=True, dwarf_device_model="dwarfmini")))
+
+    resp = local_mini_client.get("/api/v1/camera/0/name")
+    assert resp.status_code == 200
+    assert _value(resp) == "DWARF mini Camera"
+
+    resp = local_mini_client.get("/api/v1/camera/0/sensorname")
+    assert resp.status_code == 200
+    assert "IMX662" in _value(resp)
+
+    resp = local_mini_client.get("/api/v1/camera/0/cameraxsize")
+    assert resp.status_code == 200
+    assert _value(resp) == 1920
+
+    resp = local_mini_client.get("/api/v1/camera/0/cameraysize")
+    assert resp.status_code == 200
+    assert _value(resp) == 1080
+
+    resp = local_mini_client.get("/api/v1/camera/0/pixelsizex")
+    assert resp.status_code == 200
+    assert _value(resp) == pytest.approx(2.9, rel=1e-3)
+
+    # Reset shared profile state for remaining tests in this module.
+    build_app(Settings(force_simulation=True))
+
+
 
 def test_camera_temperature_reflects_session_state():
     _connect_camera()

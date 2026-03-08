@@ -195,7 +195,7 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO)
 
-    parser = argparse.ArgumentParser(description="DWARF 3 Alpaca Server")
+    parser = argparse.ArgumentParser(description="DWARF Alpaca Server")
     subparsers = parser.add_subparsers(dest="command")
 
     server_parser = subparsers.add_parser("serve", help="Run the Alpaca server")

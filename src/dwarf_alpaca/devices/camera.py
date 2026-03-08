@@ -11,6 +11,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..dwarf.session import get_session
+from ..device_profile import get_active_device_profile
 from ..dwarf.ws_client import DwarfCommandError
 from ..proto import protocol_pb2
 from .utils import alpaca_response, bind_request_context, resolve_parameter
@@ -96,6 +97,45 @@ class CameraState:
 state = CameraState()
 
 
+def _active_sensor_profile() -> SensorProfile:
+    camera = get_active_device_profile().camera
+    return SensorProfile(
+        name=camera.name,
+        resolution_x=camera.resolution_x,
+        resolution_y=camera.resolution_y,
+        bits_per_pixel=camera.bits_per_pixel,
+        ad_converter_bits=camera.ad_converter_bits,
+        max_binning=camera.max_binning,
+        pixel_size_um=camera.pixel_size_um,
+        max_gain_db=camera.max_gain_db,
+        min_exposure_s=camera.min_exposure_s,
+        max_exposure_s=camera.max_exposure_s,
+        electrons_per_adu=list(camera.electrons_per_adu),
+        full_well_capacity_e=list(camera.full_well_capacity_e),
+        raw_format=camera.raw_format,
+        bayer_pattern=camera.bayer_pattern,
+    )
+
+
+def _sync_state_to_profile() -> SensorProfile:
+    profile = _active_sensor_profile()
+    state.sensor_width = profile.resolution_x
+    state.sensor_height = profile.resolution_y
+    state.max_bin_x = profile.max_binning
+    state.max_bin_y = profile.max_binning
+    state.pixel_size_x = profile.pixel_size_um
+    state.pixel_size_y = profile.pixel_size_um
+    state.gain_max = int(profile.max_gain_db)
+    if state.subframe_width > state.sensor_width or state.subframe_width <= 0:
+        state.subframe_start_x = 0
+        state.subframe_width = state.sensor_width
+    if state.subframe_height > state.sensor_height or state.subframe_height <= 0:
+        state.subframe_start_y = 0
+        state.subframe_height = state.sensor_height
+    state.gain = max(state.gain_min, min(state.gain, state.gain_max))
+    return profile
+
+
 def _ensure_connected() -> None:
     if not state.connected:
         raise HTTPException(status_code=400, detail="Camera not connected")
@@ -165,12 +205,14 @@ def _resolve_image_array(image: np.ndarray) -> tuple[np.ndarray, int]:
 
 @router.get("/description")
 def get_description():
-    return alpaca_response(value="DWARF 3 Camera")
+    profile = get_active_device_profile()
+    return alpaca_response(value=f"{profile.display_name} Camera")
 
 
 @router.get("/name")
 def get_name():
-    return alpaca_response(value="DWARF 3 Camera")
+    profile = get_active_device_profile()
+    return alpaca_response(value=f"{profile.display_name} Camera")
 
 
 @router.get("/driverversion")
@@ -230,42 +272,50 @@ def get_has_shutter():
 
 @router.get("/cameraxsize")
 def get_camera_x_size():
+    _sync_state_to_profile()
     return alpaca_response(value=state.sensor_width)
 
 
 @router.get("/cameraysize")
 def get_camera_y_size():
+    _sync_state_to_profile()
     return alpaca_response(value=state.sensor_height)
 
 
 @router.get("/maxbinx")
 def get_max_bin_x():
+    _sync_state_to_profile()
     return alpaca_response(value=state.max_bin_x)
 
 
 @router.get("/maxbiny")
 def get_max_bin_y():
+    _sync_state_to_profile()
     return alpaca_response(value=state.max_bin_y)
 
 
 @router.get("/pixelsizex")
 def get_pixel_size_x():
+    _sync_state_to_profile()
     return alpaca_response(value=state.pixel_size_x)
 
 
 @router.get("/pixelsizey")
 def get_pixel_size_y():
+    _sync_state_to_profile()
     return alpaca_response(value=state.pixel_size_y)
 
 
 @router.get("/exposuremax")
 def get_exposure_max():
-    return alpaca_response(value=IMX678_PROFILE.max_exposure_s)
+    profile = _sync_state_to_profile()
+    return alpaca_response(value=profile.max_exposure_s)
 
 
 @router.get("/exposuremin")
 def get_exposure_min():
-    return alpaca_response(value=IMX678_PROFILE.min_exposure_s)
+    profile = _sync_state_to_profile()
+    return alpaca_response(value=profile.min_exposure_s)
 
 
 @router.get("/exposureresolution")
@@ -338,24 +388,28 @@ def get_sensor_type():
 
 @router.get("/sensorname")
 def get_sensor_name():
-    return alpaca_response(value=IMX678_PROFILE.name)
+    profile = _sync_state_to_profile()
+    return alpaca_response(value=profile.name)
 
 
 @router.get("/electronsperadu")
 def get_electrons_per_adu():
-    value = IMX678_PROFILE.electrons_per_adu[0] if IMX678_PROFILE.electrons_per_adu else 0.0
+    profile = _sync_state_to_profile()
+    value = profile.electrons_per_adu[0] if profile.electrons_per_adu else 0.0
     return alpaca_response(value=value)
 
 
 @router.get("/fullwellcapacity")
 def get_full_well_capacity():
-    value = IMX678_PROFILE.full_well_capacity_e[0] if IMX678_PROFILE.full_well_capacity_e else 0.0
+    profile = _sync_state_to_profile()
+    value = profile.full_well_capacity_e[0] if profile.full_well_capacity_e else 0.0
     return alpaca_response(value=value)
 
 
 @router.get("/maxadu")
 def get_max_adu():
-    max_value = (1 << IMX678_PROFILE.ad_converter_bits) - 1
+    profile = _sync_state_to_profile()
+    max_value = (1 << profile.ad_converter_bits) - 1
     return alpaca_response(value=max_value)
 
 
