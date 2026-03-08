@@ -30,6 +30,7 @@ from ..proto.dwarf_messages import (
     ReqSetTimezone,
     ReqCloseCamera,
     ReqGetSystemWorkingState,
+    ReqGetAllFeatureParams,
     ReqGotoDSO,
     ReqManualContinuFocus,
     ReqManualSingleStepFocus,
@@ -45,15 +46,18 @@ from ..proto.dwarf_messages import (
     ReqSetExpMode,
     ReqSetGain,
     ReqSetGainMode,
+    V3ReqSetCameraParam,
     ReqStopGoto,
     ReqStopManualContinuFocus,
     ReqsetMasterLock,
     ResNotifyFocus,
     ResNotifyHostSlaveMode,
     ResNotifyParam,
+    ResGetAllFeatureParams,
     ResNotifyStateAstroGoto,
     ResNotifyStateAstroTracking,
     ResNotifyTemperature,
+    V3ResNotifyCameraParamState,
 )
 from .ftp_client import DwarfFtpClient, FtpPhotoEntry
 from .http_client import DwarfHttpClient
@@ -64,11 +68,16 @@ logger = structlog.get_logger(__name__)
 
 
 FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "Duo-Band Filter"]
+FALLBACK_FILTER_LABELS_MINI = ["Duo-Band", "Dark", "No Filter"]
 
 _MAX_JOYSTICK_SPEED = 30.0
 _MIN_JOYSTICK_SPEED = 0.1
 
 _GOTO_KIND_DSO = "dso"
+
+_MODULE_CAMERA_PARAMS = 15
+_CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700
+_CMD_NOTIFY_V3_CAMERA_PARAM_STATE = 15264
 
 
 def _resolve_ws_protocol_profile(settings: Settings) -> tuple[int, int]:
@@ -229,6 +238,10 @@ class DwarfSession:
         self._gain_value_options: list[tuple[int, int]] | None = None
         self._gain_manual_mode_supported: bool | None = None
         self._gain_last_skipped_value: int | None = None
+        self._ws_feature_params: list[dict[str, Any]] | None = None
+        self._ws_v3_filter_param_id: int | None = None
+        self._ws_v3_filter_param_flag: int = 0
+        self._ws_v3_filter_value: int | None = None
         self._calibration_lock = asyncio.Lock()
         self._last_calibration_time: float | None = None
         self._last_calibration_ip: str | None = None
@@ -244,6 +257,64 @@ class DwarfSession:
 
     def _is_dwarf_mini(self) -> bool:
         return normalize_dwarf_device_model(self.settings.dwarf_device_model) == "dwarfmini"
+
+    def _fallback_filter_labels(self) -> list[str]:
+        if self._is_dwarf_mini():
+            return FALLBACK_FILTER_LABELS_MINI
+        return FALLBACK_FILTER_LABELS
+
+    def _normalize_filter_label(self, label: str, index: int) -> str:
+        resolved = _canonical_filter_label(label, index)
+        if not self._is_dwarf_mini():
+            return resolved
+        lowered = resolved.strip().lower().replace("_", " ")
+        lowered = " ".join(part for part in lowered.split() if part)
+        if "duo" in lowered and "band" in lowered:
+            return "Duo-Band"
+        if lowered in {"astro", "astro filter", "dark", "dark filter"}:
+            return "Dark"
+        if lowered in {"vis", "vis filter", "no filter", "none", "clear"}:
+            return "No Filter"
+        return resolved
+
+    @staticmethod
+    def _looks_like_filter_option_set(labels: list[str]) -> bool:
+        canonical: set[str] = set()
+        for raw in labels:
+            lowered = str(raw).strip().lower().replace("_", " ")
+            lowered = " ".join(part for part in lowered.split() if part)
+            if not lowered:
+                continue
+            if "duo" in lowered and "band" in lowered:
+                canonical.add("duoband")
+            if lowered in {"dark", "dark filter", "astro", "astro filter"}:
+                canonical.add("dark")
+            if lowered in {"vis", "vis filter", "no filter", "none", "clear"}:
+                canonical.add("clear")
+        return len(canonical) >= 2
+
+    @staticmethod
+    def _decode_v3_param_id(param_id: int) -> tuple[int, int, int, int]:
+        value = int(param_id) & 0xFFFFFFFF
+        shooting_mode = (value >> 24) & 0xFF
+        category = (value >> 16) & 0xFF
+        camera_id = (value >> 8) & 0xFF
+        param_index = value & 0xFF
+        return shooting_mode, category, camera_id, param_index
+
+    def _is_likely_filter_param_id(self, param_id: int | None) -> bool:
+        if param_id is None:
+            return False
+        try:
+            value = int(param_id)
+        except (TypeError, ValueError):
+            return False
+        if value <= 0:
+            return False
+        if value < 256:
+            return value == 8
+        _, _, camera_id, param_index = self._decode_v3_param_id(value)
+        return camera_id == 0 and param_index == 8
 
     def _get_ws_command_lock(self) -> asyncio.Lock:
         loop = asyncio.get_running_loop()
@@ -381,6 +452,52 @@ class DwarfSession:
             self._handle_goto_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_TRACKING:
             self._handle_tracking_state_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_SET_FEATURE_PARAM:
+            self._handle_feature_param_notification(packet)
+        elif command_id == _CMD_NOTIFY_V3_CAMERA_PARAM_STATE:
+            self._handle_v3_camera_param_state_notification(packet)
+
+    def _handle_feature_param_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = ResNotifyParam()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug("dwarf.camera.feature_param_notify_decode_failed", error=str(exc))
+            return
+        params = getattr(message, "param", [])
+        for entry in params:
+            param_id = getattr(entry, "id", None)
+            if not self._is_likely_filter_param_id(param_id):
+                continue
+            try:
+                self._ws_v3_filter_param_id = int(param_id)
+                self._ws_v3_filter_value = int(getattr(entry, "index", 0))
+                self._ws_v3_filter_param_flag = int(getattr(entry, "mode_index", 0))
+            except (TypeError, ValueError):
+                continue
+
+    def _handle_v3_camera_param_state_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = V3ResNotifyCameraParamState()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug("dwarf.camera.v3_param_state_decode_failed", error=str(exc))
+            return
+        param_id = getattr(message, "param_id", None)
+        if not self._is_likely_filter_param_id(param_id):
+            return
+        try:
+            self._ws_v3_filter_param_id = int(param_id)
+            self._ws_v3_filter_param_flag = int(getattr(message, "flag", 0))
+            self._ws_v3_filter_value = int(getattr(message, "value", 0))
+        except (TypeError, ValueError):
+            return
 
     def _handle_focus_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -1792,16 +1909,73 @@ class DwarfSession:
 
     def _iter_feature_params(self) -> Iterator[dict[str, Any]]:
         if not self._params_config:
-            return
-        data = self._params_config.get("data")
-        if not isinstance(data, dict):
-            return
-        params = data.get("featureParams")
-        if not isinstance(params, list):
-            return
+            params = []
+        else:
+            data = self._params_config.get("data")
+            if not isinstance(data, dict):
+                params = []
+            else:
+                params = data.get("featureParams")
+                if not isinstance(params, list):
+                    params = []
         for entry in params:
             if isinstance(entry, dict):
                 yield entry
+        ws_params = self._ws_feature_params or []
+        for entry in ws_params:
+            if isinstance(entry, dict):
+                yield entry
+
+    @staticmethod
+    def _common_param_to_dict(param: Message) -> dict[str, Any]:
+        return {
+            "id": int(getattr(param, "id", 0)),
+            "hasAuto": bool(getattr(param, "hasAuto", False)),
+            "autoMode": int(getattr(param, "auto_mode", 0)),
+            "modeIndex": int(getattr(param, "mode_index", 0)),
+            "index": int(getattr(param, "index", 0)),
+            "continueValue": float(getattr(param, "continue_value", 0.0)),
+            "name": "",
+        }
+
+    async def _ensure_ws_feature_params(self) -> None:
+        if self.simulation or not self._is_dwarf_mini():
+            return
+        if self._ws_feature_params is not None:
+            return
+        try:
+            await self._ensure_ws()
+            request = ReqGetAllFeatureParams()
+            response = await self._send_request(
+                protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+                protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_GET_ALL_FEATURE_PARAMS,
+                request,
+                ResGetAllFeatureParams,
+                timeout=8.0,
+            )
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning("dwarf.camera.ws_feature_params_fetch_failed", error=str(exc))
+            self._ws_feature_params = []
+            return
+
+        self._ws_feature_params = [self._common_param_to_dict(param) for param in response.all_feature_params]
+        for entry in self._ws_feature_params:
+            param_id = entry.get("id")
+            if not self._is_likely_filter_param_id(param_id):
+                continue
+            try:
+                self._ws_v3_filter_param_id = int(param_id)
+                self._ws_v3_filter_param_flag = int(entry.get("modeIndex", 0))
+                self._ws_v3_filter_value = int(entry.get("index", 0))
+            except (TypeError, ValueError):
+                continue
+            break
+        logger.info(
+            "dwarf.camera.ws_feature_params_loaded",
+            count=len(self._ws_feature_params),
+            filter_param_id=self._ws_v3_filter_param_id,
+            filter_value=self._ws_v3_filter_value,
+        )
 
     @staticmethod
     def _tele_param_expected_responses() -> Dict[Tuple[int, int], Type[Message]]:
@@ -1977,6 +2151,7 @@ class DwarfSession:
     async def _get_filter_options(self) -> list[FilterOption]:
         if self._filter_options is not None:
             return self._filter_options
+        fallback_labels = self._fallback_filter_labels()
         if self.simulation:
             self._filter_options = [
                 FilterOption(
@@ -1985,7 +2160,7 @@ class DwarfSession:
                     index=i,
                     label=_canonical_filter_label(label, i),
                 )
-                for i, label in enumerate(FALLBACK_FILTER_LABELS)
+                for i, label in enumerate(fallback_labels)
             ]
             return self._filter_options
         payload = await self._ensure_params_config()
@@ -2000,11 +2175,11 @@ class DwarfSession:
                     label=_canonical_filter_label(label, i),
                     controllable=False,
                 )
-                for i, label in enumerate(FALLBACK_FILTER_LABELS)
+                for i, label in enumerate(fallback_labels)
             ]
             logger.info(
                 "dwarf.camera.filter_options_fallback",
-                filters=FALLBACK_FILTER_LABELS,
+                filters=fallback_labels,
                 reason="params_config_unavailable",
             )
             return self._filter_options
@@ -2019,7 +2194,7 @@ class DwarfSession:
             label: str,
             continue_value: float | None,
         ) -> None:
-            resolved = _canonical_filter_label(label, index)
+            resolved = self._normalize_filter_label(label, index)
             key = resolved.strip().lower()
             if key in seen:
                 return
@@ -2059,12 +2234,59 @@ class DwarfSession:
                 for mode_index, index, label, continue_value in self._extract_feature_options(feature):
                     _add_option(feature, mode_index, index, label, continue_value)
 
+        if not options and self._is_dwarf_mini():
+            # Mini firmware can expose filter-like options under non-filter parameter names.
+            for _, param in self._iter_camera_support_params(camera_name="tele"):
+                extracted = self._extract_support_param_options(param)
+                labels = [label for _, _, label, _ in extracted]
+                if not self._looks_like_filter_option_set(labels):
+                    continue
+                for mode_index, index, label, continue_value in extracted:
+                    _add_option(param, mode_index, index, label, continue_value)
+            if not options:
+                for feature in self._iter_feature_params():
+                    extracted = self._extract_feature_options(feature)
+                    labels = [label for _, _, label, _ in extracted]
+                    if not self._looks_like_filter_option_set(labels):
+                        continue
+                    for mode_index, index, label, continue_value in extracted:
+                        _add_option(feature, mode_index, index, label, continue_value)
+
         if not options:
             fallback = self._find_feature_option_by_label("filter")
             if fallback is not None:
                 feature, option = fallback
                 mode_index, index, label, continue_value = option
                 _add_option(feature, mode_index, index, label, continue_value)
+
+        if not options and self._is_dwarf_mini():
+            await self._ensure_ws_feature_params()
+
+        if not options and self._is_dwarf_mini() and self._ws_v3_filter_param_id is not None:
+            param_id = int(self._ws_v3_filter_param_id)
+            flag_value = int(self._ws_v3_filter_param_flag)
+            options = [
+                FilterOption(
+                    parameter={
+                        "id": param_id,
+                        "name": "v3_filter_param",
+                        "__control": "v3_camera_param",
+                        "__v3_param_id": param_id,
+                        "flag": flag_value,
+                    },
+                    mode_index=flag_value,
+                    index=i,
+                    label=self._normalize_filter_label(label, i),
+                    continue_value=None,
+                    controllable=True,
+                )
+                for i, label in enumerate(fallback_labels)
+            ]
+            logger.info(
+                "dwarf.camera.filter_options_from_ws",
+                filter_param_id=param_id,
+                filters=[option.label for option in options],
+            )
 
         if not options:
             self._filter_options = [
@@ -2075,11 +2297,11 @@ class DwarfSession:
                     label=_canonical_filter_label(label, i),
                     controllable=False,
                 )
-                for i, label in enumerate(FALLBACK_FILTER_LABELS)
+                for i, label in enumerate(fallback_labels)
             ]
             logger.info(
                 "dwarf.camera.filter_options_fallback",
-                filters=FALLBACK_FILTER_LABELS,
+                filters=fallback_labels,
                 reason="params_config_missing_filters",
             )
         else:
@@ -2110,7 +2332,50 @@ class DwarfSession:
             return
 
         if not option.controllable or not option.parameter:
-            raise RuntimeError("filter_control_unavailable")
+            # Some firmware profiles expose filter names but no writable control param.
+            # Keep a virtual wheel state so Alpaca clients can connect and select names.
+            state.filter_name = option.label
+            state.filter_index = position
+            logger.info(
+                "dwarf.camera.filter_selected_virtual",
+                filter=state.filter_name,
+                position=position,
+                mode_index=option.mode_index,
+                index=option.index,
+                continue_value=option.continue_value,
+            )
+            return
+
+        control_mode = str(option.parameter.get("__control", "")).strip().lower()
+        if control_mode == "v3_camera_param":
+            raw_param_id = option.parameter.get("__v3_param_id")
+            try:
+                param_id = int(raw_param_id)
+            except (TypeError, ValueError):
+                param_id = None
+            if param_id is None:
+                raise ValueError("invalid_v3_filter_param_id")
+            flag_value = option.parameter.get("flag", option.mode_index)
+            try:
+                flag = int(flag_value)
+            except (TypeError, ValueError):
+                flag = 0
+            await self._set_v3_camera_param(param_id=param_id, value=option.index, flag=flag)
+            state.filter_name = option.label
+            state.filter_index = position
+            self._ws_v3_filter_param_id = param_id
+            self._ws_v3_filter_param_flag = flag
+            self._ws_v3_filter_value = option.index
+            logger.info(
+                "dwarf.camera.filter_selected",
+                filter=state.filter_name,
+                position=position,
+                mode_index=option.mode_index,
+                index=option.index,
+                continue_value=option.continue_value,
+                control="v3_camera_param",
+            )
+            return
 
         param_id_raw = None
         try:
@@ -2133,6 +2398,7 @@ class DwarfSession:
                 mode_index=option.mode_index,
                 index=option.index,
                 continue_value=option.continue_value if option.continue_value is not None else 0.0,
+                strict=True,
             )
         state.filter_name = option.label
         state.filter_index = position
@@ -2155,6 +2421,30 @@ class DwarfSession:
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_IRCUT,
             request,
             expected_responses=self._tele_param_expected_responses(),
+        )
+
+    async def _set_v3_camera_param(self, *, param_id: int, value: int, flag: int = 0) -> None:
+        if self.simulation:
+            return
+        request = V3ReqSetCameraParam()
+        request.param_id = int(param_id)
+        request.flag = int(flag)
+        request.value = int(value)
+        expected = {
+            (
+                protocol_pb2.ModuleId.MODULE_NOTIFY,
+                _CMD_NOTIFY_V3_CAMERA_PARAM_STATE,
+            ): V3ResNotifyCameraParamState,
+            (
+                protocol_pb2.ModuleId.MODULE_NOTIFY,
+                protocol_pb2.DwarfCMD.CMD_NOTIFY_SET_FEATURE_PARAM,
+            ): ResNotifyParam,
+        }
+        await self._send_and_check(
+            _MODULE_CAMERA_PARAMS,
+            _CMD_V3_CAMERA_PARAMS_SET_PARAM,
+            request,
+            expected_responses=expected,
         )
 
     async def set_filter_position(self, position: int) -> str:
@@ -2297,6 +2587,7 @@ class DwarfSession:
         mode_index: int,
         index: int = 0,
         continue_value: float = 0.0,
+        strict: bool = False,
     ) -> None:
         if self.simulation:
             return
@@ -2326,6 +2617,8 @@ class DwarfSession:
                 continue_value=continue_value,
                 error=str(exc),
             )
+            if strict:
+                raise
 
     async def _configure_astro_capture(
         self,

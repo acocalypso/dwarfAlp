@@ -132,7 +132,7 @@ async def put_connected(
                     if str(exc) == "filter_control_unavailable":
                         raise HTTPException(
                             status_code=503,
-                            detail="Filter wheel controls unavailable (device offline)",
+                            detail="Filter wheel controls unavailable for this firmware profile",
                         ) from exc
                     raise
             state.position = position

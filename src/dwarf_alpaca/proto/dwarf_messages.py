@@ -144,6 +144,28 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
                 ),
             ),
             MessageSpec(
+                name="ReqGetAllFeatureParams",
+                fields=(),
+            ),
+            MessageSpec(
+                name="ResGetAllFeatureParams",
+                fields=(
+                    (
+                        "all_feature_params",
+                        1,
+                        descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                        descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
+                        ".dwarf.CommonParam",
+                    ),
+                    (
+                        "code",
+                        2,
+                        descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                        descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ),
+                ),
+            ),
+            MessageSpec(
                 name="ReqSetIrCut",
                 fields=(
                     (
@@ -167,6 +189,46 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
                     descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
                     descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
                     ".dwarf.CommonParam",
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ReqSetCameraParam",
+            fields=(
+                (
+                    "param_id",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT64,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "flag",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "value",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ReqAdjustParam",
+            fields=(
+                (
+                    "param_id",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT64,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "value",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
                 ),
             ),
         ),
@@ -222,6 +284,29 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
                     "target_name",
                     2,
                     descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ResNotifyCameraParamState",
+            fields=(
+                (
+                    "param_id",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT64,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "flag",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "value",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
                     descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
                 ),
             ),
@@ -438,13 +523,18 @@ V3ReqOpenTeleCamera = _prototype("V3ReqOpenTeleCamera")
 V3ReqOpenWideCamera = _prototype("V3ReqOpenWideCamera")
 ReqGetSystemWorkingState = _prototype("ReqGetSystemWorkingState")
 ReqSetFeatureParams = _prototype("ReqSetFeatureParams")
+ReqGetAllFeatureParams = _prototype("ReqGetAllFeatureParams")
+ResGetAllFeatureParams = _prototype("ResGetAllFeatureParams")
 ReqSetIrCut = _prototype("ReqSetIrCut")
+V3ReqSetCameraParam = _prototype("V3ReqSetCameraParam")
+V3ReqAdjustParam = _prototype("V3ReqAdjustParam")
 ReqCloseCamera = _prototype("ReqCloseCamera")
 ResNotifyParam = _prototype("ResNotifyParam")
 ResNotifyFocus = _prototype("ResNotifyFocus")
 ResNotifyTemperature = _prototype("ResNotifyTemperature")
 ResNotifyStateAstroGoto = _prototype("ResNotifyStateAstroGoto")
 ResNotifyStateAstroTracking = _prototype("ResNotifyStateAstroTracking")
+V3ResNotifyCameraParamState = _prototype("V3ResNotifyCameraParamState")
 ReqPhoto = _prototype("ReqPhoto")
 ReqPhotoRaw = _prototype("ReqPhotoRaw")
 ReqSetExpMode = _prototype("ReqSetExpMode")

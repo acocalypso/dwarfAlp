@@ -2,10 +2,7 @@ from fastapi.testclient import TestClient
 
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.server import build_app
-from dwarf_alpaca.discovery import build_discovery_payload, DEVICE_LIST
-
-
-client = TestClient(build_app(Settings(force_simulation=True)))
+from dwarf_alpaca.discovery import build_discovery_payload
 
 
 def _value(response):
@@ -14,6 +11,7 @@ def _value(response):
 
 
 def test_configured_devices_list_includes_camera_and_focuser():
+    client = TestClient(build_app(Settings(force_simulation=True, dwarf_device_model="dwarf3")))
     resp = client.get("/management/v1/configureddevices")
     assert resp.status_code == 200
     devices = _value(resp)
@@ -22,15 +20,15 @@ def test_configured_devices_list_includes_camera_and_focuser():
 
 
 def test_discovery_payload_contains_all_devices():
-    settings = Settings(force_simulation=True)
+    settings = Settings(force_simulation=True, dwarf_device_model="dwarf3")
     payload = build_discovery_payload(settings, advertised_host="127.0.0.1")
-    assert payload["DeviceCount"] == len(DEVICE_LIST)
+    assert payload["DeviceCount"] == len(payload["Devices"])
     expected = {(
         entry["DeviceType"],
         entry["DeviceNumber"],
         entry["DeviceName"],
         entry["UniqueID"],
-    ) for entry in DEVICE_LIST}
+    ) for entry in payload["Devices"]}
     observed = {(
         entry["DeviceType"],
         entry["DeviceNumber"],
@@ -41,15 +39,19 @@ def test_discovery_payload_contains_all_devices():
 
 
 def test_management_device_list_matches_discovery_devices():
+    settings = Settings(force_simulation=True, dwarf_device_model="dwarf3")
+    client = TestClient(build_app(settings))
     resp = client.get("/management/v1/devicelist")
     assert resp.status_code == 200
     device_list = _value(resp)
+    payload = build_discovery_payload(settings, advertised_host="127.0.0.1")
+    expected_devices = payload["Devices"]
     expected = {(
         entry["DeviceType"],
         entry["DeviceNumber"],
         entry["DeviceName"],
         entry["UniqueID"],
-    ) for entry in DEVICE_LIST}
+    ) for entry in expected_devices}
     observed = {(
         entry["DeviceType"],
         entry["DeviceNumber"],
@@ -59,13 +61,13 @@ def test_management_device_list_matches_discovery_devices():
     assert expected == observed
 
 
-def test_management_device_list_omits_filterwheel_for_mini():
+def test_management_device_list_includes_filterwheel_for_mini():
     mini_client = TestClient(build_app(Settings(force_simulation=True, dwarf_device_model="dwarfmini")))
     resp = mini_client.get("/management/v1/devicelist")
     assert resp.status_code == 200
     device_list = _value(resp)
     device_types = {entry["DeviceType"] for entry in device_list}
-    assert "FilterWheel" not in device_types
+    assert "FilterWheel" in device_types
     assert any("DWARF mini" in entry["DeviceName"] for entry in device_list)
 
     # Reset shared profile state for other test modules.

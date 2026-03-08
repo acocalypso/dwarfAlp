@@ -59,7 +59,7 @@ _DWARFMINI = DeviceProfile(
     model_id="dwarfmini",
     display_name="DWARF mini",
     ws_client_id="0000DAF4-0000-1000-8000-00805F9B34FB",
-    has_filterwheel=False,
+    has_filterwheel=True,
     camera=CameraProfile(
         name="Sony IMX662",
         # IMX662 active pixels are commonly reported as 1920x1080.
