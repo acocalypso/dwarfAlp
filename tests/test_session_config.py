@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import types
 from pathlib import Path
@@ -78,7 +79,7 @@ async def test_mini_filter_labels_are_mapped_from_firmware_aliases() -> None:
 
 @pytest.mark.asyncio
 async def test_ensure_default_filter_prefers_support_params(params_config: dict[str, object]) -> None:
-    session = DwarfSession(Settings())
+    session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
     session.simulation = False
     session._params_config = params_config
     session.camera_state.filter_name = ""
@@ -153,3 +154,141 @@ async def test_apply_filter_option_uses_v3_camera_param_control_for_mini() -> No
     assert captured == {"param_id": 8, "value": 2, "flag": 1}
     assert session.camera_state.filter_name == "No Filter"
     assert session.camera_state.filter_index == 2
+
+
+@pytest.mark.asyncio
+async def test_mini_filter_options_use_default_param_when_discovery_missing() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    session._params_config = {"data": {"version": "1.0.0"}}
+    session._ws_v3_filter_param_id = None
+    session._ws_v3_filter_param_flag = 0
+    session._filter_options = None
+
+    async def fake_ensure_ws_feature_params(self) -> None:  # type: ignore[override]
+        self._ws_feature_params = []
+
+    session._ensure_ws_feature_params = types.MethodType(fake_ensure_ws_feature_params, session)
+
+    options = await session._get_filter_options()
+
+    assert [opt.label for opt in options] == ["Duo-Band", "Dark", "No Filter"]
+    assert all(opt.controllable for opt in options)
+    assert all(opt.parameter and opt.parameter.get("__v3_param_id") == 0x20100000000000D for opt in options)
+
+
+@pytest.mark.asyncio
+async def test_set_v3_camera_param_mini_uses_adjust_only_on_timeouts() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    calls: list[tuple[int, int]] = []
+
+    async def fake_ensure_ws(self) -> None:  # type: ignore[override]
+        return None
+
+    async def fake_send_and_check(self, module_id, command_id, request, **_kwargs):  # type: ignore[override]
+        calls.append((command_id, int(getattr(request, "param_id", 0))))
+        if command_id == 16703:
+            raise asyncio.TimeoutError()
+        return None
+
+    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    await session._set_v3_camera_param(param_id=13, value=2, flag=0)
+
+    # Mini path uses fast adjust-only retries and keeps state coherent even when unconfirmed.
+    command_ids = [cmd for cmd, _ in calls]
+    assert set(command_ids) == {16703}
+    assert len(command_ids) >= 1
+    assert session._ws_v3_filter_param_id is not None
+
+
+@pytest.mark.asyncio
+async def test_set_v3_camera_param_mini_prefers_adjust_with_packed_id() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    calls: list[tuple[int, int]] = []
+
+    async def fake_ensure_ws(self) -> None:  # type: ignore[override]
+        return None
+
+    async def fake_send_and_check(self, module_id, command_id, request, **_kwargs):  # type: ignore[override]
+        calls.append((command_id, int(getattr(request, "param_id", 0))))
+        return None
+
+    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    await session._set_v3_camera_param(param_id=0x20100000000000D, value=1, flag=0)
+
+    assert calls == [(16703, 0x20100000000000D)]
+
+
+@pytest.mark.asyncio
+async def test_set_v3_camera_param_mini_sticky_param_id_avoids_fanout() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    session._ws_v3_filter_param_id = 13
+    calls: list[tuple[int, int]] = []
+
+    async def fake_ensure_ws(self) -> None:  # type: ignore[override]
+        return None
+
+    async def fake_send_and_check(self, module_id, command_id, request, **_kwargs):  # type: ignore[override]
+        calls.append((command_id, int(getattr(request, "param_id", 0))))
+        raise asyncio.TimeoutError()
+
+    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    await session._set_v3_camera_param(param_id=0x20100000000000D, value=2, flag=0)
+
+    assert calls == [(16703, 13)]
+
+
+def test_mini_filter_param_id_detection_accepts_index_13() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+
+    assert session._is_likely_filter_param_id(13)
+
+    # Packed v3 format: shootingMode/category/cameraId/paramIndex
+    packed = (2 << 24) | (4 << 16) | (0 << 8) | 13
+    assert session._is_likely_filter_param_id(packed)
+
+
+@pytest.mark.asyncio
+async def test_mini_filter_options_are_canonicalized_to_three_positions() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    session._params_config = {
+        "data": {
+            "cameras": [
+                {
+                    "name": "tele",
+                    "supportParams": [
+                        {
+                            "id": 0x0204000D,
+                            "name": "Lens Mode",
+                            "supportMode": [{"name": "gear", "index": 0}],
+                            "gearMode": {
+                                # Intentionally shuffled order and non-sequential indices.
+                                "values": [
+                                    {"index": 2, "name": "VIS"},
+                                    {"index": 0, "name": "DuoBand"},
+                                    {"index": 1, "name": "Astro"},
+                                ]
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+    session._filter_options = None
+
+    options = await session._get_filter_options()
+
+    assert [entry.label for entry in options] == ["Duo-Band", "Dark", "No Filter"]
+    # Keep device values intact while exposing canonical Alpaca positions.
+    assert [entry.index for entry in options] == [0, 1, 2]

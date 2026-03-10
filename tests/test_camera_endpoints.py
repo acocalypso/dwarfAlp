@@ -1,4 +1,5 @@
 import asyncio
+import types
 
 import pytest
 from fastapi.testclient import TestClient
@@ -259,6 +260,28 @@ def test_camera_mutators_accept_json_payloads():
         json={"Duration": 0.05, "Light": True},
     )
     assert resp.status_code == 200
+
+
+def test_camera_start_exposure_returns_502_when_photo_start_fails():
+    _connect_camera()
+
+    session = asyncio.run(get_session())
+
+    async def fake_start_exposure(self, *_args, **_kwargs):
+        raise RuntimeError("photo_start_failed")
+
+    original = session.camera_start_exposure
+    session.camera_start_exposure = types.MethodType(fake_start_exposure, session)
+    try:
+        resp = client.put(
+            "/api/v1/camera/0/startexposure",
+            params={"Duration": 0.05, "Light": True},
+        )
+    finally:
+        session.camera_start_exposure = original
+
+    assert resp.status_code == 502
+    assert "did not accept capture trigger commands" in resp.json().get("detail", "")
 
 
 def test_camera_metadata_uses_mini_sensor_profile():

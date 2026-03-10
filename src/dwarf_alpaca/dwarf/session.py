@@ -38,6 +38,7 @@ from ..proto.dwarf_messages import (
     ReqMotorServiceJoystick,
     ReqMotorServiceJoystickStop,
     ReqPhotoRaw,
+    ReqPhoto,
     ReqOpenCamera,
     V3ReqOpenTeleCamera,
     ReqSetIrCut,
@@ -46,6 +47,7 @@ from ..proto.dwarf_messages import (
     ReqSetExpMode,
     ReqSetGain,
     ReqSetGainMode,
+    V3ReqAdjustParam,
     V3ReqSetCameraParam,
     ReqStopGoto,
     ReqStopManualContinuFocus,
@@ -69,6 +71,7 @@ logger = structlog.get_logger(__name__)
 
 FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "Duo-Band Filter"]
 FALLBACK_FILTER_LABELS_MINI = ["Duo-Band", "Dark", "No Filter"]
+_MINI_CANONICAL_FILTER_LABELS = tuple(FALLBACK_FILTER_LABELS_MINI)
 
 _MAX_JOYSTICK_SPEED = 30.0
 _MIN_JOYSTICK_SPEED = 0.1
@@ -77,7 +80,11 @@ _GOTO_KIND_DSO = "dso"
 
 _MODULE_CAMERA_PARAMS = 15
 _CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700
+_CMD_V3_CAMERA_PARAMS_ADJUST_PARAM = 16703
 _CMD_NOTIFY_V3_CAMERA_PARAM_STATE = 15264
+# Observed on mini firmware captures for V3 filterwheel adjust writes.
+_MINI_DEFAULT_FILTER_PARAM_ID = 0x20100000000000D
+_MINI_ALT_FILTER_PARAM_ID = 0x100000000000D
 
 
 def _resolve_ws_protocol_profile(settings: Settings) -> tuple[int, int]:
@@ -207,6 +214,8 @@ class DwarfSession:
         self._lock = asyncio.Lock()
         self._ws_command_lock: asyncio.Lock | None = None
         self._ws_command_lock_loop: asyncio.AbstractEventLoop | None = None
+        self._filter_change_lock: asyncio.Lock | None = None
+        self._filter_change_lock_loop: asyncio.AbstractEventLoop | None = None
         self._ws_bootstrapped = False
         self.camera_state = CameraState()
         self.focuser_state = FocuserState()
@@ -312,9 +321,65 @@ class DwarfSession:
         if value <= 0:
             return False
         if value < 256:
-            return value == 8
+            return value in {8, 13}
         _, _, camera_id, param_index = self._decode_v3_param_id(value)
-        return camera_id == 0 and param_index == 8
+        return camera_id == 0 and param_index in {8, 13}
+
+    def _canonical_mini_filter_bucket(self, label: str) -> str | None:
+        normalized = self._normalize_filter_label(label, 0)
+        if normalized in _MINI_CANONICAL_FILTER_LABELS:
+            return normalized
+        return None
+
+    def _canonicalize_mini_filter_options(self, options: list[FilterOption]) -> list[FilterOption]:
+        if not self._is_dwarf_mini():
+            return options
+        if not options:
+            return options
+
+        bucketed: dict[str, FilterOption] = {}
+        remaining: list[FilterOption] = []
+        for option in options:
+            bucket = self._canonical_mini_filter_bucket(option.label)
+            if bucket is None:
+                remaining.append(option)
+                continue
+            bucketed.setdefault(bucket, option)
+
+        ordered: list[FilterOption] = []
+        for label in _MINI_CANONICAL_FILTER_LABELS:
+            chosen = bucketed.get(label)
+            if chosen is not None:
+                ordered.append(
+                    FilterOption(
+                        parameter=chosen.parameter,
+                        mode_index=chosen.mode_index,
+                        index=chosen.index,
+                        label=label,
+                        continue_value=chosen.continue_value,
+                        controllable=chosen.controllable,
+                    )
+                )
+                continue
+
+            fallback_position = _MINI_CANONICAL_FILTER_LABELS.index(label)
+            ordered.append(
+                FilterOption(
+                    parameter=None,
+                    mode_index=0,
+                    index=fallback_position,
+                    label=label,
+                    continue_value=None,
+                    controllable=False,
+                )
+            )
+
+        if remaining:
+            logger.debug(
+                "dwarf.camera.filter_options_mini_extra_ignored",
+                extra_labels=[entry.label for entry in remaining],
+            )
+        return ordered
 
     def _get_ws_command_lock(self) -> asyncio.Lock:
         loop = asyncio.get_running_loop()
@@ -329,8 +394,35 @@ class DwarfSession:
         self._ws_command_lock = None
         self._ws_command_lock_loop = None
 
+    def _get_filter_change_lock(self) -> asyncio.Lock:
+        loop = asyncio.get_running_loop()
+        lock = self._filter_change_lock
+        if lock is None or self._filter_change_lock_loop is not loop:
+            lock = asyncio.Lock()
+            self._filter_change_lock = lock
+            self._filter_change_lock_loop = loop
+        return lock
+
     async def _handle_ws_timeout(self, module_id: int, command_id: int, error: Exception) -> None:
-        logger.warning(
+        await self._handle_ws_timeout_with_options(
+            module_id,
+            command_id,
+            error,
+            log_as_warning=True,
+            close_ws=True,
+        )
+
+    async def _handle_ws_timeout_with_options(
+        self,
+        module_id: int,
+        command_id: int,
+        error: Exception,
+        *,
+        log_as_warning: bool,
+        close_ws: bool,
+    ) -> None:
+        log_method = logger.warning if log_as_warning else logger.debug
+        log_method(
             "dwarf.ws.command.timeout",
             module_id=module_id,
             command_id=command_id,
@@ -338,9 +430,10 @@ class DwarfSession:
             error_type=type(error).__name__,
         )
         self._ws_client.cancel_pending(module_id, command_id, error)
-        self._reset_ws_command_lock()
-        with contextlib.suppress(Exception):
-            await self._ws_client.close()
+        if close_ws:
+            self._reset_ws_command_lock()
+            with contextlib.suppress(Exception):
+                await self._ws_client.close()
 
     async def _ensure_ws(self) -> None:
         if self.simulation:
@@ -723,6 +816,8 @@ class DwarfSession:
         *,
         timeout: float = 10.0,
         expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
+        suppress_timeout_warning: bool = False,
+        close_ws_on_timeout: bool = True,
     ) -> None:
         lock = self._get_ws_command_lock()
         async with lock:
@@ -749,7 +844,13 @@ class DwarfSession:
                     expected_responses=expected_responses,
                 )
             except asyncio.TimeoutError as exc:
-                await self._handle_ws_timeout(module_id, command_id, exc)
+                await self._handle_ws_timeout_with_options(
+                    module_id,
+                    command_id,
+                    exc,
+                    log_as_warning=not suppress_timeout_warning,
+                    close_ws=close_ws_on_timeout,
+                )
                 raise
             logger.info(
                 "dwarf.ws.command.send_and_check.completed",
@@ -766,6 +867,8 @@ class DwarfSession:
         *,
         timeout: float = 10.0,
         expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
+        suppress_timeout_warning: bool = False,
+        close_ws_on_timeout: bool = True,
     ) -> Message:
         lock = self._get_ws_command_lock()
         async with lock:
@@ -793,7 +896,13 @@ class DwarfSession:
                     expected_responses=expected_responses,
                 )
             except asyncio.TimeoutError as exc:
-                await self._handle_ws_timeout(module_id, command_id, exc)
+                await self._handle_ws_timeout_with_options(
+                    module_id,
+                    command_id,
+                    exc,
+                    log_as_warning=not suppress_timeout_warning,
+                    close_ws=close_ws_on_timeout,
+                )
                 raise
             logger.info(
                 "dwarf.ws.command.response",
@@ -813,6 +922,8 @@ class DwarfSession:
         *,
         timeout: float = 10.0,
         expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
+        suppress_timeout_warning: bool = False,
+        close_ws_on_timeout: bool = True,
     ) -> Message:
         return await self._send_request(
             module_id,
@@ -821,6 +932,8 @@ class DwarfSession:
             ComResponse,
             timeout=timeout,
             expected_responses=expected_responses,
+            suppress_timeout_warning=suppress_timeout_warning,
+            close_ws_on_timeout=close_ws_on_timeout,
         )
 
     async def _ensure_master_lock(self) -> None:
@@ -1695,6 +1808,7 @@ class DwarfSession:
         continue_without_darks: bool | None = None,
     ) -> None:
         state = self.camera_state
+        mini_profile = self._is_dwarf_mini()
         state.duration = duration
         state.light = light
         state.start_time = time.time()
@@ -1704,7 +1818,7 @@ class DwarfSession:
         state.last_error = None
         state.image = None
         state.last_dark_check_code = None
-        state.capture_mode = "astro"
+        state.capture_mode = "photo" if mini_profile else "astro"
         frames_to_capture = max(1, int(state.requested_frame_count or 1))
         state.requested_frame_count = frames_to_capture
         if state.capture_task and not state.capture_task.done():
@@ -1730,6 +1844,34 @@ class DwarfSession:
         except (TypeError, ValueError):
             bin_x, bin_y = (1, 1)
         state.requested_bin = (bin_x, bin_y)
+
+        if mini_profile:
+            await self._refresh_capture_baseline(capture_kind=state.capture_mode)
+            try:
+                photo_timeout = max(duration + 2.0, 5.0)
+                started = await self._start_photo_capture(timeout=photo_timeout)
+            except DwarfCommandError as exc:
+                state.last_error = f"command_error:{exc.code}"
+                raise
+            except asyncio.TimeoutError:
+                state.last_error = "timeout"
+                raise
+            except Exception:
+                state.last_error = "command_error:photo_start_failed"
+                raise
+            if not started:
+                state.last_error = "command_error:photo_start_failed"
+                raise RuntimeError("photo_start_failed")
+            state.last_error = None
+            logger.info(
+                "dwarf.camera.photo_capture_started",
+                duration=duration,
+                light=light,
+                frames=frames_to_capture,
+                binning=(bin_x, bin_y),
+            )
+            state.capture_task = asyncio.create_task(self._fetch_capture(state))
+            return
 
         if light and self.settings.go_live_before_exposure:
             await self._astro_go_live()
@@ -1952,9 +2094,14 @@ class DwarfSession:
                 request,
                 ResGetAllFeatureParams,
                 timeout=8.0,
+                suppress_timeout_warning=True,
+                close_ws_on_timeout=False,
             )
         except Exception as exc:  # pragma: no cover - hardware dependent
-            logger.warning("dwarf.camera.ws_feature_params_fetch_failed", error=str(exc))
+            if isinstance(exc, asyncio.TimeoutError):
+                logger.debug("dwarf.camera.ws_feature_params_fetch_timeout")
+            else:
+                logger.warning("dwarf.camera.ws_feature_params_fetch_failed", error=str(exc))
             self._ws_feature_params = []
             return
 
@@ -2262,8 +2409,8 @@ class DwarfSession:
         if not options and self._is_dwarf_mini():
             await self._ensure_ws_feature_params()
 
-        if not options and self._is_dwarf_mini() and self._ws_v3_filter_param_id is not None:
-            param_id = int(self._ws_v3_filter_param_id)
+        if not options and self._is_dwarf_mini():
+            param_id = int(self._ws_v3_filter_param_id or _MINI_DEFAULT_FILTER_PARAM_ID)
             flag_value = int(self._ws_v3_filter_param_flag)
             options = [
                 FilterOption(
@@ -2305,7 +2452,7 @@ class DwarfSession:
                 reason="params_config_missing_filters",
             )
         else:
-            self._filter_options = options
+            self._filter_options = self._canonicalize_mini_filter_options(options)
         return self._filter_options
 
     async def get_filter_labels(self) -> list[str]:
@@ -2426,10 +2573,6 @@ class DwarfSession:
     async def _set_v3_camera_param(self, *, param_id: int, value: int, flag: int = 0) -> None:
         if self.simulation:
             return
-        request = V3ReqSetCameraParam()
-        request.param_id = int(param_id)
-        request.flag = int(flag)
-        request.value = int(value)
         expected = {
             (
                 protocol_pb2.ModuleId.MODULE_NOTIFY,
@@ -2440,29 +2583,122 @@ class DwarfSession:
                 protocol_pb2.DwarfCMD.CMD_NOTIFY_SET_FEATURE_PARAM,
             ): ResNotifyParam,
         }
+
+        is_mini_filter_write = self._is_dwarf_mini() and self._is_likely_filter_param_id(param_id)
+        if is_mini_filter_write:
+            candidate_ids: list[int] = []
+            preferred_id = self._ws_v3_filter_param_id
+            for candidate in (
+                int(preferred_id) if preferred_id is not None else None,
+                int(param_id),
+                _MINI_DEFAULT_FILTER_PARAM_ID,
+                _MINI_ALT_FILTER_PARAM_ID,
+                13,
+            ):
+                if candidate is None:
+                    continue
+                if candidate not in candidate_ids:
+                    candidate_ids.append(candidate)
+
+            # Once we have a likely-working param ID, avoid expensive fan-out retries.
+            if preferred_id is not None and self._is_likely_filter_param_id(preferred_id):
+                candidate_ids = [int(preferred_id)]
+
+            await self._ensure_ws()
+            last_error: Exception | None = None
+            selected_candidate = int(candidate_ids[0]) if candidate_ids else int(param_id)
+            mini_timeout_s = 1.0
+            for candidate in candidate_ids:
+                adjust_request = V3ReqAdjustParam()
+                adjust_request.param_id = int(candidate)
+                adjust_request.value = int(value)
+                try:
+                    await self._send_and_check(
+                        _MODULE_CAMERA_PARAMS,
+                        _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM,
+                        adjust_request,
+                        timeout=mini_timeout_s,
+                        expected_responses=expected,
+                        suppress_timeout_warning=True,
+                        close_ws_on_timeout=False,
+                    )
+                    self._ws_v3_filter_param_id = int(candidate)
+                    return
+                except (DwarfCommandError, asyncio.TimeoutError) as exc:
+                    last_error = exc
+                    selected_candidate = int(candidate)
+                    logger.debug(
+                        "dwarf.camera.v3_adjust_param_retry",
+                        param_id=int(candidate),
+                        value=int(value),
+                        error=str(exc),
+                        error_type=type(exc).__name__,
+                    )
+
+            if last_error is not None:
+                # Keep using the most likely candidate even when firmware omits notify responses.
+                self._ws_v3_filter_param_id = int(selected_candidate)
+                logger.info(
+                    "dwarf.camera.v3_filter_write_unconfirmed",
+                    param_id=int(selected_candidate),
+                    value=int(value),
+                    flag=int(flag),
+                    error=str(last_error),
+                    error_type=type(last_error).__name__,
+                )
+                # Mini firmware can apply filter changes without a response notify.
+                # Keep Alpaca state coherent instead of surfacing hard move failures.
+                return
+
+        request = V3ReqSetCameraParam()
+        request.param_id = int(param_id)
+        request.flag = int(flag)
+        request.value = int(value)
+        try:
+            await self._send_and_check(
+                _MODULE_CAMERA_PARAMS,
+                _CMD_V3_CAMERA_PARAMS_SET_PARAM,
+                request,
+                expected_responses=expected,
+            )
+            return
+        except (DwarfCommandError, asyncio.TimeoutError) as exc:
+            logger.warning(
+                "dwarf.camera.v3_set_param_fallback_to_adjust",
+                param_id=int(param_id),
+                value=int(value),
+                flag=int(flag),
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+
+        adjust_request = V3ReqAdjustParam()
+        adjust_request.param_id = int(param_id)
+        adjust_request.value = int(value)
         await self._send_and_check(
             _MODULE_CAMERA_PARAMS,
-            _CMD_V3_CAMERA_PARAMS_SET_PARAM,
-            request,
+            _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM,
+            adjust_request,
             expected_responses=expected,
         )
 
     async def set_filter_position(self, position: int) -> str:
-        options = await self._get_filter_options()
-        if position < 0 or position >= len(options):
-            raise ValueError("filter_position_out_of_range")
-        option = options[position]
-        state = self.camera_state
-        if (
-            state.filter_index == position
-            and state.filter_name
-            and state.filter_name.strip().lower() == option.label.lower()
-        ):
-            return state.filter_name
-        if not self.simulation:
-            await self._ensure_ws()
-        await self._apply_filter_option(position, option)
-        return option.label
+        async with self._get_filter_change_lock():
+            options = await self._get_filter_options()
+            if position < 0 or position >= len(options):
+                raise ValueError("filter_position_out_of_range")
+            option = options[position]
+            state = self.camera_state
+            if (
+                state.filter_index == position
+                and state.filter_name
+                and state.filter_name.strip().lower() == option.label.lower()
+            ):
+                return state.filter_name
+            if not self.simulation:
+                await self._ensure_ws()
+            await self._apply_filter_option(position, option)
+            return option.label
 
     async def _ensure_default_filter(self, default_filter: str = "VIS") -> None:
         state = self.camera_state
@@ -2842,9 +3078,9 @@ class DwarfSession:
             code,
         )
 
-    async def _start_photo_capture(self, *, timeout: float) -> None:
+    async def _start_photo_capture(self, *, timeout: float) -> bool:
         if self.simulation:
-            return
+            return True
         request = ReqPhotoRaw()
         try:
             await self._send_and_check(
@@ -2853,11 +3089,47 @@ class DwarfSession:
                 request,
                 timeout=timeout,
             )
+            return True
         except asyncio.TimeoutError:
             logger.warning(
                 "dwarf.camera.photo_raw_timeout",
                 timeout=timeout,
             )
+            if self._is_dwarf_mini():
+                return await self._start_photo_capture_fallback(timeout=5.0)
+            raise
+        except DwarfCommandError as exc:
+            logger.warning(
+                "dwarf.camera.photo_raw_failed",
+                code=exc.code,
+            )
+            if self._is_dwarf_mini():
+                return await self._start_photo_capture_fallback(timeout=5.0)
+            raise
+
+    async def _start_photo_capture_fallback(self, *, timeout: float) -> bool:
+        request = ReqPhoto()
+        request.x = 0
+        request.y = 0
+        request.ratio = 0.0
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+                protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_PHOTOGRAPH,
+                request,
+                timeout=timeout,
+            )
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.camera.photo_fallback_failed",
+                timeout=timeout,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return False
+        else:
+            logger.info("dwarf.camera.photo_fallback_started")
+            return True
 
     async def _stop_astro_capture(self) -> None:
         if self.simulation:

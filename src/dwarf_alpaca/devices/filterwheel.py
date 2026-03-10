@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 
 import structlog
@@ -28,6 +29,26 @@ class FilterWheelState:
 
 
 state = FilterWheelState()
+_connect_lock = asyncio.Lock()
+
+
+def _normalize_names_for_profile(names: list[str]) -> list[str]:
+    profile = get_active_device_profile()
+    if profile.model_id != "dwarfmini":
+        return names
+    mapped: list[str] = []
+    for idx, raw in enumerate(names):
+        lowered = str(raw).strip().lower().replace("_", " ")
+        lowered = " ".join(part for part in lowered.split() if part)
+        if "duo" in lowered and "band" in lowered:
+            mapped.append("Duo-Band")
+        elif lowered in {"astro", "astro filter", "dark", "dark filter"}:
+            mapped.append("Dark")
+        elif lowered in {"vis", "vis filter", "no filter", "none", "clear"}:
+            mapped.append("No Filter")
+        else:
+            mapped.append(str(raw).strip() or f"Filter {idx}")
+    return mapped
 
 
 async def preload_filters() -> None:
@@ -110,57 +131,95 @@ async def put_connected(
     value = await resolve_parameter(request, "Connected", bool, Connected_query)
     session = await get_session()
 
-    if value:
-        _require_available()
-        await session.acquire("filterwheel")
-        try:
-            names = await session.get_filter_labels()
-            if not names:
-                raise RuntimeError("no_filters")
-            state.set_names(names)
-            position = session.get_filter_position()
-            if position is None or position < 0 or position >= len(names):
-                try:
-                    selected = await session.set_filter_position(0)
-                    position = 0
-                    logger.info(
-                        "filterwheel.initialize_position",
-                        filter=selected,
-                        position=position,
-                    )
-                except RuntimeError as exc:
-                    if str(exc) == "filter_control_unavailable":
-                        raise HTTPException(
-                            status_code=503,
-                            detail="Filter wheel controls unavailable for this firmware profile",
-                        ) from exc
-                    raise
-            state.position = position
-            state.connected = True
-            logger.info("filterwheel.connected", filters=names, position=position)
-        except HTTPException:
-            state.connected = False
-            state.position = None
-            await session.release("filterwheel")
-            raise
-        except Exception as exc:
-            state.connected = False
-            state.position = None
-            await session.release("filterwheel")
-            logger.warning(
-                "filterwheel.connect_failed",
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
-            raise HTTPException(status_code=500, detail="Failed to connect filter wheel") from exc
-        return alpaca_response()
+    async with _connect_lock:
+        if value:
+            _require_available()
+            if state.connected:
+                return alpaca_response()
+            await session.acquire("filterwheel")
+            try:
+                names = await session.get_filter_labels()
+                if not names:
+                    raise RuntimeError("no_filters")
+                state.set_names(names)
+                position = session.get_filter_position()
+                if position is None or position < 0 or position >= len(names):
+                    profile = get_active_device_profile()
+                    if profile.model_id == "dwarfmini":
+                        # Mini firmware can stall on filter writes; keep connect fast and
+                        # establish a virtual baseline. Real writes still happen on /position.
+                        position = 0
+                        session.camera_state.filter_index = 0
+                        session.camera_state.filter_name = names[0] if names else ""
+                        logger.info(
+                            "filterwheel.initialize_position_virtual",
+                            position=position,
+                        )
+                    else:
+                        try:
+                            selected = await session.set_filter_position(0)
+                            position = 0
+                            logger.info(
+                                "filterwheel.initialize_position",
+                                filter=selected,
+                                position=position,
+                            )
+                        except RuntimeError as exc:
+                            if str(exc) == "filter_control_unavailable":
+                                raise HTTPException(
+                                    status_code=503,
+                                    detail="Filter wheel controls unavailable for this firmware profile",
+                                ) from exc
+                            profile = get_active_device_profile()
+                            if profile.model_id == "dwarfmini" and "already pending" in str(exc).lower():
+                                position = 0
+                                session.camera_state.filter_index = 0
+                                session.camera_state.filter_name = names[0] if names else ""
+                                logger.warning(
+                                    "filterwheel.initialize_position_pending_virtual",
+                                    error=str(exc),
+                                    error_type=type(exc).__name__,
+                                )
+                            else:
+                                raise
+                        except TimeoutError as exc:
+                            profile = get_active_device_profile()
+                            if profile.model_id != "dwarfmini":
+                                raise
+                            position = 0
+                            session.camera_state.filter_index = 0
+                            session.camera_state.filter_name = names[0] if names else ""
+                            logger.warning(
+                                "filterwheel.initialize_position_timeout_virtual",
+                                error=str(exc),
+                                error_type=type(exc).__name__,
+                            )
+                state.position = position
+                state.connected = True
+                logger.info("filterwheel.connected", filters=names, position=position)
+            except HTTPException:
+                state.connected = False
+                state.position = None
+                await session.release("filterwheel")
+                raise
+            except Exception as exc:
+                state.connected = False
+                state.position = None
+                await session.release("filterwheel")
+                logger.warning(
+                    "filterwheel.connect_failed",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+                raise HTTPException(status_code=500, detail="Failed to connect filter wheel") from exc
+            return alpaca_response()
 
-    if state.connected:
-        await session.release("filterwheel")
-    state.connected = False
-    state.position = None
-    logger.info("filterwheel.disconnected")
-    return alpaca_response()
+        if state.connected:
+            await session.release("filterwheel")
+        state.connected = False
+        state.position = None
+        logger.info("filterwheel.disconnected")
+        return alpaca_response()
 
 
 @router.get("/names")
@@ -176,6 +235,9 @@ async def get_names():
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
+    normalized = _normalize_names_for_profile(state.names)
+    if normalized != state.names:
+        state.set_names(normalized)
     return alpaca_response(value=state.names)
 
 
@@ -194,7 +256,13 @@ async def get_position():
     session = await get_session()
     position = session.get_filter_position()
     if position is None:
-        raise HTTPException(status_code=500, detail="Filter wheel position unknown")
+        if state.position is not None:
+            position = state.position
+            session.camera_state.filter_index = position
+            if state.names and 0 <= position < len(state.names):
+                session.camera_state.filter_name = state.names[position]
+        else:
+            raise HTTPException(status_code=500, detail="Filter wheel position unknown")
     state.position = position
     return alpaca_response(value=position)
 

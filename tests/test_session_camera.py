@@ -13,6 +13,7 @@ from dwarf_alpaca.proto.dwarf_messages import (
     WsPacket,
     TYPE_NOTIFICATION,
 )
+from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
 from websockets.exceptions import ConnectionClosedOK
 
 
@@ -87,7 +88,7 @@ async def test_album_media_type_selection():
 
 @pytest.mark.asyncio
 async def test_camera_start_exposure_simulation_sets_astro_mode():
-    session = DwarfSession(Settings(force_simulation=True))
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
     state = session.camera_state
     state.requested_frame_count = 3
     state.requested_bin = (2, 2)
@@ -101,8 +102,19 @@ async def test_camera_start_exposure_simulation_sets_astro_mode():
 
 
 @pytest.mark.asyncio
+async def test_camera_start_exposure_simulation_uses_photo_mode_for_mini():
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    state = session.camera_state
+
+    await session.camera_start_exposure(0.1, True)
+
+    assert state.capture_mode == "photo"
+    assert state.image is not None
+
+
+@pytest.mark.asyncio
 async def test_camera_start_exposure_requires_goto(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True))
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
     session.simulation = False
     state = session.camera_state
     state.requested_frame_count = 2
@@ -148,6 +160,97 @@ async def test_camera_start_exposure_requires_goto(monkeypatch):
     assert state.capture_task is not None
     await asyncio.wait_for(state.capture_task, timeout=0.5)
     state.capture_task = None
+
+
+@pytest.mark.asyncio
+async def test_camera_start_exposure_mini_uses_photo_capture(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    state = session.camera_state
+    state.requested_frame_count = 2
+    state.requested_bin = (2, 2)
+
+    calls: dict[str, object] = {}
+
+    async def noop(*_args, **_kwargs):
+        return None
+
+    async def fake_photo_start(*, timeout: float) -> bool:
+        calls["timeout"] = timeout
+        return True
+
+    async def fake_fetch(fetch_state) -> None:
+        fetch_state.last_end_time = time.time()
+
+    monkeypatch.setattr(session, "_ensure_ws", noop)
+    monkeypatch.setattr(session, "_ensure_exposure_settings", noop)
+    monkeypatch.setattr(session, "_ensure_gain_settings", noop)
+    monkeypatch.setattr(session, "_ensure_selected_filter", noop)
+    monkeypatch.setattr(session, "_refresh_capture_baseline", noop)
+    monkeypatch.setattr(session, "_start_photo_capture", fake_photo_start)
+    monkeypatch.setattr(session, "_fetch_capture", fake_fetch)
+
+    await session.camera_start_exposure(0.5, True)
+
+    assert state.capture_mode == "photo"
+    assert state.last_error is None
+    assert calls["timeout"] == max(0.5 + 2.0, 5.0)
+    assert state.capture_task is not None
+    await asyncio.wait_for(state.capture_task, timeout=0.5)
+    state.capture_task = None
+
+
+@pytest.mark.asyncio
+async def test_start_photo_capture_uses_mini_fallback_on_timeout(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    calls: list[int] = []
+
+    async def fake_send_and_check(module_id, command_id, request, **_kwargs):
+        calls.append(command_id)
+        if command_id == protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_PHOTO_RAW:
+            raise asyncio.TimeoutError()
+        return None
+
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    await session._start_photo_capture(timeout=2.0)
+
+    assert calls == [
+        protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_PHOTO_RAW,
+        protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_PHOTOGRAPH,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_start_photo_capture_raises_timeout_for_non_mini(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+
+    async def fake_send_and_check(*_args, **_kwargs):
+        raise asyncio.TimeoutError()
+
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    with pytest.raises(asyncio.TimeoutError):
+        await session._start_photo_capture(timeout=2.0)
+
+
+@pytest.mark.asyncio
+async def test_start_photo_capture_returns_false_when_mini_fallback_fails(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    async def fake_send_and_check(module_id, command_id, request, **_kwargs):
+        if command_id == protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_PHOTO_RAW:
+            raise asyncio.TimeoutError()
+        raise DwarfCommandError(module_id, command_id, -1)
+
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    started = await session._start_photo_capture(timeout=2.0)
+    assert started is False
 
 
 @pytest.mark.asyncio

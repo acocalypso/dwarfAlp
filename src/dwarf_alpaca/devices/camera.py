@@ -627,6 +627,16 @@ async def start_exposure(
             status_code=504,
             detail="Timed out while waiting for DWARF to start the exposure.",
         ) from exc
+    except RuntimeError as exc:
+        if str(exc) == "photo_start_failed":
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "DWARF mini did not accept capture trigger commands "
+                    "(PHOTO_RAW and fallback PHOTO both failed)."
+                ),
+            ) from exc
+        raise
     return alpaca_response()
 
 

@@ -139,6 +139,13 @@ class DwarfHttpClient:
             )
             return []
         data = response.get("data") if isinstance(response, dict) else None
+        if data is None and isinstance(response, dict):
+            # Some firmware builds return album payload in alternate top-level keys.
+            for alt_key in ("result", "obj", "payload", "value"):
+                alt_value = response.get(alt_key)
+                if alt_value is not None:
+                    data = alt_value
+                    break
         entries: list[dict[str, Any]] = []
         skipped = 0
 
@@ -175,6 +182,13 @@ class DwarfHttpClient:
                     total=len(entries) + skipped,
                 )
             return entries
+
+        if isinstance(response, dict) and response.get("code") == 0 and data is None:
+            logger.debug(
+                "dwarf.http.album_list_empty",
+                payload=payload,
+            )
+            return []
 
         logger.warning(
             "dwarf.http.album_list_unexpected",
