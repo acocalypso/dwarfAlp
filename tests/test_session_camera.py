@@ -5,11 +5,14 @@ import types
 import pytest
 
 from dwarf_alpaca.config.settings import Settings
-from dwarf_alpaca.dwarf.session import DwarfSession
+from dwarf_alpaca.dwarf.session import DwarfSession, _decode_v3_device_config_payload
 from dwarf_alpaca.proto import protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import (
     ComResponse,
     ResNotifyTemperature,
+    V3ResNotifyDeviceState,
+    V3ResNotifyModeChange,
+    V3ResNotifyTemperature2,
     WsPacket,
     TYPE_NOTIFICATION,
 )
@@ -40,6 +43,71 @@ async def test_temperature_notification_updates_state():
     assert session.camera_state.temperature_c == pytest.approx(123.0)
     assert session.camera_state.last_temperature_time is not None
     assert session.camera_state.last_temperature_code == protocol_pb2.OK
+
+
+@pytest.mark.asyncio
+async def test_v3_temperature2_notification_updates_state() -> None:
+    session = DwarfSession(Settings(force_simulation=True))
+
+    message = V3ResNotifyTemperature2()
+    message.temperature = 41
+
+    packet = WsPacket()
+    packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
+    packet.cmd = 15292
+    packet.type = TYPE_NOTIFICATION
+    packet.data = message.SerializeToString()
+
+    await session._handle_notification(packet)
+
+    assert session.camera_state.temperature_c == pytest.approx(41.0)
+    assert session.camera_state.last_temperature_time is not None
+    assert session.camera_state.last_temperature_code == protocol_pb2.OK
+
+
+@pytest.mark.asyncio
+async def test_v3_mode_change_notification_updates_session_state() -> None:
+    session = DwarfSession(Settings(force_simulation=True))
+
+    message = V3ResNotifyModeChange()
+    message.changing = 0
+    message.mode = 8
+    message.sub_mode = 1
+
+    packet = WsPacket()
+    packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
+    packet.cmd = 15267
+    packet.type = TYPE_NOTIFICATION
+    packet.data = message.SerializeToString()
+
+    await session._handle_notification(packet)
+
+    assert session._v3_mode_change == (0, 8, 1)
+
+
+@pytest.mark.asyncio
+async def test_v3_device_state_notification_updates_session_state() -> None:
+    session = DwarfSession(Settings(force_simulation=True))
+
+    message = V3ResNotifyDeviceState()
+    message.event = 4
+    message.mode.mode = 8
+    message.mode.flags = 1
+    message.state.state = 2
+    message.path.path = "/data/stacked/result.fit"
+
+    packet = WsPacket()
+    packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
+    packet.cmd = 15261
+    packet.type = TYPE_NOTIFICATION
+    packet.data = message.SerializeToString()
+
+    await session._handle_notification(packet)
+
+    assert session._v3_device_state_event == 4
+    assert session._v3_device_state_mode == 8
+    assert session._v3_device_state_detail == 2
+    assert session._v3_device_state_path == "/data/stacked/result.fit"
 
 
 @pytest.mark.asyncio
@@ -102,8 +170,25 @@ async def test_camera_start_exposure_simulation_sets_astro_mode():
 
 
 @pytest.mark.asyncio
-async def test_camera_start_exposure_simulation_uses_photo_mode_for_mini():
+async def test_camera_start_exposure_simulation_uses_astro_mode_for_mini_by_default():
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    state = session.camera_state
+
+    await session.camera_start_exposure(0.1, True)
+
+    assert state.capture_mode == "astro"
+    assert state.image is not None
+
+
+@pytest.mark.asyncio
+async def test_camera_start_exposure_simulation_can_use_photo_mode_for_mini():
+    session = DwarfSession(
+        Settings(
+            force_simulation=True,
+            dwarf_device_model="dwarfmini",
+            dwarf_mini_capture_mode="photo",
+        )
+    )
     state = session.camera_state
 
     await session.camera_start_exposure(0.1, True)
@@ -164,7 +249,13 @@ async def test_camera_start_exposure_requires_goto(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_camera_start_exposure_mini_uses_photo_capture(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session = DwarfSession(
+        Settings(
+            force_simulation=True,
+            dwarf_device_model="dwarfmini",
+            dwarf_mini_capture_mode="photo",
+        )
+    )
     session.simulation = False
     state = session.camera_state
     state.requested_frame_count = 2
@@ -305,6 +396,40 @@ async def test_camera_go_live_after_capture(monkeypatch):
 
     assert go_live_calls == [True]
     assert state.image is not None
+
+
+@pytest.mark.asyncio
+async def test_start_astro_capture_timeout_assumed_started_for_mini(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    async def fake_send_command(*_args, **_kwargs):
+        raise asyncio.TimeoutError()
+
+    monkeypatch.setattr(session, "_send_command", fake_send_command)
+
+    code = await session._start_astro_capture(timeout=5.0)
+
+    assert code == protocol_pb2.OK
+
+
+def test_decode_v3_device_config_payload_extracts_known_fields():
+    raw = bytes.fromhex("0a00120208011900000060b81e014021000000403333f33f28800f30b808")
+    parsed = _decode_v3_device_config_payload(raw)
+
+    assert parsed.get("field2_mode") == 1
+    assert parsed.get("image_width") == 1920
+    assert parsed.get("image_height") == 1080
+    assert parsed.get("field3_double") == pytest.approx(2.140000104904175)
+    assert parsed.get("field4_double") == pytest.approx(1.2000000476837158)
+    legacy = parsed.get("legacy_camera")
+    assert isinstance(legacy, dict)
+    assert legacy.get("id") == 0
+    assert legacy.get("name") == "Tele"
+    assert legacy.get("previewWidth") == 1920
+    assert legacy.get("previewHeight") == 1080
+    assert legacy.get("fvWidth") == pytest.approx(2.140000104904175)
+    assert legacy.get("fvHeight") == pytest.approx(1.2000000476837158)
 
 
 @pytest.mark.asyncio

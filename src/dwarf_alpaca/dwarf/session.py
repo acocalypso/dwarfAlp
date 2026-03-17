@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
+import struct
 import math
 import re
 import time
@@ -48,6 +50,9 @@ from ..proto.dwarf_messages import (
     ReqSetGain,
     ReqSetGainMode,
     V3ReqAdjustParam,
+    V3ReqGetDeviceConfig,
+    V3ReqFocusInit,
+    V3ReqModeQuery,
     V3ReqSetCameraParam,
     ReqStopGoto,
     ReqStopManualContinuFocus,
@@ -59,7 +64,15 @@ from ..proto.dwarf_messages import (
     ResNotifyStateAstroGoto,
     ResNotifyStateAstroTracking,
     ResNotifyTemperature,
+    V3ResNotifyDeviceState,
+    V3ResNotifyExposureProgress,
+    V3ResNotifyModeChange,
+    V3ResNotifyObservationState,
     V3ResNotifyCameraParamState,
+    V3ResGetDeviceConfig,
+    V3ResFocusInit,
+    V3ResModeQuery,
+    V3ResNotifyTemperature2,
 )
 from .ftp_client import DwarfFtpClient, FtpPhotoEntry
 from .http_client import DwarfHttpClient
@@ -67,6 +80,152 @@ from .ws_client import DwarfCommandError, DwarfWsClient, send_and_check
 from websockets.exceptions import ConnectionClosed, ConnectionClosedOK
 
 logger = structlog.get_logger(__name__)
+
+
+def _read_varint(raw: bytes, start: int) -> tuple[int, int]:
+    value = 0
+    shift = 0
+    index = start
+    while index < len(raw):
+        byte = raw[index]
+        index += 1
+        value |= (byte & 0x7F) << shift
+        if (byte & 0x80) == 0:
+            return value, index
+        shift += 7
+        if shift >= 64:
+            break
+    raise ValueError("invalid varint")
+
+
+def _decode_com_res_with_int_value(raw: bytes) -> int | None:
+    index = 0
+    while index < len(raw):
+        try:
+            key, index = _read_varint(raw, index)
+        except ValueError:
+            return None
+        field = key >> 3
+        wire_type = key & 0x07
+        if wire_type == 0:
+            try:
+                value, index = _read_varint(raw, index)
+            except ValueError:
+                return None
+            if field == 1:
+                if value >= (1 << 31):
+                    value -= (1 << 32)
+                return int(value)
+            continue
+        if wire_type == 1:
+            index += 8
+            continue
+        if wire_type == 2:
+            try:
+                length, index = _read_varint(raw, index)
+            except ValueError:
+                return None
+            index += int(length)
+            continue
+        if wire_type == 5:
+            index += 4
+            continue
+        return None
+    return None
+
+
+def _decode_v3_device_config_payload(raw: bytes) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    index = 0
+    while index < len(raw):
+        try:
+            key, index = _read_varint(raw, index)
+        except ValueError:
+            break
+        field = key >> 3
+        wire_type = key & 0x07
+
+        if wire_type == 0:
+            try:
+                value, index = _read_varint(raw, index)
+            except ValueError:
+                break
+            if field == 5:
+                result["image_width"] = int(value)
+            elif field == 6:
+                result["image_height"] = int(value)
+            else:
+                result[f"field{field}_varint"] = int(value)
+            continue
+
+        if wire_type == 1:
+            if index + 8 > len(raw):
+                break
+            chunk = raw[index : index + 8]
+            index += 8
+            value = struct.unpack("<d", chunk)[0]
+            if field == 3:
+                result["field3_double"] = float(value)
+            elif field == 4:
+                result["field4_double"] = float(value)
+            else:
+                result[f"field{field}_double"] = float(value)
+            continue
+
+        if wire_type == 2:
+            try:
+                length, index = _read_varint(raw, index)
+            except ValueError:
+                break
+            length = int(length)
+            if index + length > len(raw):
+                break
+            data = raw[index : index + length]
+            index += length
+            if field == 1:
+                result["field1_blob_len"] = length
+            elif field == 2:
+                result["field2_blob_hex"] = data.hex()
+                # Observed as nested payload `08 01` / `08 02`.
+                if len(data) >= 2 and data[0] == 0x08:
+                    try:
+                        nested_value, _ = _read_varint(data, 1)
+                        result["field2_mode"] = int(nested_value)
+                    except ValueError:
+                        pass
+            else:
+                result[f"field{field}_blob_len"] = length
+            continue
+
+        if wire_type == 5:
+            if index + 4 > len(raw):
+                break
+            index += 4
+            continue
+
+        break
+
+    width = result.get("image_width")
+    height = result.get("image_height")
+    if isinstance(width, int) and isinstance(height, int) and height > 0:
+        result["image_aspect_ratio"] = round(width / height, 6)
+
+    # Provide a compatibility-oriented view resembling the legacy HTTP camera block.
+    fv_width = result.get("field3_double")
+    fv_height = result.get("field4_double")
+    if isinstance(width, int) and isinstance(height, int):
+        legacy_camera: dict[str, Any] = {
+            "id": 0,
+            "name": "Tele",
+            "previewWidth": width,
+            "previewHeight": height,
+        }
+        if isinstance(fv_width, float):
+            legacy_camera["fvWidth"] = fv_width
+        if isinstance(fv_height, float):
+            legacy_camera["fvHeight"] = fv_height
+        result["legacy_camera"] = legacy_camera
+    return result
 
 
 FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "Duo-Band Filter"]
@@ -79,9 +238,18 @@ _MIN_JOYSTICK_SPEED = 0.1
 _GOTO_KIND_DSO = "dso"
 
 _MODULE_CAMERA_PARAMS = 15
+_MODULE_DEVICE_CONFIG = 14
 _CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700
 _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM = 16703
+_CMD_V3_DEVICE_CONFIG_MODE_QUERY = 16402
+_CMD_V3_DEVICE_CONFIG_GET_CONFIG = 16405
+_CMD_V3_FOCUS_INIT = 15011
+_CMD_NOTIFY_V3_EXPOSURE_PROGRESS = 15255
+_CMD_NOTIFY_V3_DEVICE_STATE = 15261
 _CMD_NOTIFY_V3_CAMERA_PARAM_STATE = 15264
+_CMD_NOTIFY_V3_MODE_CHANGE = 15267
+_CMD_NOTIFY_V3_TEMPERATURE2 = 15292
+_CMD_NOTIFY_V3_OBSERVATION_STATE = 15296
 # Observed on mini firmware captures for V3 filterwheel adjust writes.
 _MINI_DEFAULT_FILTER_PARAM_ID = 0x20100000000000D
 _MINI_ALT_FILTER_PARAM_ID = 0x100000000000D
@@ -153,6 +321,12 @@ class CameraState:
     temperature_c: float | None = None
     last_temperature_time: float | None = None
     last_temperature_code: int | None = None
+    battery_percent: int | None = None
+    last_battery_time: float | None = None
+    reported_preview_width: int | None = None
+    reported_preview_height: int | None = None
+    reported_fv_width: float | None = None
+    reported_fv_height: float | None = None
     requested_gain: int | None = None
     applied_gain_index: int | None = None
     requested_bin: tuple[int, int] = (1, 1)
@@ -251,6 +425,14 @@ class DwarfSession:
         self._ws_v3_filter_param_id: int | None = None
         self._ws_v3_filter_param_flag: int = 0
         self._ws_v3_filter_value: int | None = None
+        self._v3_device_state_event: int | None = None
+        self._v3_device_state_mode: int | None = None
+        self._v3_device_state_detail: int | None = None
+        self._v3_device_state_path: str | None = None
+        self._v3_mode_change: tuple[int, int, int] | None = None
+        self._v3_observation_state: int | None = None
+        self._v3_exposure_progress: tuple[int, int] | None = None
+        self._v3_device_config_bytes: int | None = None
         self._calibration_lock = asyncio.Lock()
         self._last_calibration_time: float | None = None
         self._last_calibration_ip: str | None = None
@@ -267,10 +449,32 @@ class DwarfSession:
     def _is_dwarf_mini(self) -> bool:
         return normalize_dwarf_device_model(self.settings.dwarf_device_model) == "dwarfmini"
 
+    def _resolve_mini_capture_mode(self) -> str:
+        mode = str(getattr(self.settings, "dwarf_mini_capture_mode", "astro") or "astro").strip().lower()
+        if mode not in {"astro", "photo"}:
+            logger.warning("dwarf.camera.mini_capture_mode_invalid", configured=mode, fallback="astro")
+            return "astro"
+        return mode
+
     def _fallback_filter_labels(self) -> list[str]:
         if self._is_dwarf_mini():
             return FALLBACK_FILTER_LABELS_MINI
         return FALLBACK_FILTER_LABELS
+
+    def get_v3_runtime_state(self) -> dict[str, Any]:
+        return {
+            "is_mini": self._is_dwarf_mini(),
+            "ws_minor_version": int(getattr(self._ws_client, "minor_version", 0)),
+            "ws_device_id": int(getattr(self._ws_client, "device_id", 0)),
+            "device_state_event": self._v3_device_state_event,
+            "device_state_mode": self._v3_device_state_mode,
+            "device_state_detail": self._v3_device_state_detail,
+            "device_state_path": self._v3_device_state_path,
+            "mode_change": list(self._v3_mode_change) if self._v3_mode_change else None,
+            "observation_state": self._v3_observation_state,
+            "exposure_progress": list(self._v3_exposure_progress) if self._v3_exposure_progress else None,
+            "device_config_bytes": self._v3_device_config_bytes,
+        }
 
     def _normalize_filter_label(self, label: str, index: int) -> str:
         resolved = _canonical_filter_label(label, index)
@@ -532,6 +736,76 @@ class DwarfSession:
 
         self._ws_bootstrapped = True
 
+    async def _bootstrap_mini_v3_state(self) -> None:
+        if self.simulation or not self._is_dwarf_mini() or not self._ws_client.connected:
+            return
+
+        expected_responses = {
+            (protocol_pb2.ModuleId.MODULE_NOTIFY, _CMD_NOTIFY_V3_DEVICE_STATE): V3ResNotifyDeviceState,
+            (protocol_pb2.ModuleId.MODULE_NOTIFY, _CMD_NOTIFY_V3_MODE_CHANGE): V3ResNotifyModeChange,
+        }
+
+        mode_query = V3ReqModeQuery()
+        mode_query.target_mode = 8
+        try:
+            response = await self._send_request(
+                _MODULE_DEVICE_CONFIG,
+                _CMD_V3_DEVICE_CONFIG_MODE_QUERY,
+                mode_query,
+                V3ResModeQuery,
+                timeout=5.0,
+                expected_responses=expected_responses,
+                suppress_timeout_warning=True,
+                close_ws_on_timeout=False,
+            )
+            if isinstance(response, V3ResModeQuery):
+                code = int(getattr(response, "code", protocol_pb2.OK))
+                if code == protocol_pb2.OK:
+                    self._v3_device_state_mode = int(getattr(response, "mode", 0))
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.debug("dwarf.system.v3_mode_query_failed", error=str(exc))
+
+        config_request = V3ReqGetDeviceConfig()
+        try:
+            response = await self._send_request(
+                _MODULE_DEVICE_CONFIG,
+                _CMD_V3_DEVICE_CONFIG_GET_CONFIG,
+                config_request,
+                V3ResGetDeviceConfig,
+                timeout=5.0,
+                expected_responses=expected_responses,
+                suppress_timeout_warning=True,
+                close_ws_on_timeout=False,
+            )
+            if isinstance(response, V3ResGetDeviceConfig):
+                config_data = getattr(response, "config_data", b"") or b""
+                self._v3_device_config_bytes = len(config_data)
+                parsed = _decode_v3_device_config_payload(bytes(config_data))
+                legacy_camera = parsed.get("legacy_camera")
+                if isinstance(legacy_camera, dict):
+                    preview_width = legacy_camera.get("previewWidth")
+                    preview_height = legacy_camera.get("previewHeight")
+                    fv_width = legacy_camera.get("fvWidth")
+                    fv_height = legacy_camera.get("fvHeight")
+                    if isinstance(preview_width, int) and preview_width > 0:
+                        self.camera_state.reported_preview_width = preview_width
+                    if isinstance(preview_height, int) and preview_height > 0:
+                        self.camera_state.reported_preview_height = preview_height
+                    if isinstance(fv_width, (int, float)):
+                        self.camera_state.reported_fv_width = float(fv_width)
+                    if isinstance(fv_height, (int, float)):
+                        self.camera_state.reported_fv_height = float(fv_height)
+                logger.info(
+                    "dwarf.system.v3_device_config_payload",
+                    code=int(getattr(response, "code", protocol_pb2.OK)),
+                    config_data_len=len(config_data),
+                    config_data_hex=bytes(config_data).hex(),
+                    config_data_b64=base64.b64encode(bytes(config_data)).decode("ascii"),
+                    parsed=parsed,
+                )
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.debug("dwarf.system.v3_device_config_failed", error=str(exc))
+
     async def _handle_notification(self, packet: Message) -> None:
         module_id = getattr(packet, "module_id", None)
         if module_id != protocol_pb2.ModuleId.MODULE_NOTIFY:
@@ -547,8 +821,39 @@ class DwarfSession:
             self._handle_tracking_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_SET_FEATURE_PARAM:
             self._handle_feature_param_notification(packet)
+        elif command_id == _CMD_NOTIFY_V3_EXPOSURE_PROGRESS:
+            self._handle_v3_exposure_progress_notification(packet)
+        elif command_id == _CMD_NOTIFY_V3_DEVICE_STATE:
+            self._handle_v3_device_state_notification(packet)
         elif command_id == _CMD_NOTIFY_V3_CAMERA_PARAM_STATE:
             self._handle_v3_camera_param_state_notification(packet)
+        elif command_id == _CMD_NOTIFY_V3_MODE_CHANGE:
+            self._handle_v3_mode_change_notification(packet)
+        elif command_id == _CMD_NOTIFY_V3_TEMPERATURE2:
+            self._handle_v3_temperature2_notification(packet)
+        elif command_id == _CMD_NOTIFY_V3_OBSERVATION_STATE:
+            self._handle_v3_observation_state_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_ELE:
+            self._handle_battery_notification(packet)
+
+    def _handle_battery_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        value = _decode_com_res_with_int_value(raw_data)
+        if value is None:
+            logger.debug("dwarf.battery.notification.decode_failed")
+            return
+        try:
+            percent = int(value)
+        except (TypeError, ValueError):
+            return
+        percent = max(0, min(100, percent))
+        state = self.camera_state
+        if state.battery_percent != percent:
+            logger.info("dwarf.battery.notification", battery_percent=percent)
+        state.battery_percent = percent
+        state.last_battery_time = time.time()
 
     def _handle_feature_param_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -569,6 +874,7 @@ class DwarfSession:
                 self._ws_v3_filter_param_id = int(param_id)
                 self._ws_v3_filter_value = int(getattr(entry, "index", 0))
                 self._ws_v3_filter_param_flag = int(getattr(entry, "mode_index", 0))
+                self._sync_filter_state_from_v3_value(self._ws_v3_filter_value)
             except (TypeError, ValueError):
                 continue
 
@@ -589,6 +895,115 @@ class DwarfSession:
             self._ws_v3_filter_param_id = int(param_id)
             self._ws_v3_filter_param_flag = int(getattr(message, "flag", 0))
             self._ws_v3_filter_value = int(getattr(message, "value", 0))
+            self._sync_filter_state_from_v3_value(self._ws_v3_filter_value)
+        except (TypeError, ValueError):
+            return
+
+    def _sync_filter_state_from_v3_value(self, value: int | None) -> None:
+        if value is None:
+            return
+        options = self._filter_options or []
+        if not options:
+            return
+        for pos, option in enumerate(options):
+            if option.index != int(value):
+                continue
+            self.camera_state.filter_index = pos
+            self.camera_state.filter_name = option.label
+            return
+
+    def _handle_v3_exposure_progress_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = V3ResNotifyExposureProgress()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug("dwarf.camera.v3_exposure_progress_decode_failed", error=str(exc))
+            return
+        try:
+            elapsed = int(getattr(message, "elapsed", 0))
+            total = int(getattr(message, "total", 0))
+        except (TypeError, ValueError):
+            return
+        self._v3_exposure_progress = (elapsed, total)
+
+    def _handle_v3_device_state_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = V3ResNotifyDeviceState()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug("dwarf.system.v3_device_state_decode_failed", error=str(exc))
+            return
+
+        self._v3_device_state_event = int(getattr(message, "event", 0))
+
+        mode_obj = getattr(message, "mode", None)
+        self._v3_device_state_mode = int(getattr(mode_obj, "mode", 0)) if mode_obj else None
+
+        state_obj = getattr(message, "state", None)
+        self._v3_device_state_detail = int(getattr(state_obj, "state", 0)) if state_obj else None
+
+        path_obj = getattr(message, "path", None)
+        path_value = str(getattr(path_obj, "path", "")).strip() if path_obj else ""
+        self._v3_device_state_path = path_value or None
+
+    def _handle_v3_mode_change_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = V3ResNotifyModeChange()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug("dwarf.system.v3_mode_change_decode_failed", error=str(exc))
+            return
+        try:
+            changing = int(getattr(message, "changing", 0))
+            mode = int(getattr(message, "mode", 0))
+            sub_mode = int(getattr(message, "sub_mode", 0))
+        except (TypeError, ValueError):
+            return
+        self._v3_mode_change = (changing, mode, sub_mode)
+        self._v3_device_state_mode = mode
+
+    def _handle_v3_temperature2_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = V3ResNotifyTemperature2()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug("dwarf.camera.v3_temperature2_decode_failed", error=str(exc))
+            return
+        temp_raw = getattr(message, "temperature", None)
+        if temp_raw is None:
+            return
+        try:
+            self.camera_state.temperature_c = float(temp_raw)
+        except (TypeError, ValueError):
+            return
+        self.camera_state.last_temperature_time = time.time()
+        # V3 temperature2 notification does not include a response code.
+        self.camera_state.last_temperature_code = protocol_pb2.OK
+
+    def _handle_v3_observation_state_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = V3ResNotifyObservationState()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug("dwarf.astro.v3_observation_state_decode_failed", error=str(exc))
+            return
+        try:
+            self._v3_observation_state = int(getattr(message, "state", 0))
         except (TypeError, ValueError):
             return
 
@@ -1003,6 +1418,9 @@ class DwarfSession:
                         self.settings.dwarf_ap_ip,
                         type(response).__name__,
                     )
+
+                if self._master_lock_acquired and self._is_dwarf_mini():
+                    await self._bootstrap_mini_v3_state()
             except DwarfCommandError as exc:  # pragma: no cover - hardware dependent
                 logger.warning(
                     "dwarf.system.master_lock_failed ip=%s code=%s",
@@ -1818,7 +2236,7 @@ class DwarfSession:
         state.last_error = None
         state.image = None
         state.last_dark_check_code = None
-        state.capture_mode = "photo" if mini_profile else "astro"
+        state.capture_mode = self._resolve_mini_capture_mode() if mini_profile else "astro"
         frames_to_capture = max(1, int(state.requested_frame_count or 1))
         state.requested_frame_count = frames_to_capture
         if state.capture_task and not state.capture_task.done():
@@ -1845,7 +2263,7 @@ class DwarfSession:
             bin_x, bin_y = (1, 1)
         state.requested_bin = (bin_x, bin_y)
 
-        if mini_profile:
+        if mini_profile and state.capture_mode == "photo":
             await self._refresh_capture_baseline(capture_kind=state.capture_mode)
             try:
                 photo_timeout = max(duration + 2.0, 5.0)
@@ -2864,6 +3282,7 @@ class DwarfSession:
     ) -> None:
         if self.simulation:
             return
+        is_mini = self._is_dwarf_mini()
         config = await self._ensure_params_config()
         if config is None:
             return
@@ -2877,7 +3296,10 @@ class DwarfSession:
         async def _set_feature_by_label(feature_name: str, label_tokens: tuple[str, ...]) -> None:
             feature = self._find_feature_param(feature_name)
             if feature is None:
-                logger.warning("dwarf.camera.feature_param_missing", name=feature_name)
+                if is_mini:
+                    logger.debug("dwarf.camera.feature_param_missing_optional", name=feature_name, device="dwarfmini")
+                else:
+                    logger.warning("dwarf.camera.feature_param_missing", name=feature_name)
                 return
             options = self._extract_feature_options(feature)
             for mode_index, index, label, continue_value in options:
@@ -2903,7 +3325,10 @@ class DwarfSession:
         for name, mode_index, index, continue_value in desired_fixed:
             feature = self._find_feature_param(name)
             if feature is None:
-                logger.warning("dwarf.camera.feature_param_missing", name=name)
+                if is_mini:
+                    logger.debug("dwarf.camera.feature_param_missing_optional", name=name, device="dwarfmini")
+                else:
+                    logger.warning("dwarf.camera.feature_param_missing", name=name)
                 continue
             await self._set_feature_param(
                 feature,
@@ -2926,7 +3351,14 @@ class DwarfSession:
                 continue_value=float(frames),
             )
         else:
-            logger.warning("dwarf.camera.feature_param_missing", name="Astro img_to_take")
+            if is_mini:
+                logger.debug(
+                    "dwarf.camera.feature_param_missing_optional",
+                    name="Astro img_to_take",
+                    device="dwarfmini",
+                )
+            else:
+                logger.warning("dwarf.camera.feature_param_missing", name="Astro img_to_take")
 
     async def _start_astro_capture(self, *, timeout: float) -> int:
         if self.simulation:
@@ -2944,6 +3376,13 @@ class DwarfSession:
                 "dwarf.camera.astro_capture_timeout",
                 timeout=timeout,
             )
+            if self._is_dwarf_mini():
+                # mini firmware can start capture while delaying/omitting the start ACK.
+                logger.warning(
+                    "dwarf.camera.astro_capture_timeout_assumed_started",
+                    timeout=timeout,
+                )
+                return protocol_pb2.OK
             raise
         code = getattr(response, "code", protocol_pb2.OK)
         if code == protocol_pb2.OK:
@@ -3727,6 +4166,28 @@ class DwarfSession:
         if self.simulation:
             return
         await self._ensure_ws()
+        if self._is_dwarf_mini():
+            request = V3ReqFocusInit()
+            try:
+                response = await self._send_request(
+                    protocol_pb2.ModuleId.MODULE_FOCUS,
+                    _CMD_V3_FOCUS_INIT,
+                    request,
+                    V3ResFocusInit,
+                    timeout=3.0,
+                    suppress_timeout_warning=True,
+                    close_ws_on_timeout=False,
+                )
+                if isinstance(response, V3ResFocusInit):
+                    focus_position = int(getattr(response, "focus_position", state.position))
+                    state.position = max(0, min(focus_position, 20000))
+                    state.last_update = time.time()
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.debug(
+                    "dwarf.focus.mini_init_failed",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
 
     async def focuser_disconnect(self) -> None:
         state = self.focuser_state
@@ -3770,7 +4231,7 @@ class DwarfSession:
         received_update = False
         try:
             last_update_age = None if state.last_update is None else time.time() - state.last_update
-            prefer_single_step = steps <= 10
+            prefer_single_step = steps <= 10 or self._is_dwarf_mini()
             fallback_reason = None
             if steps > 10 and (last_update_age is None or last_update_age > 5.0):
                 fallback_reason = "stale_focus_telemetry" if last_update_age is not None else "no_focus_telemetry"
@@ -4003,6 +4464,14 @@ def configure_session(settings: Settings) -> None:
         _session._time_synced = settings.force_simulation
         _session._params_config = None
         _session._filter_options = None
+        _session._v3_device_state_event = None
+        _session._v3_device_state_mode = None
+        _session._v3_device_state_detail = None
+        _session._v3_device_state_path = None
+        _session._v3_mode_change = None
+        _session._v3_observation_state = None
+        _session._v3_exposure_progress = None
+        _session._v3_device_config_bytes = None
 
 
 async def get_session() -> DwarfSession:

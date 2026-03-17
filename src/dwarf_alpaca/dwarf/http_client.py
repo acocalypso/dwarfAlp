@@ -23,11 +23,13 @@ class DwarfHttpClient:
     host: str
     api_port: int = 8082
     jpeg_port: int = 8092
+    file_port: int = 80
     timeout: float = 5.0
     retries: int = 3
     scheme: Literal["http", "https"] = "http"
     _client: httpx.AsyncClient | None = None
     _jpeg_client: httpx.AsyncClient | None = None
+    _file_client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> "DwarfHttpClient":
         await self._ensure_client()
@@ -46,6 +48,11 @@ class DwarfHttpClient:
             base_url = f"{self.scheme}://{self.host}:{self.jpeg_port}"
             self._jpeg_client = httpx.AsyncClient(base_url=base_url, timeout=self.timeout)
 
+    async def _ensure_file_client(self) -> None:
+        if self._file_client is None:
+            base_url = f"{self.scheme}://{self.host}:{self.file_port}"
+            self._file_client = httpx.AsyncClient(base_url=base_url, timeout=self.timeout)
+
     async def aclose(self) -> None:
         if self._client is not None:
             await self._client.aclose()
@@ -53,6 +60,9 @@ class DwarfHttpClient:
         if self._jpeg_client is not None:
             await self._jpeg_client.aclose()
             self._jpeg_client = None
+        if self._file_client is not None:
+            await self._file_client.aclose()
+            self._file_client = None
 
     async def _request(
         self,
@@ -200,11 +210,21 @@ class DwarfHttpClient:
 
     async def fetch_media_file(self, file_path: str) -> bytes:
         normalized_path = self._normalize_media_path(file_path)
-        await self._ensure_jpeg_client()
-        assert self._jpeg_client
-        response = await self._jpeg_client.get(normalized_path)
-        response.raise_for_status()
-        return response.content
+        # Album media files are served by the static file server (port 80),
+        # while 8092 is used for MJPEG endpoints.
+        await self._ensure_file_client()
+        assert self._file_client
+        try:
+            response = await self._file_client.get(normalized_path)
+            response.raise_for_status()
+            return response.content
+        except httpx.HTTPStatusError:
+            # Compatibility fallback for firmware variants that expose paths via 8092.
+            await self._ensure_jpeg_client()
+            assert self._jpeg_client
+            response = await self._jpeg_client.get(normalized_path)
+            response.raise_for_status()
+            return response.content
 
     async def get_default_params_config(self) -> dict[str, Any]:
         """Fetch the DWARF parameters configuration payload."""

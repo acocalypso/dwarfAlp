@@ -165,7 +165,7 @@ class DwarfFtpClient:
         return entries
 
     def _collect_astro_entries(self, ftp: FTP) -> list[FtpPhotoEntry]:
-        roots = ("/Astronomy", "/DWARF_II/Astronomy")
+        roots = ("/Astronomy", "/DWARF_mini/Astronomy", "/DWARF_II/Astronomy")
         entries: list[FtpPhotoEntry] = []
         try:
             start_dir = ftp.pwd()
@@ -213,6 +213,7 @@ class DwarfFtpClient:
 
     def _photo_candidates(self, camera: str) -> Iterable[tuple[str, str]]:
         return (
+            ("/DWARF_mini/Normal_Photos", f"DWARF_mini_{camera}"),
             ("/Normal_Photos", f"DWARF3_{camera}"),
             ("/DWARF_II/Normal_Photos", f"DWARF_{camera}"),
         )

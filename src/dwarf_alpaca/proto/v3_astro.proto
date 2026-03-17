@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+// V3 Save stacked image: CMD 11033
+message V3ReqSaveStackedImage {
+    string path = 1;
+}
+
+message V3ResSaveStackedImage {
+    int32 code = 1;
+    string path = 2;
+}
+
+// V3 List saved images: CMD 11034
+message V3ReqListSavedImages {
+}
+
+// V3 Status polling: CMD 11039
+message V3ReqStatusPolling {
+    int32 field1 = 1;
+    int32 field2 = 2;
+    int32 field3 = 3;
+    int32 field4 = 4;
+}
+
+// V3 Get astro parameters: CMD 11040
+message V3ReqGetAstroParams {
+    int32 mode = 1;
+}
+
+message V3ResGetAstroParams {
+    int32 code = 1;
+    // NOTE: `params` is intentionally `repeated`. In JS/TS this decodes as an array,
+    // so clients must iterate over `params[]` instead of treating it as a single object.
+    repeated V3AstroParamsData params = 2;
+}
+
+message V3AstroParamsData {
+    string exposure = 1;
+    int32 gain = 2;
+    int32 total = 3;
+    int32 count = 4;
+    // field 5 (format) — not observed in pcap, reserved
+    reserved 5;
+    reserved "format";
+    string pipe_params = 6; // Pipe-delimited preset string e.g. "0|0|60|60|1|null"
+}
+
+// V3 Set astro parameters: CMD 11041
+message V3ReqSetAstroParams {
+    string params = 1; // Pipe-delimited string e.g. "0|0|60|60|1|null"
+}
+
+message V3ResSetAstroParams {
+    int32 code = 1;
+    string pipe_params = 2; // Echo of accepted params
+}
+
+// V3 Get exposure presets: CMD 11043
+message V3ReqGetExposurePresets {
+    V3PresetQuery query = 1;
+    V3PresetQuery query2 = 2;
+}
+
+message V3PresetQuery {
+    int32 field1 = 1;
+    int32 field2 = 2;
+}
+
+message V3ResGetExposurePresets {
+    int32 code = 1;
+    V3ExposurePresetData data = 2;
+}
+
+message V3ExposurePresetData {
+    string exposure = 1;
+    int32 gain = 2;
+    int32 count = 3;
+}
+
+// V3 Set observation location: CMD 11047
+message V3ReqSetObservationLocation {
+    double lon = 1;
+    double lat = 2;
+}
+
+// V3 Confirm observation: CMD 11048
+message V3ReqConfirmObservation {
+}

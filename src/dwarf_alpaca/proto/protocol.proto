@@ -13,6 +13,8 @@ enum ModuleId {
     MODULE_NOTIFY = 9; // 15200-15499 Notification module
     MODULE_PANORAMA = 10; // 15500-15599 Panoramic module
     MODULE_SHOOTING_SCHEDULE = 13; // 16100-16300 Shooting schedule module
+    MODULE_DEVICE_CONFIG = 14; // 16400-16499 V3 Device configuration module
+    MODULE_CAMERA_PARAMS = 15; // 16700-16799 V3 Camera parameters module
 }
 
 enum MessageTypeId {
@@ -70,6 +72,8 @@ enum DwarfCMD {
     CMD_CAMERA_TELE_PHOTO_RAW = 10041; // Shoot RAW image
     CMD_CAMERA_TELE_SET_RTSP_BITRATE_TYPE = 10042; // Set rtsp preview bit rate type
 
+    CMD_V3_CAMERA_TELE_OPEN_CAMERA = 10050; // V3: Open/close tele camera
+
     CMD_ASTRO_START_CALIBRATION = 11000; // Start calibration
     CMD_ASTRO_STOP_CALIBRATION = 11001; // Stop calibration
     CMD_ASTRO_START_GOTO_DSO = 11002; // Start GOTO Deep Space Object
@@ -101,6 +105,16 @@ enum DwarfCMD {
     CMD_ASTRO_STOP_CAPTURE_WIDE_RAW_DARK_WITH_PARAM = 11026; // Stop shooting dark field with wide-angle specified parameters
     CMD_ASTRO_GET_WIDE_DARK_FRAME_LIST = 11027; // Query the list of wide-angle dark scenes taken
     CMD_ASTRO_DEL_WIDE_DARK_FRAME_LIST = 11028; // Delete the specified wide-angle dark field list
+
+    CMD_V3_ASTRO_SAVE_STACKED_IMAGE = 11033; // V3: Save stacked image
+    CMD_V3_ASTRO_LIST_SAVED_IMAGES = 11034; // V3: List saved images
+    CMD_V3_ASTRO_SAVE_COMPLETE = 11036; // V3: Save complete notification response
+    CMD_V3_ASTRO_STATUS_POLLING = 11039; // V3: Status polling
+    CMD_V3_ASTRO_GET_PARAMS = 11040; // V3: Get astro parameters
+    CMD_V3_ASTRO_SET_PARAMS = 11041; // V3: Set astro parameters
+    CMD_V3_ASTRO_GET_PRESETS = 11043; // V3: Get exposure presets
+    CMD_V3_ASTRO_SET_LOCATION = 11047; // V3: Set observation location
+    CMD_V3_ASTRO_CONFIRM = 11048; // V3: Confirm observation
 
     CMD_CAMERA_WIDE_OPEN_CAMERA = 12000; // Turn on the camera
     CMD_CAMERA_WIDE_CLOSE_CAMERA = 12001; // Turn off the camera
@@ -135,11 +149,14 @@ enum DwarfCMD {
     CMD_CAMERA_WIDE_START_RECORD = 12030; // Start wide recording
     CMD_CAMERA_WIDE_STOP_RECORD = 12031; // Stop wide recording
 
+    CMD_V3_CAMERA_WIDE_OPEN_CAMERA = 12036; // V3: Open/close wide camera
+
     CMD_SYSTEM_SET_TIME = 13000; // Set the system time
     CMD_SYSTEM_SET_TIME_ZONE = 13001; // Set the time zone
     CMD_SYSTEM_SET_MTP_MODE = 13002; // Set MTP mode
     CMD_SYSTEM_SET_CPU_MODE = 13003; // Set CPU mode
     CMD_SYSTEM_SET_MASTERLOCK = 13004; // Set HOST mode
+    CMD_V3_SYSTEM_SET_GPS_LOCATION = 13010; // V3: Set GPS location
 
     CMD_RGB_POWER_OPEN_RGB = 13500; // Turn on the ring light
     CMD_RGB_POWER_CLOSE_RGB = 13501; // Turn off the ring light
@@ -181,6 +198,7 @@ enum DwarfCMD {
     CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS = 15003; // Stop manual continuous focus
     CMD_FOCUS_START_ASTRO_AUTO_FOCUS = 15004; // Start astronomical autofocus
     CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS = 15005; // Stop astronomical autofocus
+    CMD_V3_FOCUS_INIT = 15011; // V3: Focus init
 
     CMD_NOTIFY_TELE_WIDI_PICTURE_MATCHING = 15200; // Telephoto wide-angle image matching
     CMD_NOTIFY_ELE = 15201; // Battery Notification
@@ -239,9 +257,37 @@ enum DwarfCMD {
 
     CMD_NOTIFY_FOCUS = 15257; // Focus Position
 
+    CMD_V3_NOTIFY_EXPOSURE_PROGRESS = 15255; // V3: Per-frame exposure countdown
+    CMD_V3_NOTIFY_DEVICE_STATE = 15261; // V3: Device state notification
+    CMD_V3_NOTIFY_CAMERA_PARAM_STATE = 15264; // V3: Camera parameter state
+    CMD_V3_NOTIFY_MODE_CHANGE = 15267; // V3: Mode change notification
+    CMD_V3_NOTIFY_STACKING_DATA = 15270; // V3: Stacking data notification
+    CMD_V3_NOTIFY_PHOTO_STATE = 15273; // V3: Normal photo state
+    CMD_V3_NOTIFY_BURST_STATE = 15274; // V3: Burst capture state
+    CMD_V3_NOTIFY_VIDEO_STATE = 15275; // V3: Video recording state
+    CMD_V3_NOTIFY_TIMELAPSE_STATE = 15276; // V3: Timelapse state
+    CMD_V3_NOTIFY_AUTOFOCUS_STATE = 15278; // V3: AutoFocus state
+    CMD_V3_NOTIFY_PHOTO_BURST_PROGRESS = 15285; // V3: Photo/burst progress
+    CMD_V3_NOTIFY_VIDEO_PROGRESS = 15286; // V3: Video recording progress
+    CMD_V3_NOTIFY_TIMELAPSE_PROGRESS = 15287; // V3: Timelapse progress
+    CMD_V3_NOTIFY_TEMPERATURE2 = 15292; // V3: Temperature2
+    CMD_V3_NOTIFY_OBSERVATION_STATE = 15296; // V3: Observation state
+
     CMD_PANORAMA_START_GRID = 15500; // Start panorama
     CMD_PANORAMA_STOP = 15501; // Stop panorama
     CMD_PANORAMA_START_EULER_RANGE = 15502; // Start panorama Euler Range
+
+    CMD_V3_SCHEDULE_GET = 16102; // V3: Get shooting schedule
+
+    CMD_V3_DEVICE_CONFIG_MODE_QUERY = 16402; // V3: Mode query
+    CMD_V3_DEVICE_CONFIG_SHOOTING_MODE = 16403; // V3: Shooting mode switch
+    CMD_V3_DEVICE_CONFIG_MODE_SWITCH = 16404; // V3: Mode switch
+    CMD_V3_DEVICE_CONFIG_GET_CONFIG = 16405; // V3: Get device config
+
+    CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700; // V3: Set camera param
+    CMD_V3_CAMERA_PARAMS_SET_EXP_GAIN = 16701; // V3: Set exposure/gain
+    CMD_V3_CAMERA_PARAMS_ADJUST = 16703; // V3: Adjust camera param
+    CMD_V3_CAMERA_PARAMS_STREAM_CTRL = 16706; // V3: Stream control
 }
 
 enum DwarfErrorCode {

@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+// V3 Focus init: CMD 15011
+message V3ReqFocusInit {
+}
+
+message V3ResFocusInit {
+    int32 code = 1;
+    int32 focus_position = 2;
+}

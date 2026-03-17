@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+// V3 Stacking state notification: CMD 15208 (V3 extended)
+// Uses existing ResNotifyOperationState for basic cases
+// Additional V3 decode info documented here
+
+// V3 Exposure progress notification: CMD 15255
+message V3ResNotifyExposureProgress {
+    int32 elapsed = 1;
+    int32 total = 2;
+}
+
+// V3 Device state notification: CMD 15261
+message V3ResNotifyDeviceState {
+    int32 event = 1;
+    V3DeviceStateMode mode = 2;
+    V3DeviceStateDetail state = 3;
+    V3DeviceStatePath path = 4;
+}
+
+message V3DeviceStateMode {
+    int32 mode = 1;
+    int32 flags = 2;
+}
+
+message V3DeviceStateDetail {
+    int32 state = 1;
+}
+
+message V3DeviceStatePath {
+    string path = 1;
+}
+
+// V3 Camera parameter state notification: CMD 15264
+message V3ResNotifyCameraParamState {
+    int64 param_id = 1;
+    int32 flag = 2;  // 1 = manual mode (used in exp/gain notifications)
+    int32 value = 3; // Parameter value
+}
+
+// V3 Mode change notification: CMD 15267
+message V3ResNotifyModeChange {
+    int32 changing = 1;
+    int32 mode = 2;
+    int32 sub_mode = 3;
+}
+
+// V3 White balance notification: CMD 15270
+// Despite the message name, pcap analysis shows this carries WB color temperature data
+message V3ResNotifyStackingData {
+    int32 field1 = 1;
+    int32 color_temperature = 2; // White balance color temperature value
+    int32 field3 = 3;
+    int32 camera = 4; // 0 = tele, 1 = wide
+}
+
+// V3 Photo state notification: CMD 15273
+message V3ResNotifyPhotoState {
+    int32 started = 1;
+    int32 complete = 2;
+}
+
+// V3 Burst state notification: CMD 15274
+message V3ResNotifyBurstState {
+    int32 started = 1;
+    int32 complete = 2;
+}
+
+// V3 Video state notification: CMD 15275
+message V3ResNotifyVideoState {
+    int32 started = 1;
+    int32 complete = 2;
+}
+
+// V3 Timelapse state notification: CMD 15276
+message V3ResNotifyTimelapseState {
+    int32 started = 1;
+    int32 complete = 2;
+}
+
+// V3 AutoFocus state notification: CMD 15278
+message V3ResNotifyAutoFocusState {
+    int32 state = 1; // 1=running, 3=complete
+}
+
+// V3 Photo/burst progress notification: CMD 15285
+message V3ResNotifyPhotoBurstProgress {
+    int32 total_frames = 1;
+    int32 current_frame = 2;
+    int32 flag = 3;
+}
+
+// V3 Video progress notification: CMD 15286
+message V3ResNotifyVideoProgress {
+    int32 elapsed_sec = 1;
+    int32 flag = 2;
+}
+
+// V3 Timelapse progress notification: CMD 15287
+message V3ResNotifyTimelapseProgress {
+    int32 field1 = 1;
+    int32 field2 = 2;
+    int32 frame_count = 3;
+    int32 flag = 4;
+}
+
+// V3 Temperature2 notification: CMD 15292
+message V3ResNotifyTemperature2 {
+    int32 temperature = 1;
+}
+
+// V3 Observation state notification: CMD 15296
+message V3ResNotifyObservationState {
+    int32 state = 1; // 1=started, 2=confirmed, 3=complete
+}

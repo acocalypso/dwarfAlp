@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.server import build_app
 from dwarf_alpaca.discovery import build_discovery_payload
+from dwarf_alpaca.dwarf.session import configure_session
 
 
 def _value(response):
@@ -72,3 +73,18 @@ def test_management_device_list_includes_filterwheel_for_mini():
 
     # Reset shared profile state for other test modules.
     build_app(Settings(force_simulation=True))
+
+
+def test_management_runtime_endpoint_exposes_v3_state_for_mini():
+    settings = Settings(force_simulation=True, dwarf_device_model="dwarfmini")
+    configure_session(settings)
+    client = TestClient(build_app(settings))
+
+    resp = client.get("/management/v1/runtime")
+    assert resp.status_code == 200
+
+    runtime = _value(resp)
+    assert runtime["deviceModel"] == "dwarfmini"
+    assert runtime["v3"]["is_mini"] is True
+    assert runtime["v3"]["ws_minor_version"] == 20
+    assert runtime["v3"]["ws_device_id"] == 4

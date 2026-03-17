@@ -5,7 +5,7 @@ import contextlib
 import math
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -213,10 +213,7 @@ def get_at_park():
 
 @router.get("/utcdate")
 def get_utc_date():
-    current = datetime.now(timezone.utc)
-    if state.custom_utc_offset_seconds is not None:
-        current += timedelta(seconds=state.custom_utc_offset_seconds)
-    return alpaca_response(value=current.isoformat())
+    return alpaca_response(value=datetime.now(timezone.utc).isoformat())
 
 
 @router.put("/utcdate")
@@ -237,9 +234,9 @@ async def set_utc_date(
         local_tz = datetime.now().astimezone().tzinfo or timezone.utc
         parsed = parsed.replace(tzinfo=local_tz)
     parsed = parsed.astimezone(timezone.utc)
-    now_utc = datetime.now(timezone.utc)
-    offset = (parsed - now_utc).total_seconds()
-    state.custom_utc_offset_seconds = offset if abs(offset) > 1e-6 else None
+    # Keep UTCDate monotonic and UTC-based for clients like NINA.
+    # We accept the setter for compatibility but do not apply a persistent local offset.
+    state.custom_utc_offset_seconds = None
     return alpaca_response()
 
 

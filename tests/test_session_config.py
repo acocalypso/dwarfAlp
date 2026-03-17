@@ -10,6 +10,8 @@ import pytest
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.dwarf import exposure
 from dwarf_alpaca.dwarf.session import DwarfSession, FilterOption
+from dwarf_alpaca.proto import protocol_pb2
+from dwarf_alpaca.proto.dwarf_messages import ComResponse, V3ResGetDeviceConfig, V3ResModeQuery
 
 
 @pytest.fixture()
@@ -292,3 +294,61 @@ async def test_mini_filter_options_are_canonicalized_to_three_positions() -> Non
     assert [entry.label for entry in options] == ["Duo-Band", "Dark", "No Filter"]
     # Keep device values intact while exposing canonical Alpaca positions.
     assert [entry.index for entry in options] == [0, 1, 2]
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_mini_v3_state_queries_mode_and_config() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    session._ws_client._conn = types.SimpleNamespace(closed=False, close_code=None)
+
+    calls: list[tuple[int, int]] = []
+
+    async def fake_send_request(self, module_id, command_id, request, response_cls, **_kwargs):  # type: ignore[override]
+        calls.append((module_id, command_id))
+        if command_id == 16402:
+            response = V3ResModeQuery()
+            response.code = protocol_pb2.OK
+            response.mode = 8
+            return response
+        if command_id == 16405:
+            response = V3ResGetDeviceConfig()
+            response.code = protocol_pb2.OK
+            response.config_data = b"abc"
+            return response
+        raise AssertionError(f"unexpected command {command_id}")
+
+    session._send_request = types.MethodType(fake_send_request, session)
+
+    await session._bootstrap_mini_v3_state()
+
+    assert calls == [(14, 16402), (14, 16405)]
+    assert session._v3_device_state_mode == 8
+    assert session._v3_device_config_bytes == 3
+
+
+@pytest.mark.asyncio
+async def test_ensure_master_lock_triggers_mini_v3_bootstrap() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    session._ws_client._conn = types.SimpleNamespace(closed=False, close_code=None)
+
+    called = {"bootstrap": False}
+
+    async def fake_ws_send_request(self, module_id, command_id, request, response_cls, **_kwargs):  # type: ignore[override]
+        assert module_id == protocol_pb2.ModuleId.MODULE_SYSTEM
+        assert command_id == protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTERLOCK
+        response = ComResponse()
+        response.code = protocol_pb2.OK
+        return response
+
+    async def fake_bootstrap(self) -> None:  # type: ignore[override]
+        called["bootstrap"] = True
+
+    session._ws_client.send_request = types.MethodType(fake_ws_send_request, session._ws_client)
+    session._bootstrap_mini_v3_state = types.MethodType(fake_bootstrap, session)
+
+    await session._ensure_master_lock()
+
+    assert session._master_lock_acquired is True
+    assert called["bootstrap"] is True

@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+// V3 Module 14: Device Config
+
+// Mode query: CMD 16402
+message V3ReqModeQuery {
+    int32 target_mode = 1;
+}
+
+message V3ResModeQuery {
+    int32 code = 1;
+    int32 mode = 2;
+}
+
+// Shooting mode switch: CMD 16403
+message V3ReqShootingModeSwitch {
+    int32 mode_id = 1; // 1=photo, 3=burst, 4=video, 5=timelapse
+}
+
+message V3ResShootingModeSwitch {
+    int32 code = 1;
+    int32 mode_id = 2;
+}
+
+// Mode switch: CMD 16404
+message V3ReqModeSwitch {
+    int32 field1 = 1;
+    int32 field2 = 2;
+    V3ModeSwitchInner inner = 3;
+}
+
+message V3ModeSwitchInner {
+    int32 value = 1;
+}
+
+message V3ResModeSwitch {
+    int32 code = 1;
+    int32 mode = 2;
+}
+
+// Get device config: CMD 16405
+message V3ReqGetDeviceConfig {
+}
+
+message V3ResGetDeviceConfig {
+    int32 code = 1;
+    bytes config_data = 2;
+}

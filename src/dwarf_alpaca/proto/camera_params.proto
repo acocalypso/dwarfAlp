@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+// V3 Module 15: Camera Parameters
+
+// Set camera param: CMD 16700
+message V3ReqSetCameraParam {
+    int64 param_id = 1;
+    int32 flag = 2;
+    int32 value = 3;
+}
+
+// Set exposure/gain: CMD 16701
+message V3ReqSetExposureGain {
+    int64 param_id = 1;
+    int32 flag = 2;
+    int32 value = 3;
+}
+
+// Adjust param: CMD 16703
+message V3ReqAdjustParam {
+    int64 param_id = 1;
+    int32 value = 2;
+}
+
+// Stream control: CMD 16706
+message V3ReqStreamControl {
+    int32 field1 = 1;
+    int32 field2 = 2;
+    int32 field3 = 3;
+}

@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+// V3 Tele Camera: CMD 10050
+message V3ReqOpenTeleCamera {
+    int32 action = 1; // 1=open, 0 or absent=close
+}
+
+// V3 Wide Camera: CMD 12036
+message V3ReqOpenWideCamera {
+    int32 action = 1; // 1=close, 0 or absent=open (reversed from tele)
+}

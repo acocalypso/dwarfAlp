@@ -6,7 +6,14 @@ import pytest
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.dwarf.session import DwarfSession
 from dwarf_alpaca.proto import protocol_pb2
-from dwarf_alpaca.proto.dwarf_messages import ResNotifyFocus, WsPacket, TYPE_NOTIFICATION
+from dwarf_alpaca.proto.dwarf_messages import (
+    ResNotifyFocus,
+    V3ResNotifyCameraParamState,
+    V3ResFocusInit,
+    WsPacket,
+    TYPE_NOTIFICATION,
+)
+from dwarf_alpaca.dwarf.session import FilterOption
 
 
 @pytest.mark.asyncio
@@ -50,3 +57,55 @@ async def test_focuser_move_fallback_without_notifications(monkeypatch):
     assert session.focuser_state.position == 120
     assert session.focuser_state.last_update is not None
     assert session.focuser_state.is_moving is False
+
+
+@pytest.mark.asyncio
+async def test_focuser_connect_mini_initializes_position_from_v3_init() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    async def _noop(self, *args, **kwargs):
+        return None
+
+    async def _fake_send_request(self, module_id, command_id, request, response_cls, **kwargs):  # type: ignore[override]
+        assert module_id == protocol_pb2.ModuleId.MODULE_FOCUS
+        assert command_id == 15011
+        response = V3ResFocusInit()
+        response.code = protocol_pb2.OK
+        response.focus_position = 712
+        return response
+
+    session._ensure_ws = types.MethodType(_noop, session)
+    session._send_request = types.MethodType(_fake_send_request, session)
+
+    await session.focuser_connect()
+
+    assert session.focuser_state.connected is True
+    assert session.focuser_state.position == 712
+    assert session.focuser_state.last_update is not None
+
+
+@pytest.mark.asyncio
+async def test_v3_filter_notification_updates_camera_filter_state() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini", force_simulation=True))
+    session._filter_options = [
+        FilterOption(parameter={"id": 13}, mode_index=0, index=0, label="Duo-Band"),
+        FilterOption(parameter={"id": 13}, mode_index=0, index=1, label="Dark"),
+        FilterOption(parameter={"id": 13}, mode_index=0, index=2, label="No Filter"),
+    ]
+
+    message = V3ResNotifyCameraParamState()
+    message.param_id = 0x20100000000000D
+    message.flag = 1
+    message.value = 2
+
+    packet = WsPacket()
+    packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
+    packet.cmd = 15264
+    packet.type = TYPE_NOTIFICATION
+    packet.data = message.SerializeToString()
+
+    await session._handle_notification(packet)
+
+    assert session.camera_state.filter_index == 2
+    assert session.camera_state.filter_name == "No Filter"

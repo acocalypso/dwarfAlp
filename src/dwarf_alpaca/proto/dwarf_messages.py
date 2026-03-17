@@ -233,6 +233,55 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
             ),
         ),
         MessageSpec(
+            name="V3ReqModeQuery",
+            fields=(
+                (
+                    "target_mode",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ResModeQuery",
+            fields=(
+                (
+                    "code",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "mode",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ReqGetDeviceConfig",
+            fields=(),
+        ),
+        MessageSpec(
+            name="V3ResGetDeviceConfig",
+            fields=(
+                (
+                    "code",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "config_data",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_BYTES,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
             name="ResNotifyFocus",
             fields=(
                 (
@@ -312,6 +361,139 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
             ),
         ),
         MessageSpec(
+            name="V3ResNotifyExposureProgress",
+            fields=(
+                (
+                    "elapsed",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "total",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3DeviceStateMode",
+            fields=(
+                (
+                    "mode",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "flags",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3DeviceStateDetail",
+            fields=(
+                (
+                    "state",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3DeviceStatePath",
+            fields=(
+                (
+                    "path",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ResNotifyDeviceState",
+            fields=(
+                (
+                    "event",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "mode",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.V3DeviceStateMode",
+                ),
+                (
+                    "state",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.V3DeviceStateDetail",
+                ),
+                (
+                    "path",
+                    4,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.V3DeviceStatePath",
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ResNotifyModeChange",
+            fields=(
+                (
+                    "changing",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "mode",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "sub_mode",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ResNotifyTemperature2",
+            fields=(
+                (
+                    "temperature",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ResNotifyObservationState",
+            fields=(
+                (
+                    "state",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
             name="ReqPhoto",
             fields=(
                 ("x", 1, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
@@ -379,6 +561,27 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         MessageSpec(
             name="ReqStopManualContinuFocus",
             fields=(),
+        ),
+        MessageSpec(
+            name="V3ReqFocusInit",
+            fields=(),
+        ),
+        MessageSpec(
+            name="V3ResFocusInit",
+            fields=(
+                (
+                    "code",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "focus_position",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
         ),
         MessageSpec(
             name="ReqSetTime",
@@ -528,6 +731,10 @@ ResGetAllFeatureParams = _prototype("ResGetAllFeatureParams")
 ReqSetIrCut = _prototype("ReqSetIrCut")
 V3ReqSetCameraParam = _prototype("V3ReqSetCameraParam")
 V3ReqAdjustParam = _prototype("V3ReqAdjustParam")
+V3ReqModeQuery = _prototype("V3ReqModeQuery")
+V3ResModeQuery = _prototype("V3ResModeQuery")
+V3ReqGetDeviceConfig = _prototype("V3ReqGetDeviceConfig")
+V3ResGetDeviceConfig = _prototype("V3ResGetDeviceConfig")
 ReqCloseCamera = _prototype("ReqCloseCamera")
 ResNotifyParam = _prototype("ResNotifyParam")
 ResNotifyFocus = _prototype("ResNotifyFocus")
@@ -535,6 +742,11 @@ ResNotifyTemperature = _prototype("ResNotifyTemperature")
 ResNotifyStateAstroGoto = _prototype("ResNotifyStateAstroGoto")
 ResNotifyStateAstroTracking = _prototype("ResNotifyStateAstroTracking")
 V3ResNotifyCameraParamState = _prototype("V3ResNotifyCameraParamState")
+V3ResNotifyExposureProgress = _prototype("V3ResNotifyExposureProgress")
+V3ResNotifyDeviceState = _prototype("V3ResNotifyDeviceState")
+V3ResNotifyModeChange = _prototype("V3ResNotifyModeChange")
+V3ResNotifyTemperature2 = _prototype("V3ResNotifyTemperature2")
+V3ResNotifyObservationState = _prototype("V3ResNotifyObservationState")
 ReqPhoto = _prototype("ReqPhoto")
 ReqPhotoRaw = _prototype("ReqPhotoRaw")
 ReqSetExpMode = _prototype("ReqSetExpMode")
@@ -547,6 +759,8 @@ ReqStopGoto = _prototype("ReqStopGoto")
 ReqManualSingleStepFocus = _prototype("ReqManualSingleStepFocus")
 ReqManualContinuFocus = _prototype("ReqManualContinuFocus")
 ReqStopManualContinuFocus = _prototype("ReqStopManualContinuFocus")
+V3ReqFocusInit = _prototype("V3ReqFocusInit")
+V3ResFocusInit = _prototype("V3ResFocusInit")
 ReqSetTime = _prototype("ReqSetTime")
 ReqSetTimezone = _prototype("ReqSetTimezone")
 ReqsetMasterLock = _prototype("ReqsetMasterLock")

@@ -24,6 +24,7 @@ class ServerStatus:
     running: bool
     message: str
     has_master_lock: Optional[bool] = None
+    battery_percent: Optional[int] = None
 
 
 class ServerService(QObject):
@@ -136,10 +137,11 @@ class ServerService(QObject):
                 self.status_changed.emit(ServerStatus(running=False, message="Stopped"))
 
     async def _master_lock_monitor(self) -> None:
-        last_value: Optional[bool] = None
+        last_value: tuple[Optional[bool], Optional[int]] = (None, None)
         try:
             while True:
                 has_lock: Optional[bool] = None
+                battery_percent: Optional[int] = None
                 session = None
                 try:
                     session = await get_session()
@@ -165,19 +167,27 @@ class ServerService(QObject):
                             if ensure_lock:
                                 await ensure_lock()
                             has_lock = bool(getattr(session, "has_master_lock", False))
+                            camera_state = getattr(session, "camera_state", None)
+                            if camera_state is not None:
+                                raw_battery = getattr(camera_state, "battery_percent", None)
+                                if raw_battery is not None:
+                                    battery_percent = int(raw_battery)
                         except Exception:  # pragma: no cover - defensive monitor
                             logger.debug("GUI master lock read failed", exc_info=True)
                             has_lock = None
                     else:
                         has_lock = None
+                        battery_percent = None
 
-                if has_lock != last_value:
-                    last_value = has_lock
+                current_value = (has_lock, battery_percent)
+                if current_value != last_value:
+                    last_value = current_value
                     self.status_changed.emit(
                         ServerStatus(
                             running=self._running,
                             message="Running" if self._running else "Stopped",
                             has_master_lock=has_lock,
+                            battery_percent=battery_percent,
                         )
                     )
 

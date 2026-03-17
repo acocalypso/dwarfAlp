@@ -407,7 +407,9 @@ class ServerControlWidget(QGroupBox):
         self.master_lock_label = QLabel("Master lock status: unknown")
         self.master_lock_hint_label = QLabel()
         self.master_lock_hint_label.setWordWrap(True)
+        self.battery_label = QLabel("Battery status: unknown")
         layout.addWidget(self.master_lock_label)
+        layout.addWidget(self.battery_label)
         layout.addWidget(self.master_lock_hint_label)
 
         self.setLayout(layout)
@@ -441,6 +443,13 @@ class ServerControlWidget(QGroupBox):
         self.master_lock_label.setText(status_text)
         self.master_lock_hint_label.setText(hint_text)
         self.master_lock_hint_label.setVisible(bool(hint_text))
+
+    def set_battery_status(self, battery_percent: Optional[int]) -> None:
+        if battery_percent is None:
+            text = "Battery status: unknown"
+        else:
+            text = f"Battery status: {battery_percent}%"
+        self.battery_label.setText(text)
 
 
 def _load_app_icon() -> QIcon:
@@ -923,8 +932,10 @@ class MainWindow(QMainWindow):
         self.server_widget.set_running(status.running, status.message)
         if status.running:
             self.server_widget.set_master_lock_status(status.has_master_lock)
+            self.server_widget.set_battery_status(status.battery_percent)
         else:
             self.server_widget.set_master_lock_status(None)
+            self.server_widget.set_battery_status(None)
             self._refresh_state()
         self._update_help(self._tabs.currentIndex())
 

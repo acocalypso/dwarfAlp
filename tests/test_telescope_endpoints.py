@@ -202,7 +202,7 @@ def test_utcdate_matches_system_clock_within_tolerance():
     assert abs((reported - now).total_seconds()) < 5
 
 
-def test_setting_utcdate_with_local_time_keeps_running_clock():
+def test_setting_utcdate_with_local_time_does_not_introduce_persistent_offset():
     local_tz = datetime.now().astimezone().tzinfo or timezone.utc
     target_local = datetime.now(local_tz) + timedelta(minutes=5)
     naive_iso = target_local.replace(tzinfo=None).isoformat()
@@ -213,8 +213,8 @@ def test_setting_utcdate_with_local_time_keeps_running_clock():
     resp = client.get("/api/v1/telescope/0/utcdate")
     assert resp.status_code == 200
     first_value = _parse_iso8601(_value(resp))
-    expected = target_local.astimezone(timezone.utc)
-    assert abs((first_value - expected).total_seconds()) < 5
+    now = datetime.now(timezone.utc)
+    assert abs((first_value - now).total_seconds()) < 5
 
     time.sleep(0.1)
     resp = client.get("/api/v1/telescope/0/utcdate")

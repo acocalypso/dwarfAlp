@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+// V3 Set GPS Location: CMD 13010
+message V3ReqSetGPSLocation {
+    double lat = 1;
+    double lon = 2;
+    double alt = 3;
+    string location_name = 4;
+}

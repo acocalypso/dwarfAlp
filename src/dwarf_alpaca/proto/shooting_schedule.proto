@@ -1,0 +1,181 @@
+syntax = "proto3";
+
+// 拍摄计划状态
+enum ShootingScheduleState {
+    SHOOTING_SCHEDULE_STATE_INITIALIZED = 0;                // 初始化      
+    SHOOTING_SCHEDULE_STATE_PENDING_SHOOT = 1;              // 待开拍       
+    SHOOTING_SCHEDULE_STATE_SHOOTING = 2;                   // 拍摄中     
+    SHOOTING_SCHEDULE_STATE_COMPLETED = 3;                  // 已完成    
+    SHOOTING_SCHEDULE_STATE_EXPIRED = 4;                    // 已过期
+};
+
+// 拍摄计划同步状态
+enum ShootingScheduleSyncState {
+    SHOOTING_SCHEDULE_SYNC_STATE_PENDING_SYNC = 0;          // 待同步
+    SHOOTING_SCHEDULE_SYNC_STATE_SYNCED = 1;                // 已同步
+}
+
+
+// 拍摄计划结果
+enum ShootingScheduleResult {
+    SHOOTING_SCHEDULE_RESULT_PENDING_START = 0;             // 未开始
+    SHOOTING_SCHEDULE_RESULT_ALL_COMPLETED = 1;             // 全部完成
+    SHOOTING_SCHEDULE_RESULT_PARTIALLY_COMPLETED = 2;       // 部分完成
+    SHOOTING_SCHEDULE_RESULT_ALL_FAILED = 3;                // 全部失败
+};
+
+// 拍摄任务状态
+enum ShootingTaskState {
+    SHOOTING_TASK_STATUS_IDLE = 0;                          // 未开拍
+    SHOOTING_TASK_STATUS_SHOOTING = 1;                      // 拍摄中
+    SHOOTING_TASK_STATUS_SUCCESS = 2;                       // 拍摄成功
+    SHOOTING_TASK_STATUS_FAILED  = 3;                       // 拍摄失败
+    SHOOTING_TASK_STATUS_INTERRUPTED = 4;                   // 被中断
+};
+
+// 拍摄计划模式
+enum ShootingScheduleMode {
+    SHOOTING_SCHEDULE_MODE_ASTRO_DEEP_SKY = 0;
+};
+
+
+// 拍摄任务
+message ShootingTaskMsg {
+    string schedule_id = 1;
+    string params = 2;
+    ShootingTaskState state = 3;
+    int32 code = 4;
+    int64 created_time = 5;
+    int64 updated_time = 6;
+    string schedule_task_id = 7;
+    int32 param_mode = 8;
+    int32 param_version = 9;
+    int32 create_from = 10;
+}
+
+// 拍摄计划
+message ShootingScheduleMsg {
+    string schedule_id = 1;
+    string schedule_name = 2;
+    int32 device_id = 3;
+    string mac_address = 4;
+    int64 start_time = 5;
+    int64 end_time = 6;
+    ShootingScheduleResult result = 7;
+    int64 created_time = 8;
+    int64 updated_time = 9;
+    ShootingScheduleState state = 10;
+    int32 lock = 11;
+    string password = 12;
+    repeated ShootingTaskMsg  shooting_tasks = 13;
+    int32 param_mode = 14;
+    int32 param_version = 15;
+    string params = 16;
+    int64 schedule_time = 17;
+    ShootingScheduleSyncState sync_state = 18;
+}
+
+// 同步拍摄计划
+message ReqSyncShootingSchedule {
+    ShootingScheduleMsg shooting_schedule = 1;
+}
+
+// 同步拍摄计划返回
+message ResSyncShootingSchedule {
+    ShootingScheduleMsg shooting_schedule = 1;
+    repeated string time_conflict_schedule_ids = 2;
+    int32 code = 3;
+    bool can_replace = 4;
+}
+
+// 取消同步拍摄计划
+message ReqCancelShootingSchedule {
+    string id = 1;
+    string password = 2;
+}
+
+// 2. 取消同步拍摄计划返回
+message ResCancelShootingSchedule {
+    string id = 1;
+    int32 code = 2;
+}
+
+// 获取所有拍摄计划
+message ReqGetAllShootingSchedule {
+    
+}
+
+// 获取所有拍摄计划返回
+message ResGetAllShootingSchedule {
+    repeated ShootingScheduleMsg shooting_schedule = 1;
+    int32 code = 2;
+}
+
+// 获取指定拍摄计划请求
+message ReqGetShootingScheduleById {
+    string id = 1;
+}
+
+// 获取指定拍摄计划返回
+message ResGetShootingScheduleById {
+    ShootingScheduleMsg shooting_schedule = 1;
+    int32 code = 2; 
+}
+
+// 获取指定拍摄任务请求
+message ReqGetShootingTaskById {
+    string id = 1;
+}
+
+// 获取指定拍摄任务返回
+message ResGetShootingTaskById {
+    ShootingTaskMsg shooting_task = 1;
+    int32 code = 2;
+}
+
+// 替换指定拍摄计划
+message ReqReplaceShootingSchedule {
+    ShootingScheduleMsg shooting_schedule = 1;
+}
+
+// 替换指定拍摄计划返回
+message ResReplaceShootingSchedule {
+    ShootingScheduleMsg shooting_schedule = 1;
+    int32 code = 2;
+}
+
+// 解锁指定拍摄计划
+message ReqUnlockShootingSchedule {
+    string id = 1;
+    string password = 2;
+}
+
+// 解锁指定拍摄计划返回
+message ResUnlockShootingSchedule {
+    string id = 1;
+    int32 code = 2;
+}
+
+// 锁定指定拍摄计划
+message ReqLockShootingSchedule {
+    string id = 1;
+    string password = 2;
+}
+
+// 锁定指定拍摄计划返回
+message ResLockShootingSchedule {
+    string id = 1;
+    int32 code = 2;
+}
+
+// 删除指定拍摄计划
+message ReqDeleteShootingSchedule {
+    string id = 1;
+    string password = 2;
+}
+
+// 删除指定拍摄计划返回
+message ResDeleteShootingSchedule {
+    string id = 1;
+    int32 code = 2;
+}

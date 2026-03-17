@@ -10,4 +10,4 @@ build/
 dist/
 DwarfAlpacaGUI.spec
 logs/
-dwarfii_api-develop/
+dwarfii_api/

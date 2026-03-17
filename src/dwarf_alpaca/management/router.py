@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from ..devices.utils import alpaca_response, bind_request_context
 from ..device_profile import build_device_list, get_active_device_profile
+from ..dwarf.session import get_session
 
 
 def _server_description() -> dict[str, str]:
@@ -47,3 +48,14 @@ def get_configured_devices():
 @router.get("/v1/devicelist")
 def get_device_list():
     return alpaca_response(value=_device_list())
+
+
+@router.get("/v1/runtime")
+async def get_runtime_state():
+    session = await get_session()
+    return alpaca_response(
+        value={
+            "deviceModel": get_active_device_profile().model_id,
+            "v3": session.get_v3_runtime_state(),
+        }
+    )

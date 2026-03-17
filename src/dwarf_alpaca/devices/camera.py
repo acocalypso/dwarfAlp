@@ -92,6 +92,8 @@ class CameraState:
     offset_max: int = 255
     ccd_temperature: float = 25.0
     heatsink_temperature: float = 25.0
+    runtime_sensor_width: int | None = None
+    runtime_sensor_height: int | None = None
 
 
 state = CameraState()
@@ -119,8 +121,8 @@ def _active_sensor_profile() -> SensorProfile:
 
 def _sync_state_to_profile() -> SensorProfile:
     profile = _active_sensor_profile()
-    state.sensor_width = profile.resolution_x
-    state.sensor_height = profile.resolution_y
+    state.sensor_width = state.runtime_sensor_width or profile.resolution_x
+    state.sensor_height = state.runtime_sensor_height or profile.resolution_y
     state.max_bin_x = profile.max_binning
     state.max_bin_y = profile.max_binning
     state.pixel_size_x = profile.pixel_size_um
@@ -486,6 +488,12 @@ async def put_connected(
             await session.release("camera")
     runtime = session.camera_state
     state.connected = runtime.connected
+    if state.connected:
+        state.runtime_sensor_width = runtime.reported_preview_width
+        state.runtime_sensor_height = runtime.reported_preview_height
+    else:
+        state.runtime_sensor_width = None
+        state.runtime_sensor_height = None
     return alpaca_response()
 
 
