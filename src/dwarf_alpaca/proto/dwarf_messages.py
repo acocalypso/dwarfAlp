@@ -704,12 +704,10 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
 
 
 _POOL = _build_file_descriptor()
-_FACTORY = message_factory.MessageFactory(_POOL)
-
 
 def _prototype(name: str) -> Type[Message]:
     descriptor = _POOL.FindMessageTypeByName(f"dwarf.{name}")
-    return _FACTORY.GetPrototype(descriptor)
+    return message_factory.GetMessageClass(descriptor)
 
 
 WsPacket = _prototype("WsPacket")
