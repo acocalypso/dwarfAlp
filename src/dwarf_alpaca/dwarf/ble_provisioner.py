@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import sys
 from dataclasses import dataclass
 from typing import Any, Optional, TYPE_CHECKING, cast
 
@@ -39,6 +40,50 @@ else:  # pragma: no cover
 logger = structlog.get_logger(__name__)
 
 
+# BlueZ returns this error from Device.Connect() for GATT-only LE peripherals
+# (like the DWARF): the LE link comes up and services resolve, but no classic
+# profile attaches, so BlueZ reports "No more profiles to connect to". bleak
+# treats it as fatal, while phones simply ignore it and use GATT directly.
+_TOLERATED_BLUEZ_CONNECT_ERRORS = frozenset({"org.bluez.Error.BREDR.ProfileUnavailable"})
+
+_bluez_workaround_installed = False
+
+
+def _install_bluez_profile_workaround() -> None:
+    """Make bleak's BlueZ backend ignore the spurious ProfileUnavailable error.
+
+    Patches the ``assert_reply`` reference used by bleak's connect path so that
+    the single ``BREDR.ProfileUnavailable`` error is swallowed (GATT is already
+    usable at that point) while every other D-Bus failure still raises. No-op on
+    non-Linux platforms and idempotent.
+    """
+
+    global _bluez_workaround_installed
+    if _bluez_workaround_installed or not sys.platform.startswith("linux"):
+        return
+    try:  # pragma: no cover - depends on bleak's BlueZ backend being importable
+        from bleak.backends.bluezdbus import client as bluez_client
+    except Exception:  # pragma: no cover - non-BlueZ build
+        return
+
+    original_assert_reply = getattr(bluez_client, "assert_reply", None)
+    if original_assert_reply is None:  # pragma: no cover - unexpected bleak layout
+        return
+
+    def _tolerant_assert_reply(reply: Any) -> None:
+        if getattr(reply, "error_name", None) in _TOLERATED_BLUEZ_CONNECT_ERRORS:
+            logger.warning(
+                "ble.provision.bluez_profile_unavailable_ignored",
+                error_name=getattr(reply, "error_name", None),
+            )
+            return
+        original_assert_reply(reply)
+
+    bluez_client.assert_reply = _tolerant_assert_reply
+    _bluez_workaround_installed = True
+    logger.info("ble.provision.bluez_profile_workaround_installed")
+
+
 def _is_ble_device(candidate: Any) -> bool:
     return (
         candidate is not None
@@ -62,6 +107,7 @@ class DwarfBleProvisioner:
 
     def __init__(self, *, response_timeout: float = 15.0) -> None:
         self.response_timeout = response_timeout
+        _install_bluez_profile_workaround()
 
     @staticmethod
     async def discover_devices(
