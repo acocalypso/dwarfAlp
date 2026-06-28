@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DWARF Alpaca Control Center
+GenericName=Telescope Control
+Comment=ASCOM Alpaca server for the DWARF 3 smart telescope
+Exec=DwarfAlpacaGUI
+Icon=dwarfalplogo
+Terminal=false
+Categories=Science;Utility;
+Keywords=astronomy;telescope;alpaca;ascom;dwarf;

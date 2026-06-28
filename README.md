@@ -49,9 +49,12 @@ An ASCOM Alpaca device hub for the DWARF 3 smart telescope. The project speaks t
 ### 1. Prerequisites
 
 - Python 3.10+
-- Windows PowerShell (repo commands assume Windows; adjust paths for macOS/Linux)
+- A shell: commands below use Windows PowerShell; for macOS/Linux use the POSIX
+  equivalents (`source .venv/bin/activate`, `export VAR=value`). Linux users
+  should also see [`setup_linux.md`](setup_linux.md).
 - System packages required by `aiortc` / `av` (FFmpeg, libopus, etc.)
 - Optional: Bluetooth adapter compatible with [Bleak](https://github.com/hbldh/bleak)
+  (on Linux this needs BlueZ and a running `bluetooth` service)
 
 ### 2. Create a virtual environment
 
@@ -71,7 +74,7 @@ pip install -e .[development]
 
 | Scenario | How to run |
 | --- | --- |
-| **Simulation** | `setx DWARF_ALPACA_FORCE_SIMULATION true` (or use PowerShell `$env:DWARF_ALPACA_FORCE_SIMULATION = "true"` in-session) then `dwarf-alpaca serve`. The routers respond with synthetic data, ideal for UI development and tests. |
+| **Simulation** | Set `DWARF_ALPACA_FORCE_SIMULATION=true` then `dwarf-alpaca serve`. PowerShell: `$env:DWARF_ALPACA_FORCE_SIMULATION = "true"`; POSIX shell: `export DWARF_ALPACA_FORCE_SIMULATION=true`. The routers respond with synthetic data, ideal for UI development and tests. |
 | **Hardware (existing Wi-Fi)** | Ensure the DWARF is connected to your Wi-Fi and that its STA IP is recorded in `var/connectivity.json` (or supply `--ssid`/`--password`). Run `dwarf-alpaca start --skip-provision --wait-timeout 180`. |
 | **Hardware (provisioning required)** | Use the BLE guide to onboard Wi-Fi credentials: `dwarf-alpaca guide --adapter <optional-device> --ble-password <password>`. Credentials and STA IP are saved for subsequent runs. |
 
@@ -86,35 +89,39 @@ dwarf-alpaca start --ssid "MySSID" --password "MyPassword"
 - Provisions the telescope, waits for STA connectivity, acquires the master lock, and starts the HTTP + discovery services.
 - STA IP detection automatically updates `Settings.dwarf_ap_ip` before the server boots.
 
-> Looking for the packaged Windows GUI? Follow the step-by-step guide in [`setup.md`](setup.md) to launch the compiled Control Center and configure clients such as NINA.
+> Looking for the packaged GUI? Follow [`setup.md`](setup.md) for the Windows Control Center, or [`setup_linux.md`](setup_linux.md) for the Linux AppImage and CLI, including how to configure clients such as NINA.
 
 ---
 
-## Building the GUI Executable
+## Building the GUI
 
-Package the PySide6 control center into a standalone Windows executable with [PyInstaller](https://pyinstaller.org):
+The PySide6 Control Center freezes into a standalone artifact with
+[PyInstaller](https://pyinstaller.org) using the shared, cross-platform spec at
+`packaging/dwarf_alpaca_gui.spec`. Install PyInstaller once per environment
+(`pip install pyinstaller`) and generate the protobuf modules first
+(`bash gen_pb2.sh`).
 
-1. Activate the virtual environment (if not already active):
+### Windows (`.exe`)
 
-  ```powershell
-  .\venv\Scripts\Activate.ps1
-  ```
+```powershell
+pyinstaller --noconfirm packaging\dwarf_alpaca_gui.spec
+```
 
-2. Install PyInstaller (one time per environment):
+The packaged binary is created at `dist\DwarfAlpacaGUI.exe`.
 
-  ```powershell
-  pip install pyinstaller
-  ```
+### Linux (AppImage)
 
-3. Build the executable:
+```bash
+bash scripts/build_appimage.sh
+```
 
-  ```powershell
-  pyinstaller --noconfirm --onefile --windowed --name DwarfAlpacaGUI --icon images/dwarfalplogo.ico --add-data "images;images" --add-data "var;var" --paths src run_gui.py
-  ```
+This runs PyInstaller with the same spec, assembles an AppDir (binary,
+`.desktop`, icon, `AppRun`), and wraps it with `appimagetool` into
+`dist/DwarfAlpacaGUI-x86_64.AppImage`. See [`setup_linux.md`](setup_linux.md)
+for the host libraries required to build and run it.
 
-  The packaged binary will be created at `dist\DwarfAlpacaGUI.exe`. Update the `--add-data` entries if you need more resources bundled.
-
-4. Launch the app directly from the `dist` directory to verify everything runs as expected.
+Both artifacts are also produced automatically by CI
+(`.github/workflows/build.yml`) and attached to tagged releases.
 
 ---
 

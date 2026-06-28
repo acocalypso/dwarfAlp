@@ -44,6 +44,7 @@ except Exception:  # pragma: no cover - Python < 3.9 or missing tzdata
 from ..config.settings import Settings, load_settings, normalize_dwarf_device_model
 from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
 from ..dwarf.state import ConnectivityState, StateStore
+from ..paths import bundled_resource_dir, portable_base_dir
 from ..provisioning.workflow import create_state_store, provision_sta
 from ..cli import _configure_start_logging, _preflight_session
 from .logging import QtLogHandler
@@ -54,7 +55,10 @@ from .workers import AsyncWorker
 logger = logging.getLogger(__name__)
 
 
-APP_ICON_PATH = Path(__file__).resolve().parents[3] / "images" / "dwarfalplogo.ico"
+# Prefer PNG (loads reliably via Qt on every platform); fall back to the
+# Windows .ico. Resolved against the bundle-aware resource directory so it works
+# both in a source checkout and inside a PyInstaller bundle.
+APP_ICON_NAMES = ("dwarfalplogo.png", "dwarfalplogo.ico")
 
 
 def _load_timezone_choices() -> list[str]:
@@ -453,20 +457,19 @@ class ServerControlWidget(QGroupBox):
 
 
 def _load_app_icon() -> QIcon:
-    if APP_ICON_PATH.exists():
-        return QIcon(str(APP_ICON_PATH))
-    logger.warning("gui.icon.missing path=%s", APP_ICON_PATH)
+    images_dir = bundled_resource_dir() / "images"
+    for name in APP_ICON_NAMES:
+        candidate = images_dir / name
+        if candidate.exists():
+            return QIcon(str(candidate))
+    logger.warning("gui.icon.missing dir=%s names=%s", images_dir, APP_ICON_NAMES)
     return QIcon()
 
 
 def _resolve_state_directory(path: Path) -> Path:
     if path.is_absolute():
         return path
-    if getattr(sys, "frozen", False):
-        base = Path(sys.executable).resolve().parent
-    else:
-        base = Path.cwd()
-    return (base / path).resolve()
+    return (portable_base_dir() / path).resolve()
 
 
 class MainWindow(QMainWindow):
