@@ -1,10 +1,12 @@
 import pytest
+import os
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from dwarf_alpaca.gui.app import MainWindow
 from dwarf_alpaca.dwarf.state import ConnectivityState
 
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 @pytest.fixture(scope="module")
 def qapp():
