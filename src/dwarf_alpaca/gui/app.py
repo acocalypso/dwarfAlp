@@ -700,7 +700,7 @@ class MainWindow(QMainWindow):
         worker.start()
 
     def _handle_worker_error(self, exc: Exception, context: str) -> None:
-        logger.error("gui.worker.failure", context=context, error=str(exc))
+        logger.error("gui.worker.failure context=%s, error=%s", context,exc)
         QMessageBox.critical(self, "Error", f"{context}: {exc}")
 
     # endregion
