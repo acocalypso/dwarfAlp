@@ -28,7 +28,7 @@ def _configure_start_logging(settings: Settings) -> None:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         log_path = log_dir / f"dwarf-alpaca-start-{timestamp}.log"
     except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("cli.start.logfile_init_failed", error=str(exc))
+        logger.warning("cli.start.logfile_init_failed error=%s", exc)
         return
 
     root_logger = logging.getLogger()
