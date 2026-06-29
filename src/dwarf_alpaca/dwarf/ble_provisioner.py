@@ -84,6 +84,23 @@ def _install_bluez_profile_workaround() -> None:
     logger.info("ble.provision.bluez_profile_workaround_installed")
 
 
+# Standard 16-bit Bluetooth SIG services we never want to send DWARF commands to
+# (GAP, GATT, device info, PnP). Anything else is treated as a vendor/custom
+# service and preferred when auto-selecting the command characteristic.
+_STANDARD_SERVICE_PREFIXES = (
+    "00001800",  # Generic Access
+    "00001801",  # Generic Attribute
+    "00001804",  # Tx Power
+    "0000180a",  # Device Information
+    "00001200",  # PnP Information
+)
+
+
+def _looks_custom_service(uuid: str) -> bool:
+    normalized = uuid.lower()
+    return not any(normalized.startswith(prefix) for prefix in _STANDARD_SERVICE_PREFIXES)
+
+
 def _is_ble_device(candidate: Any) -> bool:
     return (
         candidate is not None
@@ -107,7 +124,57 @@ class DwarfBleProvisioner:
 
     def __init__(self, *, response_timeout: float = 15.0) -> None:
         self.response_timeout = response_timeout
+        # Resolved per-connection in _resolve_characteristic(); defaults to the
+        # DWARF 3 characteristic so behaviour is unchanged if discovery is skipped.
+        self._active_char_uuid = DWARF_CHARACTERISTIC_UUID
         _install_bluez_profile_workaround()
+
+    def _resolve_characteristic(self, client: BleakClientType) -> str:
+        """Pick the GATT characteristic to talk to, across DWARF models.
+
+        The DWARF 3 exposes the command characteristic at
+        ``00009999-…`` under service ``daf2``/``daf3``; the DWARF mini uses a
+        different layout (service ``daf5``). Rather than hard-code per model,
+        log the full GATT table and select a characteristic that supports both
+        write and notify, preferring the known DWARF 3 UUID, then a custom
+        (vendor) service, then any candidate. Falls back to the DWARF 3 UUID.
+        """
+
+        services = getattr(client, "services", None) or []
+        default_present = False
+        candidates: list[tuple[int, str]] = []
+        for service in services:
+            svc_uuid = str(service.uuid).lower()
+            for ch in service.characteristics:
+                ch_uuid = str(ch.uuid).lower()
+                props = {p.lower() for p in ch.properties}
+                logger.info(
+                    "ble.provision.gatt_char",
+                    service=svc_uuid,
+                    characteristic=ch_uuid,
+                    properties=sorted(props),
+                )
+                if ch_uuid == DWARF_CHARACTERISTIC_UUID:
+                    default_present = True
+                can_write = bool(props & {"write", "write-without-response"})
+                can_notify = bool(props & {"notify", "indicate"})
+                if can_write and can_notify:
+                    priority = 0 if _looks_custom_service(svc_uuid) else 1
+                    candidates.append((priority, ch_uuid))
+
+        if default_present:
+            chosen = DWARF_CHARACTERISTIC_UUID
+            reason = "known-dwarf3-uuid"
+        elif candidates:
+            candidates.sort(key=lambda item: item[0])
+            chosen = candidates[0][1]
+            reason = "auto-discovered"
+        else:
+            chosen = DWARF_CHARACTERISTIC_UUID
+            reason = "fallback-no-candidate"
+
+        logger.info("ble.provision.characteristic_selected", characteristic=chosen, reason=reason)
+        return chosen
 
     @staticmethod
     async def discover_devices(
@@ -158,7 +225,8 @@ class DwarfBleProvisioner:
                 loop.call_soon_threadsafe(_put)
 
             try:
-                await client.start_notify(DWARF_CHARACTERISTIC_UUID, _notification_handler)
+                self._active_char_uuid = self._resolve_characteristic(client)
+                await client.start_notify(self._active_char_uuid, _notification_handler)
                 config = await self._write_and_wait_for_config(
                     client,
                     response_queue,
@@ -186,7 +254,7 @@ class DwarfBleProvisioner:
                 return ProvisioningResult(False, f"Provisioning failed: {exc}")
             finally:
                 with contextlib.suppress(Exception):
-                    await client.stop_notify(DWARF_CHARACTERISTIC_UUID)
+                    await client.stop_notify(self._active_char_uuid)
 
     async def _discover_device(self, adapter: str | None) -> Optional[BLEDevice]:
         logger.info("ble.provision.scan", adapter=adapter)
@@ -253,10 +321,11 @@ class DwarfBleProvisioner:
 
                 loop.call_soon_threadsafe(_put)
 
-            await client.start_notify(DWARF_CHARACTERISTIC_UUID, _notification_handler)
+            self._active_char_uuid = self._resolve_characteristic(client)
+            await client.start_notify(self._active_char_uuid, _notification_handler)
             try:
                 await client.write_gatt_char(
-                    DWARF_CHARACTERISTIC_UUID,
+                    self._active_char_uuid,
                     build_req_getconfig(ble_password),
                     response=True,
                 )
@@ -270,7 +339,7 @@ class DwarfBleProvisioner:
                     )
 
                 await client.write_gatt_char(
-                    DWARF_CHARACTERISTIC_UUID,
+                    self._active_char_uuid,
                     build_req_getwifilist(),
                     response=True,
                 )
@@ -289,7 +358,7 @@ class DwarfBleProvisioner:
                         return list(wifi_response.ssid)
             finally:
                 with contextlib.suppress(Exception):
-                    await client.stop_notify(DWARF_CHARACTERISTIC_UUID)
+                    await client.stop_notify(self._active_char_uuid)
 
     async def _write_and_wait_for_config(
         self,
@@ -300,7 +369,7 @@ class DwarfBleProvisioner:
         deadline: float,
     ) -> Any:
         await client.write_gatt_char(
-            DWARF_CHARACTERISTIC_UUID,
+            self._active_char_uuid,
             build_req_getconfig(ble_psd),
             response=True,
         )
@@ -351,7 +420,7 @@ class DwarfBleProvisioner:
             "ble.provision.send_sta", ssid=ssid, auto_start=auto_start
         )
         await client.write_gatt_char(
-            DWARF_CHARACTERISTIC_UUID,
+            self._active_char_uuid,
             build_req_sta(auto_start, ble_psd, ssid, password),
             response=True,
         )
@@ -377,7 +446,7 @@ class DwarfBleProvisioner:
                     break
                 logger.info("ble.provision.query_followup")
                 await client.write_gatt_char(
-                    DWARF_CHARACTERISTIC_UUID,
+                    self._active_char_uuid,
                     build_req_getconfig(ble_psd),
                     response=True,
                 )
