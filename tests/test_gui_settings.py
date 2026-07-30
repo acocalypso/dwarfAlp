@@ -1,9 +1,8 @@
 import pytest
-
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from dwarf_alpaca.gui.app import MainWindow
 from dwarf_alpaca.dwarf.state import ConnectivityState
+from dwarf_alpaca.gui.app import MainWindow
 
 
 @pytest.fixture(scope="module")
@@ -54,7 +53,10 @@ def test_start_blocked_when_device_address_missing(qapp, monkeypatch):
 
         assert not start_called
         assert window._pending_start is None
-        assert window.provisioning_widget.status_label.text() == "Device address is required before starting the server"
+        assert (
+            window.provisioning_widget.status_label.text()
+            == "Device address is required before starting the server"
+        )
         assert warnings, "Expected warning dialog when device address is missing"
     finally:
         window.close()

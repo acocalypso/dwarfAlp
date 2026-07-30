@@ -40,61 +40,210 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         MessageSpec(
             name="WsPacket",
             fields=(
-                ("major_version", 1, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("minor_version", 2, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("device_id", 3, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("module_id", 4, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("cmd", 5, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("type", 6, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("data", 7, descriptor_pb2.FieldDescriptorProto.TYPE_BYTES, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("client_id", 8, descriptor_pb2.FieldDescriptorProto.TYPE_STRING, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "major_version",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "minor_version",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "device_id",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "module_id",
+                    4,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "cmd",
+                    5,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "type",
+                    6,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "data",
+                    7,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_BYTES,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "client_id",
+                    8,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ComResponse",
-            fields=(("code", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),),
+            fields=(
+                (
+                    "code",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
         ),
         MessageSpec(
             name="CommonParam",
             fields=(
-                ("hasAuto", 1, descriptor_pb2.FieldDescriptorProto.TYPE_BOOL, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("auto_mode", 2, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("id", 3, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("mode_index", 4, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("index", 5, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("continue_value", 6, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "hasAuto",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_BOOL,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "auto_mode",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "id",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "mode_index",
+                    4,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "index",
+                    5,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "continue_value",
+                    6,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqMotorRun",
             fields=(
-                ("id", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("speed", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("direction", 3, descriptor_pb2.FieldDescriptorProto.TYPE_BOOL, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("speed_ramping", 4, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("resolution_level", 5, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "id",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "speed",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "direction",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_BOOL,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "speed_ramping",
+                    4,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "resolution_level",
+                    5,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqMotorRunTo",
             fields=(
-                ("id", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("end_position", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("speed", 3, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("speed_ramping", 4, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("resolution_level", 5, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "id",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "end_position",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "speed",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "speed_ramping",
+                    4,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "resolution_level",
+                    5,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqMotorStop",
-            fields=(("id", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),),
+            fields=(
+                (
+                    "id",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
         ),
         MessageSpec(
             name="ReqMotorServiceJoystick",
             fields=(
-                ("vector_angle", 1, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("vector_length", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("speed", 3, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "vector_angle",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "vector_length",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "speed",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
@@ -104,78 +253,108 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         MessageSpec(
             name="ResMotor",
             fields=(
-                ("id", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("code", 2, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "id",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "code",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqOpenCamera",
             fields=(
-                ("binning", 1, descriptor_pb2.FieldDescriptorProto.TYPE_BOOL, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("rtsp_encode_type", 2, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "binning",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_BOOL,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "rtsp_encode_type",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="V3ReqOpenTeleCamera",
             fields=(
-                ("action", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "action",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="V3ReqOpenWideCamera",
             fields=(
-                ("action", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "action",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
-            MessageSpec(
-                name="ReqGetSystemWorkingState",
-                fields=(),
-            ),
-            MessageSpec(
-                name="ReqSetFeatureParams",
-                fields=(
-                    (
-                        "param",
-                        1,
-                        descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
-                        descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
-                        ".dwarf.CommonParam",
-                    ),
+        MessageSpec(
+            name="ReqGetSystemWorkingState",
+            fields=(),
+        ),
+        MessageSpec(
+            name="ReqSetFeatureParams",
+            fields=(
+                (
+                    "param",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.CommonParam",
                 ),
             ),
-            MessageSpec(
-                name="ReqGetAllFeatureParams",
-                fields=(),
-            ),
-            MessageSpec(
-                name="ResGetAllFeatureParams",
-                fields=(
-                    (
-                        "all_feature_params",
-                        1,
-                        descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
-                        descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
-                        ".dwarf.CommonParam",
-                    ),
-                    (
-                        "code",
-                        2,
-                        descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
-                        descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
-                    ),
+        ),
+        MessageSpec(
+            name="ReqGetAllFeatureParams",
+            fields=(),
+        ),
+        MessageSpec(
+            name="ResGetAllFeatureParams",
+            fields=(
+                (
+                    "all_feature_params",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
+                    ".dwarf.CommonParam",
+                ),
+                (
+                    "code",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
                 ),
             ),
-            MessageSpec(
-                name="ReqSetIrCut",
-                fields=(
-                    (
-                        "value",
-                        1,
-                        descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
-                        descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
-                    ),
+        ),
+        MessageSpec(
+            name="ReqSetIrCut",
+            fields=(
+                (
+                    "value",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
                 ),
             ),
+        ),
         MessageSpec(
             name="ReqCloseCamera",
             fields=(),
@@ -496,9 +675,24 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         MessageSpec(
             name="ReqPhoto",
             fields=(
-                ("x", 1, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("y", 2, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("ratio", 3, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "x",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "y",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "ratio",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
@@ -508,42 +702,97 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         MessageSpec(
             name="ReqSetExpMode",
             fields=(
-                ("mode", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "mode",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqSetExp",
             fields=(
-                ("index", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "index",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqSetGainMode",
             fields=(
-                ("mode", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "mode",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqSetGain",
             fields=(
-                ("index", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "index",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqGotoDSO",
             fields=(
-                ("ra", 1, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("dec", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("target_name", 3, descriptor_pb2.FieldDescriptorProto.TYPE_STRING, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "ra",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "dec",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "target_name",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqGotoSolarSystem",
             fields=(
-                ("index", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("lon", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("lat", 3, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("target_name", 4, descriptor_pb2.FieldDescriptorProto.TYPE_STRING, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "index",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "lon",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "lat",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "target_name",
+                    4,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
@@ -552,11 +801,25 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         ),
         MessageSpec(
             name="ReqManualSingleStepFocus",
-            fields=(("direction", 1, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),),
+            fields=(
+                (
+                    "direction",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
         ),
         MessageSpec(
             name="ReqManualContinuFocus",
-            fields=(("direction", 1, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),),
+            fields=(
+                (
+                    "direction",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
         ),
         MessageSpec(
             name="ReqStopManualContinuFocus",
@@ -614,22 +877,52 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         MessageSpec(
             name="ReqsetMasterLock",
             fields=(
-                ("lock", 1, descriptor_pb2.FieldDescriptorProto.TYPE_BOOL, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "lock",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_BOOL,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ResNotifyHostSlaveMode",
             fields=(
-                ("mode", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("lock", 2, descriptor_pb2.FieldDescriptorProto.TYPE_BOOL, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "mode",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "lock",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_BOOL,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqTrackSpecialTarget",
             fields=(
-                ("index", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("lon", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("lat", 3, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "index",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "lon",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "lat",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
@@ -643,13 +936,30 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         MessageSpec(
             name="ResCheckDarkFrame",
             fields=(
-                ("progress", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("code", 2, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "progress",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "code",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(
             name="ReqCaptureDarkFrame",
-            fields=(("reshoot", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),),
+            fields=(
+                (
+                    "reshoot",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
         ),
         MessageSpec(
             name="ReqStopCaptureDarkFrame",
@@ -658,10 +968,30 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         MessageSpec(
             name="ReqCaptureDarkFrameWithParam",
             fields=(
-                ("exp_index", 1, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("gain_index", 2, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("bin_index", 3, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
-                ("cap_size", 4, descriptor_pb2.FieldDescriptorProto.TYPE_INT32, descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL),
+                (
+                    "exp_index",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "gain_index",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "bin_index",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "cap_size",
+                    4,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
             ),
         ),
         MessageSpec(

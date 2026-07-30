@@ -6,7 +6,6 @@ from typing import Any, Optional
 
 from PySide6.QtCore import QObject, QThread, Signal
 
-
 CoroutineFactory = Callable[[], Awaitable[Any]]
 
 

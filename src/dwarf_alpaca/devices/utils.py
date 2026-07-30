@@ -10,7 +10,9 @@ from fastapi import HTTPException, Request
 T = TypeVar("T")
 
 
-_current_request: contextvars.ContextVar[Request | None] = contextvars.ContextVar("alpaca_current_request", default=None)
+_current_request: contextvars.ContextVar[Request | None] = contextvars.ContextVar(
+    "alpaca_current_request", default=None
+)
 _server_transaction_counter = count(1)
 _transaction_lock = Lock()
 _UINT32_MAX = 4294967295
@@ -88,7 +90,7 @@ def _convert_value(value: Any, converter: Callable[[Any], T]) -> T:
     try:
         return converter(value)
     except Exception as exc:  # pragma: no cover - conversion error
-        raise HTTPException(status_code=400, detail=f"Invalid value for parameter") from exc
+        raise HTTPException(status_code=400, detail="Invalid value for parameter") from exc
 
 
 def _cast(value: Any, expected_type: type[T]) -> T:

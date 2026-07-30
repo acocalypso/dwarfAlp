@@ -14,6 +14,7 @@ class CameraProfile:
     ad_converter_bits: int
     max_binning: int
     pixel_size_um: float
+    min_gain_db: float
     max_gain_db: float
     min_exposure_s: float
     max_exposure_s: float
@@ -24,12 +25,51 @@ class CameraProfile:
 
 
 @dataclass(frozen=True)
+class ProtocolProfile:
+    """Wire-level defaults observed for a device protocol family."""
+
+    family: str
+    ws_major_version: int
+    ws_minor_version: int
+    ws_device_id: int
+    camera_commands: str
+    focus_commands: str
+    supports_runtime_discovery: bool
+
+
+@dataclass(frozen=True)
+class CaptureCapabilities:
+    """Capture behavior the driver can honestly implement for a profile."""
+
+    default_workflow: str
+    supports_astro_workflow: bool
+    supports_direct_photo: bool
+    supports_fits: bool
+    supports_binning: bool
+    supports_frame_count: bool
+    supports_progress_notifications: bool
+    supports_observation_notifications: bool
+    supports_stop: bool
+    supports_abort: bool
+
+
+@dataclass(frozen=True)
+class FilterCapabilities:
+    labels: tuple[str, ...]
+    control_path: str
+    runtime_discovery: bool
+
+
+@dataclass(frozen=True)
 class DeviceProfile:
     model_id: str
     display_name: str
     ws_client_id: str
     has_filterwheel: bool
     camera: CameraProfile
+    protocol: ProtocolProfile
+    capture: CaptureCapabilities
+    filters: FilterCapabilities
 
 
 _DWARF3 = DeviceProfile(
@@ -45,6 +85,7 @@ _DWARF3 = DeviceProfile(
         ad_converter_bits=12,
         max_binning=2,
         pixel_size_um=2.0,
+        min_gain_db=0.0,
         max_gain_db=200.0,
         min_exposure_s=0.00001,
         max_exposure_s=120.0,
@@ -52,6 +93,32 @@ _DWARF3 = DeviceProfile(
         full_well_capacity_e=(11270.0,),
         raw_format="SRGGB12",
         bayer_pattern="RGGB",
+    ),
+    protocol=ProtocolProfile(
+        family="legacy-v2",
+        ws_major_version=1,
+        ws_minor_version=2,
+        ws_device_id=1,
+        camera_commands="v2",
+        focus_commands="v2",
+        supports_runtime_discovery=True,
+    ),
+    capture=CaptureCapabilities(
+        default_workflow="astro",
+        supports_astro_workflow=True,
+        supports_direct_photo=True,
+        supports_fits=True,
+        supports_binning=True,
+        supports_frame_count=True,
+        supports_progress_notifications=False,
+        supports_observation_notifications=False,
+        supports_stop=False,
+        supports_abort=True,
+    ),
+    filters=FilterCapabilities(
+        labels=("VIS Filter", "Astro Filter", "Duo-Band Filter"),
+        control_path="v2-feature-param",
+        runtime_discovery=True,
     ),
 )
 
@@ -67,15 +134,42 @@ _DWARFMINI = DeviceProfile(
         resolution_y=1080,
         bits_per_pixel=16,
         ad_converter_bits=12,
-        max_binning=2,
+        max_binning=1,
         pixel_size_um=2.9,
-        max_gain_db=200.0,
-        min_exposure_s=0.00001,
-        max_exposure_s=120.0,
+        min_gain_db=40.0,
+        max_gain_db=100.0,
+        min_exposure_s=1.0,
+        max_exposure_s=180.0,
         electrons_per_adu=(2.75,),
         full_well_capacity_e=(11270.0,),
         raw_format="SRGGB12",
         bayer_pattern="RGGB",
+    ),
+    protocol=ProtocolProfile(
+        family="v3",
+        ws_major_version=1,
+        ws_minor_version=20,
+        ws_device_id=4,
+        camera_commands="v3",
+        focus_commands="v3",
+        supports_runtime_discovery=True,
+    ),
+    capture=CaptureCapabilities(
+        default_workflow="astro",
+        supports_astro_workflow=True,
+        supports_direct_photo=True,
+        supports_fits=True,
+        supports_binning=True,
+        supports_frame_count=True,
+        supports_progress_notifications=True,
+        supports_observation_notifications=True,
+        supports_stop=False,
+        supports_abort=True,
+    ),
+    filters=FilterCapabilities(
+        labels=("Astro", "Duo-Band"),
+        control_path="astro-start-ir-index",
+        runtime_discovery=False,
     ),
 )
 
@@ -92,6 +186,7 @@ _DWARF2 = DeviceProfile(
         ad_converter_bits=12,
         max_binning=2,
         pixel_size_um=1.45,
+        min_gain_db=0.0,
         max_gain_db=200.0,
         min_exposure_s=0.00001,
         max_exposure_s=120.0,
@@ -99,6 +194,32 @@ _DWARF2 = DeviceProfile(
         full_well_capacity_e=(11270.0,),
         raw_format="SRGGB12",
         bayer_pattern="RGGB",
+    ),
+    protocol=ProtocolProfile(
+        family="legacy-v2",
+        ws_major_version=1,
+        ws_minor_version=2,
+        ws_device_id=1,
+        camera_commands="v2",
+        focus_commands="v2",
+        supports_runtime_discovery=True,
+    ),
+    capture=CaptureCapabilities(
+        default_workflow="astro",
+        supports_astro_workflow=True,
+        supports_direct_photo=True,
+        supports_fits=True,
+        supports_binning=True,
+        supports_frame_count=True,
+        supports_progress_notifications=False,
+        supports_observation_notifications=False,
+        supports_stop=False,
+        supports_abort=True,
+    ),
+    filters=FilterCapabilities(
+        labels=(),
+        control_path="none",
+        runtime_discovery=False,
     ),
 )
 

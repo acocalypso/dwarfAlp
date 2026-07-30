@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from ..devices.utils import alpaca_response, bind_request_context
 from ..device_profile import build_device_list, get_active_device_profile
+from ..devices.utils import alpaca_response, bind_request_context
 from ..dwarf.session import get_session
 
 
@@ -19,6 +19,7 @@ def _server_description() -> dict[str, str]:
 
 def _device_list() -> list[dict[str, object]]:
     return build_device_list(get_active_device_profile())
+
 
 router = APIRouter(dependencies=[Depends(bind_request_context)])
 

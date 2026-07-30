@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Iterator, Sequence
-
 import math
 import re
+from dataclasses import dataclass
+from typing import Any, Iterator, Sequence
 
 _DURATION_KEYS: Sequence[str] = (
     "duration",
@@ -168,7 +167,7 @@ class ExposureResolver:
                 .replace("second", "")
                 .replace("sec", "")
                 .replace("\u2033", "")  # double prime symbol
-                .replace("\"", "")
+                .replace('"', "")
                 .strip()
             )
             if any(char.isalpha() for char in candidate):
@@ -191,11 +190,16 @@ class ExposureResolver:
         return None
 
     def choose_index(self, duration: float) -> int | None:
+        option = self.choose_option(duration)
+        return option.index if option is not None else None
+
+    def choose_option(self, duration: float) -> ExposureOption | None:
+        """Return the deterministic nearest firmware exposure option."""
+
         if not self.options or duration <= 0:
             return None
         target = float(duration)
-        best_option = min(self.options, key=lambda opt: abs(opt.seconds - target))
-        return best_option.index
+        return min(self.options, key=lambda opt: (abs(opt.seconds - target), opt.seconds))
 
     def available_durations(self) -> list[float]:
         return [option.seconds for option in self.options]

@@ -7,7 +7,6 @@ from typing import Any, Literal, Optional
 import httpx
 import structlog
 
-
 logger = structlog.get_logger(__name__)
 
 

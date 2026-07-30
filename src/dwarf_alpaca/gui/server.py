@@ -149,14 +149,20 @@ class ServerService(QObject):
                     logger.debug("GUI master lock monitor error", exc_info=True)
                 else:
                     ws_client = getattr(session, "_ws_client", None)
-                    ws_connected = bool(getattr(ws_client, "connected", False)) if ws_client else False
+                    ws_connected = (
+                        bool(getattr(ws_client, "connected", False)) if ws_client else False
+                    )
 
                     if not ws_connected:
                         try:
                             ensure_ws = getattr(session, "_ensure_ws", None)
                             if ensure_ws:
                                 await ensure_ws()
-                                ws_connected = bool(getattr(ws_client, "connected", False)) if ws_client else False
+                                ws_connected = (
+                                    bool(getattr(ws_client, "connected", False))
+                                    if ws_client
+                                    else False
+                                )
                         except Exception:  # pragma: no cover - defensive monitor
                             logger.debug("GUI master lock reconnect failed", exc_info=True)
                             ws_connected = False

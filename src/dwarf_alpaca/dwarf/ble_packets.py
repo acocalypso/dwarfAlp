@@ -18,7 +18,7 @@ RESERVED2_ID = 0x00
 DWARF_CHARACTERISTIC_UUID = "00009999-0000-1000-8000-00805f9b34fb"
 DWARF_SERVICE_UUIDS: Tuple[str, ...] = (
     "0000daf2-0000-1000-8000-00805f9b34fb",
-    "0000daf3-0000-1000-8000-00805f9b34fb"
+    "0000daf3-0000-1000-8000-00805f9b34fb",
 )
 DEFAULT_BLE_PASSWORD = "DWARF_12345678"
 
@@ -121,7 +121,7 @@ def parse_notification(data: bytes) -> ParsedPacket:
         raise BlePacketError("BLE payload length mismatch")
 
     payload_bytes = data[payload_start:payload_end]
-    crc_received = int.from_bytes(data[payload_end:payload_end + 2], byteorder="big")
+    crc_received = int.from_bytes(data[payload_end : payload_end + 2], byteorder="big")
     crc_expected = calculate_crc16(data[:payload_end])
     if crc_received != crc_expected:
         raise BlePacketError("BLE CRC mismatch")

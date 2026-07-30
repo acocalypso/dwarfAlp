@@ -1,15 +1,17 @@
 import pytest
 
 from dwarf_alpaca.config.settings import Settings
-from dwarf_alpaca.provisioning.workflow import create_state_store, provision_sta
 from dwarf_alpaca.provisioning.cli import provision_guide_command
+from dwarf_alpaca.provisioning.workflow import create_state_store, provision_sta
 
 
 @pytest.mark.asyncio
 async def test_provision_sta_saves_wifi_password(tmp_path, monkeypatch):
     settings = Settings(state_directory=tmp_path, ble_password="blepass")
 
-    async def fake_provision(self, ssid, password, *, adapter=None, ble_password=None, timeout=None, device=None):
+    async def fake_provision(
+        self, ssid, password, *, adapter=None, ble_password=None, timeout=None, device=None
+    ):
         from dwarf_alpaca.dwarf.ble_provisioner import ProvisioningResult
 
         assert ssid == "TestSSID"
@@ -44,7 +46,9 @@ async def test_provision_sta_rejects_empty_password(tmp_path, monkeypatch):
 
     called = False
 
-    async def fake_provision(self, ssid, password, *, adapter=None, ble_password=None, timeout=None, device=None):
+    async def fake_provision(
+        self, ssid, password, *, adapter=None, ble_password=None, timeout=None, device=None
+    ):
         nonlocal called
         called = True
         raise AssertionError("Provisioner should not be called when password is empty")
@@ -109,7 +113,9 @@ async def test_guide_reuses_saved_wifi_password(tmp_path, monkeypatch):
 
     recorded = {}
 
-    async def fake_provision_sta(*, settings, ssid, password, adapter, ble_password, device_address):
+    async def fake_provision_sta(
+        *, settings, ssid, password, adapter, ble_password, device_address
+    ):
         recorded.update(
             ssid=ssid,
             password=password,
@@ -182,7 +188,9 @@ async def test_guide_saved_wifi_fallbacks_to_scan(tmp_path, monkeypatch):
 
     calls: list[dict[str, str | None]] = []
 
-    async def fake_provision_sta(*, settings, ssid, password, adapter, ble_password, device_address):
+    async def fake_provision_sta(
+        *, settings, ssid, password, adapter, ble_password, device_address
+    ):
         calls.append(
             dict(
                 ssid=ssid,
@@ -252,7 +260,9 @@ async def test_guide_reprompts_on_empty_password(tmp_path, monkeypatch):
 
     recorded = {}
 
-    async def fake_provision_sta(*, settings, ssid, password, adapter, ble_password, device_address):
+    async def fake_provision_sta(
+        *, settings, ssid, password, adapter, ble_password, device_address
+    ):
         recorded.update(
             ssid=ssid,
             password=password,

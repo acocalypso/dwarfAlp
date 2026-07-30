@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
-import struct
 import math
 import re
+import struct
 import time
-from datetime import datetime
+import uuid
 from dataclasses import dataclass, field
-from enum import IntEnum
+from datetime import datetime
+from enum import Enum, IntEnum
 from typing import Any, Dict, Iterator, Optional, Tuple, Type
 
 try:
@@ -19,65 +20,71 @@ except Exception:  # pragma: no cover - Python < 3.9 or missing tzdata
 
 import numpy as np
 import structlog
-from google.protobuf.message import Message
 from google.protobuf.json_format import MessageToDict
+from google.protobuf.message import Message
+from websockets.exceptions import ConnectionClosed, ConnectionClosedOK
 
-from ..config.settings import Settings, normalize_dwarf_device_model
+from ..config.settings import Settings
+from ..device_profile import DeviceProfile, get_device_profile
 from ..proto import astro_pb2, protocol_pb2
-from . import exposure
 from ..proto.dwarf_messages import (
     CommonParam,
     ComResponse,
-    ReqSetTime,
-    ReqSetTimezone,
     ReqCloseCamera,
-    ReqGetSystemWorkingState,
     ReqGetAllFeatureParams,
+    ReqGetSystemWorkingState,
     ReqGotoDSO,
     ReqManualContinuFocus,
     ReqManualSingleStepFocus,
-    ReqMotorRunTo,
     ReqMotorServiceJoystick,
     ReqMotorServiceJoystickStop,
-    ReqPhotoRaw,
-    ReqPhoto,
     ReqOpenCamera,
-    V3ReqOpenTeleCamera,
-    ReqSetIrCut,
-    ReqSetFeatureParams,
+    ReqPhoto,
+    ReqPhotoRaw,
     ReqSetExp,
     ReqSetExpMode,
+    ReqSetFeatureParams,
     ReqSetGain,
     ReqSetGainMode,
-    V3ReqAdjustParam,
-    V3ReqGetDeviceConfig,
-    V3ReqFocusInit,
-    V3ReqModeQuery,
-    V3ReqSetCameraParam,
+    ReqSetIrCut,
+    ReqsetMasterLock,
+    ReqSetTime,
+    ReqSetTimezone,
     ReqStopGoto,
     ReqStopManualContinuFocus,
-    ReqsetMasterLock,
+    ResGetAllFeatureParams,
     ResNotifyFocus,
     ResNotifyHostSlaveMode,
     ResNotifyParam,
-    ResGetAllFeatureParams,
     ResNotifyStateAstroGoto,
     ResNotifyStateAstroTracking,
     ResNotifyTemperature,
+    V3ReqAdjustParam,
+    V3ReqFocusInit,
+    V3ReqGetDeviceConfig,
+    V3ReqModeQuery,
+    V3ReqOpenTeleCamera,
+    V3ReqSetCameraParam,
+    V3ResFocusInit,
+    V3ResGetDeviceConfig,
+    V3ResModeQuery,
+    V3ResNotifyCameraParamState,
     V3ResNotifyDeviceState,
     V3ResNotifyExposureProgress,
     V3ResNotifyModeChange,
     V3ResNotifyObservationState,
-    V3ResNotifyCameraParamState,
-    V3ResGetDeviceConfig,
-    V3ResFocusInit,
-    V3ResModeQuery,
     V3ResNotifyTemperature2,
 )
+from ..proto.v3_astro_pb2 import (
+    V3ReqGetAstroParams,
+    V3ReqSetAstroParams,
+    V3ResGetAstroParams,
+    V3ResSetAstroParams,
+)
+from . import exposure
 from .ftp_client import DwarfFtpClient, FtpPhotoEntry
 from .http_client import DwarfHttpClient
 from .ws_client import DwarfCommandError, DwarfWsClient, send_and_check
-from websockets.exceptions import ConnectionClosed, ConnectionClosedOK
 
 logger = structlog.get_logger(__name__)
 
@@ -114,7 +121,7 @@ def _decode_com_res_with_int_value(raw: bytes) -> int | None:
                 return None
             if field == 1:
                 if value >= (1 << 31):
-                    value -= (1 << 32)
+                    value -= 1 << 32
                 return int(value)
             continue
         if wire_type == 1:
@@ -229,7 +236,7 @@ def _decode_v3_device_config_payload(raw: bytes) -> dict[str, Any]:
 
 
 FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "Duo-Band Filter"]
-FALLBACK_FILTER_LABELS_MINI = ["Duo-Band", "Dark", "No Filter"]
+FALLBACK_FILTER_LABELS_MINI = ["Astro", "Duo-Band"]
 _MINI_CANONICAL_FILTER_LABELS = tuple(FALLBACK_FILTER_LABELS_MINI)
 
 _MAX_JOYSTICK_SPEED = 30.0
@@ -256,12 +263,18 @@ _MINI_ALT_FILTER_PARAM_ID = 0x100000000000D
 
 
 def _resolve_ws_protocol_profile(settings: Settings) -> tuple[int, int]:
-    """Return websocket (minor_version, device_id) based on configured DWARF model."""
+    """Return websocket defaults from the centralized capability profile."""
 
-    model = normalize_dwarf_device_model(settings.dwarf_device_model)
-    if model == "dwarfmini":
-        return (20, 4)
-    return (2, 1)
+    protocol = get_device_profile(settings.dwarf_device_model).protocol
+    return (protocol.ws_minor_version, protocol.ws_device_id)
+
+
+def resolve_ws_client_id(settings: Settings) -> str:
+    """Use a model-specific ID unless the operator explicitly supplied one."""
+
+    if "dwarf_ws_client_id" in settings.model_fields_set:
+        return settings.dwarf_ws_client_id
+    return get_device_profile(settings.dwarf_device_model).ws_client_id
 
 
 class _AstroState(IntEnum):
@@ -277,6 +290,36 @@ class _OperationState(IntEnum):
     RUNNING = 1
     STOPPING = 2
     STOPPED = 3
+
+
+class CapturePhase(str, Enum):
+    IDLE = "idle"
+    CONFIGURING = "configuring"
+    WAITING_FOR_DARK = "waiting_for_dark"
+    STARTING = "starting"
+    EXPOSING = "exposing"
+    PROCESSING = "processing"
+    TRANSFERRING = "transferring"
+    READY = "ready"
+    ABORTING = "aborting"
+    FAILED = "failed"
+    UNKNOWN = "unknown"
+
+
+class CaptureBusyError(RuntimeError):
+    """Raised when a second exposure overlaps an active capture."""
+
+
+class CaptureConfigurationError(RuntimeError):
+    """Raised when a requested capture setting cannot be proved applied."""
+
+
+@dataclass(frozen=True)
+class V3AstroPreset:
+    exposure_s: float
+    gain: int
+    frame_count: int
+    pipe_parts: tuple[str, ...]
 
 
 def _canonical_filter_label(raw_label: str, index: int) -> str:
@@ -300,7 +343,7 @@ class CameraState:
     start_time: float | None = None
     duration: float = 0.0
     light: bool = True
-    capture_mode: str = "photo"
+    capture_mode: str = "astro"
     filter_name: str = ""
     filter_index: int | None = None
     exposure_index: int | None = None
@@ -313,6 +356,7 @@ class CameraState:
     image_timestamp: float | None = None
     last_error: str | None = None
     last_dark_check_code: int | None = None
+    dark_status: str = "unknown"
     last_album_mod_time: int | None = None
     last_album_file: str | None = None
     pending_album_baseline: int | None = None
@@ -329,8 +373,18 @@ class CameraState:
     reported_fv_height: float | None = None
     requested_gain: int | None = None
     applied_gain_index: int | None = None
+    applied_gain_value: int | None = None
+    applied_duration: float | None = None
+    applied_filter_name: str | None = None
+    applied_bin: tuple[int, int] | None = None
+    applied_frame_count: int | None = None
     requested_bin: tuple[int, int] = (1, 1)
     requested_frame_count: int = 1
+    capture_id: str | None = None
+    capture_phase: CapturePhase = CapturePhase.IDLE
+    capture_start_monotonic: float | None = None
+    source_format: str | None = None
+    source_bit_depth: int | None = None
 
 
 @dataclass
@@ -356,6 +410,7 @@ class DwarfSession:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        self.profile: DeviceProfile = get_device_profile(settings.dwarf_device_model)
         self.simulation = settings.force_simulation
         ws_minor_version, ws_device_id = _resolve_ws_protocol_profile(settings)
         self._ws_client = DwarfWsClient(
@@ -364,7 +419,7 @@ class DwarfSession:
             major_version=1,
             minor_version=ws_minor_version,
             device_id=ws_device_id,
-            client_id=settings.dwarf_ws_client_id,
+            client_id=resolve_ws_client_id(settings),
             ping_interval=settings.ws_ping_interval_seconds,
         )
         self._focus_update_event = asyncio.Event()
@@ -390,6 +445,7 @@ class DwarfSession:
         self._ws_command_lock_loop: asyncio.AbstractEventLoop | None = None
         self._filter_change_lock: asyncio.Lock | None = None
         self._filter_change_lock_loop: asyncio.AbstractEventLoop | None = None
+        self._capture_start_evidence_event = asyncio.Event()
         self._ws_bootstrapped = False
         self.camera_state = CameraState()
         self.focuser_state = FocuserState()
@@ -433,6 +489,8 @@ class DwarfSession:
         self._v3_observation_state: int | None = None
         self._v3_exposure_progress: tuple[int, int] | None = None
         self._v3_device_config_bytes: int | None = None
+        self._v3_astro_presets: list[V3AstroPreset] | None = None
+        self._v3_selected_astro_preset: V3AstroPreset | None = None
         self._calibration_lock = asyncio.Lock()
         self._last_calibration_time: float | None = None
         self._last_calibration_ip: str | None = None
@@ -447,12 +505,18 @@ class DwarfSession:
         return self._master_lock_acquired
 
     def _is_dwarf_mini(self) -> bool:
-        return normalize_dwarf_device_model(self.settings.dwarf_device_model) == "dwarfmini"
+        return self.profile.model_id == "dwarfmini"
 
     def _resolve_mini_capture_mode(self) -> str:
-        mode = str(getattr(self.settings, "dwarf_mini_capture_mode", "astro") or "astro").strip().lower()
+        mode = (
+            str(getattr(self.settings, "dwarf_mini_capture_mode", "astro") or "astro")
+            .strip()
+            .lower()
+        )
         if mode not in {"astro", "photo"}:
-            logger.warning("dwarf.camera.mini_capture_mode_invalid", configured=mode, fallback="astro")
+            logger.warning(
+                "dwarf.camera.mini_capture_mode_invalid", configured=mode, fallback="astro"
+            )
             return "astro"
         return mode
 
@@ -472,9 +536,20 @@ class DwarfSession:
             "device_state_path": self._v3_device_state_path,
             "mode_change": list(self._v3_mode_change) if self._v3_mode_change else None,
             "observation_state": self._v3_observation_state,
-            "exposure_progress": list(self._v3_exposure_progress) if self._v3_exposure_progress else None,
+            "exposure_progress": list(self._v3_exposure_progress)
+            if self._v3_exposure_progress
+            else None,
             "device_config_bytes": self._v3_device_config_bytes,
         }
+
+    def _capture_evidence_snapshot(self) -> tuple[object, ...]:
+        return (
+            self._v3_exposure_progress,
+            self._v3_observation_state,
+            self._v3_device_state_event,
+            self._v3_device_state_detail,
+            self._v3_device_state_path,
+        )
 
     def _normalize_filter_label(self, label: str, index: int) -> str:
         resolved = _canonical_filter_label(label, index)
@@ -484,10 +559,8 @@ class DwarfSession:
         lowered = " ".join(part for part in lowered.split() if part)
         if "duo" in lowered and "band" in lowered:
             return "Duo-Band"
-        if lowered in {"astro", "astro filter", "dark", "dark filter"}:
-            return "Dark"
-        if lowered in {"vis", "vis filter", "no filter", "none", "clear"}:
-            return "No Filter"
+        if lowered in {"astro", "astro filter"}:
+            return "Astro"
         return resolved
 
     @staticmethod
@@ -740,9 +813,15 @@ class DwarfSession:
         if self.simulation or not self._is_dwarf_mini() or not self._ws_client.connected:
             return
 
-        expected_responses = {
-            (protocol_pb2.ModuleId.MODULE_NOTIFY, _CMD_NOTIFY_V3_DEVICE_STATE): V3ResNotifyDeviceState,
-            (protocol_pb2.ModuleId.MODULE_NOTIFY, _CMD_NOTIFY_V3_MODE_CHANGE): V3ResNotifyModeChange,
+        mode_expected_responses = {
+            (
+                protocol_pb2.ModuleId.MODULE_NOTIFY,
+                _CMD_NOTIFY_V3_DEVICE_STATE,
+            ): V3ResNotifyDeviceState,
+            (
+                protocol_pb2.ModuleId.MODULE_NOTIFY,
+                _CMD_NOTIFY_V3_MODE_CHANGE,
+            ): V3ResNotifyModeChange,
         }
 
         mode_query = V3ReqModeQuery()
@@ -754,7 +833,7 @@ class DwarfSession:
                 mode_query,
                 V3ResModeQuery,
                 timeout=5.0,
-                expected_responses=expected_responses,
+                expected_responses=mode_expected_responses,
                 suppress_timeout_warning=True,
                 close_ws_on_timeout=False,
             )
@@ -773,7 +852,6 @@ class DwarfSession:
                 config_request,
                 V3ResGetDeviceConfig,
                 timeout=5.0,
-                expected_responses=expected_responses,
                 suppress_timeout_warning=True,
                 close_ws_on_timeout=False,
             )
@@ -856,61 +934,15 @@ class DwarfSession:
         state.last_battery_time = time.time()
 
     def _handle_feature_param_notification(self, packet: Message) -> None:
-        raw_data = getattr(packet, "data", b"") or b""
-        if not raw_data:
-            return
-        message = ResNotifyParam()
-        try:
-            message.ParseFromString(raw_data)
-        except Exception as exc:  # pragma: no cover - defensive logging helper
-            logger.debug("dwarf.camera.feature_param_notify_decode_failed", error=str(exc))
-            return
-        params = getattr(message, "param", [])
-        for entry in params:
-            param_id = getattr(entry, "id", None)
-            if not self._is_likely_filter_param_id(param_id):
-                continue
-            try:
-                self._ws_v3_filter_param_id = int(param_id)
-                self._ws_v3_filter_value = int(getattr(entry, "index", 0))
-                self._ws_v3_filter_param_flag = int(getattr(entry, "mode_index", 0))
-                self._sync_filter_state_from_v3_value(self._ws_v3_filter_value)
-            except (TypeError, ValueError):
-                continue
+        # Feature-param notifications are not Mini filter-wheel readback.
+        # App 3.4.1 carries the Mini filter only in the astronomy start request.
+        return
 
     def _handle_v3_camera_param_state_notification(self, packet: Message) -> None:
-        raw_data = getattr(packet, "data", b"") or b""
-        if not raw_data:
-            return
-        message = V3ResNotifyCameraParamState()
-        try:
-            message.ParseFromString(raw_data)
-        except Exception as exc:  # pragma: no cover - defensive logging helper
-            logger.debug("dwarf.camera.v3_param_state_decode_failed", error=str(exc))
-            return
-        param_id = getattr(message, "param_id", None)
-        if not self._is_likely_filter_param_id(param_id):
-            return
-        try:
-            self._ws_v3_filter_param_id = int(param_id)
-            self._ws_v3_filter_param_flag = int(getattr(message, "flag", 0))
-            self._ws_v3_filter_value = int(getattr(message, "value", 0))
-            self._sync_filter_state_from_v3_value(self._ws_v3_filter_value)
-        except (TypeError, ValueError):
-            return
-
-    def _sync_filter_state_from_v3_value(self, value: int | None) -> None:
-        if value is None:
-            return
-        options = self._filter_options or []
-        if not options:
-            return
-        for pos, option in enumerate(options):
-            if option.index != int(value):
-                continue
-            self.camera_state.filter_index = pos
-            self.camera_state.filter_name = option.label
-            return
+        # Command 15264 reports general camera parameters. Treating parameter
+        # 13 as a wheel position was an unverified inference and is incorrect
+        # for the Mini Deep Sky filter selector.
+        return
 
     def _handle_v3_exposure_progress_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -928,6 +960,7 @@ class DwarfSession:
         except (TypeError, ValueError):
             return
         self._v3_exposure_progress = (elapsed, total)
+        self._capture_start_evidence_event.set()
 
     def _handle_v3_device_state_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -951,6 +984,7 @@ class DwarfSession:
         path_obj = getattr(message, "path", None)
         path_value = str(getattr(path_obj, "path", "")).strip() if path_obj else ""
         self._v3_device_state_path = path_value or None
+        self._capture_start_evidence_event.set()
 
     def _handle_v3_mode_change_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -1006,6 +1040,7 @@ class DwarfSession:
             self._v3_observation_state = int(getattr(message, "state", 0))
         except (TypeError, ValueError):
             return
+        self._capture_start_evidence_event.set()
 
     def _handle_focus_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -1141,7 +1176,10 @@ class DwarfSession:
             if target_name:
                 reason = f"tracking_running:{target_name}"
             self._resolve_goto("success", reason=reason, keep_record=True)
-        elif state in (_OperationState.STOPPED, _OperationState.IDLE) and self._goto_waiting_for_tracking:
+        elif (
+            state in (_OperationState.STOPPED, _OperationState.IDLE)
+            and self._goto_waiting_for_tracking
+        ):
             reason = "tracking_not_running"
             if target_name:
                 reason = f"tracking_not_running:{target_name}"
@@ -1169,7 +1207,11 @@ class DwarfSession:
                     await asyncio.sleep(1.0)
                     continue
 
-                if not self.simulation and self._ws_client.connected and self.camera_state.connected:
+                if (
+                    not self.simulation
+                    and self._ws_client.connected
+                    and self.camera_state.connected
+                ):
                     stale_after = self.settings.temperature_stale_after_seconds
                     last_update = self.camera_state.last_temperature_time
                     now = time.time()
@@ -1560,7 +1602,11 @@ class DwarfSession:
             )
             return
 
-        if timezone_label and "/" in timezone_label and timezone_label != self._last_time_sync_timezone:
+        if (
+            timezone_label
+            and "/" in timezone_label
+            and timezone_label != self._last_time_sync_timezone
+        ):
             tz_request = ReqSetTimezone()
             tz_request.timezone = timezone_label
             try:
@@ -1869,7 +1915,9 @@ class DwarfSession:
             with contextlib.suppress(Exception):
                 await self.telescope_stop_axis(axis, ensure_ws=False)
 
-    def _record_goto(self, ra_hours: float, dec_degrees: float, *, kind: str = _GOTO_KIND_DSO) -> None:
+    def _record_goto(
+        self, ra_hours: float, dec_degrees: float, *, kind: str = _GOTO_KIND_DSO
+    ) -> None:
         self._last_goto_time = time.time()
         self._last_goto_target = (ra_hours, dec_degrees)
         self._last_goto_kind = kind
@@ -2066,7 +2114,7 @@ class DwarfSession:
                 request,
                 timeout=timeout_value,
             )
-        except asyncio.TimeoutError as exc:
+        except asyncio.TimeoutError:
             logger.warning(
                 "dwarf.telescope.goto.timeout",
                 ra_hours=ra_hours,
@@ -2078,13 +2126,17 @@ class DwarfSession:
         self._record_goto(ra_hours, dec_degrees, kind=_GOTO_KIND_DSO)
         self._mark_goto_pending(kind=_GOTO_KIND_DSO, target_name=target_name)
 
-    async def wait_for_goto_completion(self, *, timeout: float | None = None) -> tuple[str, str | None]:
+    async def wait_for_goto_completion(
+        self, *, timeout: float | None = None
+    ) -> tuple[str, str | None]:
         if self.simulation:
             return "simulation", None
         if not self._goto_pending:
             return self._goto_result or "idle", self._goto_reason
 
-        wait_timeout = timeout if timeout is not None else float(self.settings.goto_completion_timeout_seconds)
+        wait_timeout = (
+            timeout if timeout is not None else float(self.settings.goto_completion_timeout_seconds)
+        )
         if wait_timeout is not None and wait_timeout <= 0.0:
             wait_timeout = None
 
@@ -2113,8 +2165,8 @@ class DwarfSession:
     # --- Camera --------------------------------------------------------------------
 
     async def camera_connect(self) -> None:
-        self.camera_state.connected = True
         if self.simulation:
+            self.camera_state.connected = True
             return
         await self._ensure_ws()
         if self._is_dwarf_mini():
@@ -2125,6 +2177,7 @@ class DwarfSession:
                 10050,
                 request,
             )
+            self.camera_state.connected = True
             return
 
         request = ReqOpenCamera()
@@ -2135,6 +2188,7 @@ class DwarfSession:
             protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_OPEN_CAMERA,
             request,
         )
+        self.camera_state.connected = True
 
     async def camera_disconnect(self) -> None:
         if self.camera_state.capture_task and not self.camera_state.capture_task.done():
@@ -2226,7 +2280,22 @@ class DwarfSession:
         continue_without_darks: bool | None = None,
     ) -> None:
         state = self.camera_state
+        if state.capture_task and not state.capture_task.done():
+            raise CaptureBusyError("capture_already_in_progress")
+        if state.capture_phase in {
+            CapturePhase.CONFIGURING,
+            CapturePhase.WAITING_FOR_DARK,
+            CapturePhase.STARTING,
+            CapturePhase.EXPOSING,
+            CapturePhase.PROCESSING,
+            CapturePhase.TRANSFERRING,
+            CapturePhase.ABORTING,
+        }:
+            raise CaptureBusyError("capture_already_in_progress")
         mini_profile = self._is_dwarf_mini()
+        state.capture_id = uuid.uuid4().hex
+        state.capture_phase = CapturePhase.CONFIGURING
+        state.capture_start_monotonic = time.monotonic()
         state.duration = duration
         state.light = light
         state.start_time = time.time()
@@ -2235,19 +2304,45 @@ class DwarfSession:
         state.image_timestamp = None
         state.last_error = None
         state.image = None
+        state.source_format = None
+        state.source_bit_depth = None
+        state.applied_duration = None
+        state.applied_gain_value = None
+        state.applied_filter_name = None
+        state.applied_bin = None
+        state.applied_frame_count = None
+        self._v3_selected_astro_preset = None
         state.last_dark_check_code = None
         state.capture_mode = self._resolve_mini_capture_mode() if mini_profile else "astro"
         frames_to_capture = max(1, int(state.requested_frame_count or 1))
         state.requested_frame_count = frames_to_capture
-        if state.capture_task and not state.capture_task.done():
-            state.capture_task.cancel()
         if self.simulation:
             await self._simulate_capture(state)
             state.capture_task = None
+            state.applied_duration = duration
+            state.applied_gain_value = state.requested_gain
+            state.applied_filter_name = state.filter_name or None
+            state.applied_bin = state.requested_bin
+            state.applied_frame_count = frames_to_capture
+            state.capture_phase = CapturePhase.READY
             return
+
+        if mini_profile and not light:
+            state.capture_phase = CapturePhase.FAILED
+            state.last_error = "mini_dark_calibration_unverified"
+            raise CaptureConfigurationError(
+                "DWARF mini dark frames use the dedicated calibration workflow; "
+                "image delivery to NINA has not yet been hardware-verified"
+            )
 
         if continue_without_darks is None:
             continue_without_darks = self.settings.allow_continue_without_darks
+
+        if state.capture_mode == "photo" and not self.settings.allow_unverified_direct_photo:
+            raise CaptureConfigurationError(
+                "Direct photo capture is experimental because exposure, gain, and raw output "
+                "cannot be independently confirmed; use the astro workflow"
+            )
 
         await self._ensure_ws()
         await self._ensure_exposure_settings(duration)
@@ -2264,6 +2359,10 @@ class DwarfSession:
         state.requested_bin = (bin_x, bin_y)
 
         if mini_profile and state.capture_mode == "photo":
+            if frames_to_capture != 1 or (bin_x, bin_y) != (1, 1):
+                raise CaptureConfigurationError(
+                    "Direct photo capture cannot guarantee frame count or binning"
+                )
             await self._refresh_capture_baseline(capture_kind=state.capture_mode)
             try:
                 photo_timeout = max(duration + 2.0, 5.0)
@@ -2281,6 +2380,7 @@ class DwarfSession:
                 state.last_error = "command_error:photo_start_failed"
                 raise RuntimeError("photo_start_failed")
             state.last_error = None
+            state.capture_phase = CapturePhase.EXPOSING
             logger.info(
                 "dwarf.camera.photo_capture_started",
                 duration=duration,
@@ -2296,8 +2396,11 @@ class DwarfSession:
 
         dark_ready = True
         if light:
+            state.capture_phase = CapturePhase.WAITING_FOR_DARK
             try:
-                dark_ready = await self._ensure_dark_library(continue_without_darks=continue_without_darks)
+                dark_ready = await self._ensure_dark_library(
+                    continue_without_darks=continue_without_darks
+                )
             except DwarfCommandError as exc:
                 state.last_error = f"dark_check_error:{exc.code}"
                 logger.error(
@@ -2326,6 +2429,7 @@ class DwarfSession:
             )
 
         await self._configure_astro_capture(frames=frames_to_capture, binning=(bin_x, bin_y))
+        state.capture_phase = CapturePhase.STARTING
         await self._refresh_capture_baseline(capture_kind=state.capture_mode)
 
         astro_code = protocol_pb2.OK
@@ -2350,6 +2454,7 @@ class DwarfSession:
             )
 
         state.last_error = None
+        state.capture_phase = CapturePhase.EXPOSING
         logger.info(
             "dwarf.camera.astro_capture_started",
             duration=duration,
@@ -2363,6 +2468,11 @@ class DwarfSession:
 
     async def camera_abort_exposure(self) -> None:
         state = self.camera_state
+        if not self.simulation and state.capture_mode != "astro":
+            raise CaptureConfigurationError("abort_not_supported_for_photo_workflow")
+        state.capture_phase = CapturePhase.ABORTING
+        if not self.simulation:
+            await self._stop_astro_capture(strict=True)
         if state.capture_task and not state.capture_task.done():
             state.capture_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -2373,21 +2483,113 @@ class DwarfSession:
         state.last_end_time = time.time()
         state.image_timestamp = None
         state.last_error = "aborted"
-        if not self.simulation and state.capture_mode == "astro":
-            await self._stop_astro_capture()
+        state.capture_phase = CapturePhase.IDLE
 
     async def camera_readout(self) -> Optional[np.ndarray]:
         return self.camera_state.image
+
+    async def _get_v3_astro_presets(self) -> list[V3AstroPreset]:
+        if self._v3_astro_presets is not None:
+            return self._v3_astro_presets
+        request = V3ReqGetAstroParams()
+        request.mode = 0
+        response = await self._send_request(
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            protocol_pb2.DwarfCMD.CMD_V3_ASTRO_GET_PARAMS,
+            request,
+            V3ResGetAstroParams,
+            timeout=8.0,
+        )
+        code = int(getattr(response, "code", protocol_pb2.OK))
+        if code != protocol_pb2.OK:
+            raise CaptureConfigurationError(
+                f"DWARF mini astro-parameter discovery failed with code {code}"
+            )
+
+        presets: list[V3AstroPreset] = []
+        for entry in response.params:
+            parts = tuple(str(entry.pipe_params).split("|"))
+            if len(parts) < 6:
+                continue
+            try:
+                exposure_s = float(parts[2])
+                gain = int(parts[3])
+                frame_count = int(parts[4])
+            except (TypeError, ValueError):
+                continue
+            if exposure_s <= 0 or frame_count < 1:
+                continue
+            presets.append(
+                V3AstroPreset(
+                    exposure_s=exposure_s,
+                    gain=gain,
+                    frame_count=frame_count,
+                    pipe_parts=parts,
+                )
+            )
+        if not presets:
+            raise CaptureConfigurationError(
+                "DWARF mini returned no usable astronomy exposure presets"
+            )
+        self._v3_astro_presets = presets
+        logger.info(
+            "dwarf.camera.v3_astro_presets_loaded",
+            presets=[{"exposure": preset.exposure_s, "gain": preset.gain} for preset in presets],
+        )
+        return presets
+
+    async def _select_v3_astro_preset(self, duration: float) -> V3AstroPreset:
+        presets = await self._get_v3_astro_presets()
+        camera = self.profile.camera
+        if duration < camera.min_exposure_s or duration > camera.max_exposure_s:
+            raise CaptureConfigurationError(
+                f"Requested exposure {duration:g}s is outside the verified mini range "
+                f"{camera.min_exposure_s:g}s to {camera.max_exposure_s:g}s"
+            )
+        requested_gain = self.camera_state.requested_gain
+        if requested_gain is None:
+            requested_gain = int(camera.min_gain_db)
+        requested_gain = int(requested_gain)
+        if requested_gain < camera.min_gain_db or requested_gain > camera.max_gain_db:
+            raise CaptureConfigurationError(
+                f"Requested gain {requested_gain} is outside the verified mini range "
+                f"{camera.min_gain_db:g} to {camera.max_gain_db:g}"
+            )
+        template = min(
+            presets,
+            key=lambda preset: (
+                abs(preset.exposure_s - duration),
+                abs(preset.gain - requested_gain),
+            ),
+        )
+        parts = list(template.pipe_parts)
+        parts[2] = f"{duration:g}"
+        parts[3] = str(requested_gain)
+        selected = V3AstroPreset(
+            exposure_s=duration,
+            gain=requested_gain,
+            frame_count=template.frame_count,
+            pipe_parts=tuple(parts),
+        )
+        self._v3_selected_astro_preset = selected
+        self.camera_state.applied_duration = duration
+        return selected
 
     async def _ensure_exposure_settings(self, duration: float) -> None:
         if self.simulation:
             return
         state = self.camera_state
-        resolver = await self._get_exposure_resolver()
-        index = resolver.choose_index(duration) if resolver else None
-        if index is None:
-            logger.warning("dwarf.camera.exposure_index_missing", requested_duration=duration)
+        if self._is_dwarf_mini():
+            await self._select_v3_astro_preset(duration)
             return
+        resolver = await self._get_exposure_resolver()
+        option = resolver.choose_option(duration) if resolver else None
+        if option is None:
+            logger.error("dwarf.camera.exposure_index_missing", requested_duration=duration)
+            raise CaptureConfigurationError(
+                f"No firmware exposure value is available for requested duration {duration:g}s"
+            )
+        index = option.index
         try:
             await self._set_exposure_mode_manual()
             await self._set_exposure_index(index)
@@ -2400,13 +2602,12 @@ class DwarfSession:
                 requested_duration=duration,
                 index=index,
             )
-            if state.exposure_index is not None:
-                logger.info(
-                    "dwarf.camera.exposure_config_reusing_previous",
-                    index=state.exposure_index,
-                    requested_duration=duration,
-                )
+            raise CaptureConfigurationError(
+                f"DWARF rejected exposure {duration:g}s (firmware index {index})"
+            ) from exc
         except Exception as exc:  # pragma: no cover - hardware dependent
+            if isinstance(exc, CaptureConfigurationError):
+                raise
             logger.warning(
                 "dwarf.camera.exposure_config_failed",
                 error=str(exc),
@@ -2414,8 +2615,19 @@ class DwarfSession:
                 requested_duration=duration,
                 index=index,
             )
+            raise CaptureConfigurationError(
+                f"Could not apply exposure {duration:g}s (firmware index {index})"
+            ) from exc
         else:
             state.exposure_index = index
+            state.applied_duration = option.seconds
+            if not math.isclose(option.seconds, duration, rel_tol=0.0, abs_tol=1e-9):
+                logger.info(
+                    "dwarf.camera.exposure_snapped",
+                    requested_duration=duration,
+                    applied_duration=option.seconds,
+                    index=index,
+                )
 
     async def _ensure_params_config(self) -> Optional[dict[str, Any]]:
         if self._params_config is not None:
@@ -2523,7 +2735,9 @@ class DwarfSession:
             self._ws_feature_params = []
             return
 
-        self._ws_feature_params = [self._common_param_to_dict(param) for param in response.all_feature_params]
+        self._ws_feature_params = [
+            self._common_param_to_dict(param) for param in response.all_feature_params
+        ]
         for entry in self._ws_feature_params:
             param_id = entry.get("id")
             if not self._is_likely_filter_param_id(param_id):
@@ -2643,7 +2857,9 @@ class DwarfSession:
         return options
 
     @staticmethod
-    def _extract_feature_options(feature: dict[str, Any]) -> list[tuple[int | None, int, str, float | None]]:
+    def _extract_feature_options(
+        feature: dict[str, Any],
+    ) -> list[tuple[int | None, int, str, float | None]]:
         options: list[tuple[int | None, int, str, float | None]] = []
 
         def _coerce_float(value: Any) -> float | None:
@@ -2717,6 +2933,23 @@ class DwarfSession:
         if self._filter_options is not None:
             return self._filter_options
         fallback_labels = self._fallback_filter_labels()
+        if self._is_dwarf_mini():
+            # App 3.4.1 encodes the two Deep Sky filters in
+            # ReqCaptureRawLiveStacking.ir_index. There is no independent
+            # filter-move request: 1 is Astro and 2 is Duo-Band. Dark (3) is
+            # reserved for the calibration-frame workflow and must not be
+            # advertised as a normal FilterWheel position.
+            self._filter_options = [
+                FilterOption(
+                    parameter={"__control": "astro_capture_ir_index"},
+                    mode_index=0,
+                    index=firmware_index,
+                    label=label,
+                    controllable=True,
+                )
+                for firmware_index, label in enumerate(fallback_labels, start=1)
+            ]
+            return self._filter_options
         if self.simulation:
             self._filter_options = [
                 FilterOption(
@@ -2788,7 +3021,9 @@ class DwarfSession:
             name = str(param.get("name", "")).strip().lower()
             if not any(keyword in name for keyword in filter_keywords):
                 continue
-            for mode_index, index, label, continue_value in self._extract_support_param_options(param):
+            for mode_index, index, label, continue_value in self._extract_support_param_options(
+                param
+            ):
                 _add_option(param, mode_index, index, label, continue_value)
 
         if not options:
@@ -2796,7 +3031,9 @@ class DwarfSession:
                 feature_name = str(feature.get("name", "")).strip().lower()
                 if "filter" not in feature_name:
                     continue
-                for mode_index, index, label, continue_value in self._extract_feature_options(feature):
+                for mode_index, index, label, continue_value in self._extract_feature_options(
+                    feature
+                ):
                     _add_option(feature, mode_index, index, label, continue_value)
 
         if not options and self._is_dwarf_mini():
@@ -2897,21 +3134,25 @@ class DwarfSession:
             return
 
         if not option.controllable or not option.parameter:
-            # Some firmware profiles expose filter names but no writable control param.
-            # Keep a virtual wheel state so Alpaca clients can connect and select names.
+            raise CaptureConfigurationError(
+                f"Filter {option.label!r} is visible but has no confirmed device control"
+            )
+
+        control_mode = str(option.parameter.get("__control", "")).strip().lower()
+        if control_mode == "astro_capture_ir_index":
+            # The Mini applies this value as part of the next astronomy start
+            # request. Remembering it here gives Alpaca clients deterministic
+            # FilterWheel semantics without claiming an unsupported standalone
+            # motor command.
             state.filter_name = option.label
             state.filter_index = position
             logger.info(
-                "dwarf.camera.filter_selected_virtual",
+                "dwarf.camera.filter_selected_for_next_capture",
                 filter=state.filter_name,
                 position=position,
-                mode_index=option.mode_index,
-                index=option.index,
-                continue_value=option.continue_value,
+                ir_index=option.index,
             )
             return
-
-        control_mode = str(option.parameter.get("__control", "")).strip().lower()
         if control_mode == "v3_camera_param":
             raw_param_id = option.parameter.get("__v3_param_id")
             try:
@@ -2928,6 +3169,7 @@ class DwarfSession:
             await self._set_v3_camera_param(param_id=param_id, value=option.index, flag=flag)
             state.filter_name = option.label
             state.filter_index = position
+            state.applied_filter_name = option.label
             self._ws_v3_filter_param_id = param_id
             self._ws_v3_filter_param_flag = flag
             self._ws_v3_filter_value = option.index
@@ -2967,6 +3209,7 @@ class DwarfSession:
             )
         state.filter_name = option.label
         state.filter_index = position
+        state.applied_filter_name = option.label
         logger.info(
             "dwarf.camera.filter_selected",
             filter=state.filter_name,
@@ -3054,9 +3297,8 @@ class DwarfSession:
                     )
 
             if last_error is not None:
-                # Keep using the most likely candidate even when firmware omits notify responses.
                 self._ws_v3_filter_param_id = int(selected_candidate)
-                logger.info(
+                logger.warning(
                     "dwarf.camera.v3_filter_write_unconfirmed",
                     param_id=int(selected_candidate),
                     value=int(value),
@@ -3064,9 +3306,9 @@ class DwarfSession:
                     error=str(last_error),
                     error_type=type(last_error).__name__,
                 )
-                # Mini firmware can apply filter changes without a response notify.
-                # Keep Alpaca state coherent instead of surfacing hard move failures.
-                return
+                raise CaptureConfigurationError(
+                    f"Filter write was not confirmed for parameter {selected_candidate}"
+                ) from last_error
 
         request = V3ReqSetCameraParam()
         request.param_id = int(param_id)
@@ -3189,12 +3431,13 @@ class DwarfSession:
         index = state.filter_index
         if index is None:
             await self._ensure_default_filter()
-            return
+            index = state.filter_index
+            if index is None:
+                raise CaptureConfigurationError("No filter could be selected")
 
         options = await self._get_filter_options()
         if not options:
-            await self._ensure_default_filter()
-            return
+            raise CaptureConfigurationError("The device did not expose filter capabilities")
 
         if index < 0 or index >= len(options):
             logger.warning(
@@ -3205,17 +3448,20 @@ class DwarfSession:
             state.filter_index = None
             state.filter_name = ""
             await self._ensure_default_filter()
-            return
+            index = state.filter_index
+            if index is None or index < 0 or index >= len(options):
+                raise CaptureConfigurationError("Selected filter is out of range")
 
         option = options[index]
         if not option.controllable:
-            if not state.filter_name:
-                state.filter_name = option.label
-            return
+            raise CaptureConfigurationError(
+                f"Selected filter {option.label!r} cannot be controlled on this firmware"
+            )
 
         current_label = (state.filter_name or "").strip().lower()
         desired_label = option.label.strip().lower()
         if current_label == desired_label and state.filter_name:
+            state.applied_filter_name = state.filter_name
             return
 
         try:
@@ -3229,10 +3475,16 @@ class DwarfSession:
                 error_type=type(exc).__name__,
             )
             if current_label:
-                return
+                raise CaptureConfigurationError(
+                    f"Could not confirm selected filter {option.label!r}"
+                ) from exc
             state.filter_index = None
             state.filter_name = ""
             await self._ensure_default_filter()
+            if state.filter_index is None:
+                raise CaptureConfigurationError(
+                    f"Could not apply selected filter {option.label!r}"
+                ) from exc
 
     async def _set_feature_param(
         self,
@@ -3285,22 +3537,70 @@ class DwarfSession:
         is_mini = self._is_dwarf_mini()
         config = await self._ensure_params_config()
         if config is None:
-            return
-        bin_x, bin_y = (binning or (1, 1))
+            raise CaptureConfigurationError(
+                "Device parameter discovery failed; binning and frame count cannot be confirmed"
+            )
+        bin_x, bin_y = binning or (1, 1)
         try:
             bin_x = max(1, int(bin_x))
             bin_y = max(1, int(bin_y))
         except (TypeError, ValueError):
             bin_x, bin_y = (1, 1)
 
+        if is_mini:
+            if (bin_x, bin_y) != (1, 1):
+                raise CaptureConfigurationError(
+                    "DWARF mini V3 astronomy capture is verified only for 1x1 binning"
+                )
+            selected = self._v3_selected_astro_preset
+            if selected is None:
+                selected = await self._select_v3_astro_preset(self.camera_state.duration)
+            frames = max(1, int(frames))
+            parts = list(selected.pipe_parts)
+            parts[4] = str(frames)
+            requested_pipe = "|".join(parts)
+            request = V3ReqSetAstroParams()
+            request.params = requested_pipe
+            response = await self._send_request(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_V3_ASTRO_SET_PARAMS,
+                request,
+                V3ResSetAstroParams,
+                timeout=8.0,
+            )
+            code = int(getattr(response, "code", protocol_pb2.OK))
+            echoed_pipe = str(getattr(response, "pipe_params", ""))
+            if code != protocol_pb2.OK or echoed_pipe != requested_pipe:
+                raise CaptureConfigurationError(
+                    "DWARF mini did not confirm the requested astronomy parameters"
+                )
+            self.camera_state.applied_duration = selected.exposure_s
+            self.camera_state.applied_gain_value = selected.gain
+            self.camera_state.applied_bin = (1, 1)
+            self.camera_state.applied_frame_count = frames
+            logger.info(
+                "dwarf.camera.v3_astro_params_applied",
+                exposure=selected.exposure_s,
+                gain=selected.gain,
+                frames=frames,
+                binning=(1, 1),
+            )
+            return
+
         async def _set_feature_by_label(feature_name: str, label_tokens: tuple[str, ...]) -> None:
             feature = self._find_feature_param(feature_name)
             if feature is None:
                 if is_mini:
-                    logger.debug("dwarf.camera.feature_param_missing_optional", name=feature_name, device="dwarfmini")
+                    logger.debug(
+                        "dwarf.camera.feature_param_missing_optional",
+                        name=feature_name,
+                        device="dwarfmini",
+                    )
                 else:
                     logger.warning("dwarf.camera.feature_param_missing", name=feature_name)
-                return
+                raise CaptureConfigurationError(
+                    f"Required capture parameter {feature_name!r} is unavailable"
+                )
             options = self._extract_feature_options(feature)
             for mode_index, index, label, continue_value in options:
                 lowered = label.strip().lower()
@@ -3310,12 +3610,16 @@ class DwarfSession:
                         mode_index=mode_index or 0,
                         index=index,
                         continue_value=continue_value or 0.0,
+                        strict=True,
                     )
                     return
             logger.warning(
                 "dwarf.camera.feature_option_missing",
                 feature=feature_name,
                 label_tokens=label_tokens,
+            )
+            raise CaptureConfigurationError(
+                f"Requested option {label_tokens!r} is unavailable for {feature_name!r}"
             )
 
         desired_fixed = (
@@ -3326,7 +3630,9 @@ class DwarfSession:
             feature = self._find_feature_param(name)
             if feature is None:
                 if is_mini:
-                    logger.debug("dwarf.camera.feature_param_missing_optional", name=name, device="dwarfmini")
+                    logger.debug(
+                        "dwarf.camera.feature_param_missing_optional", name=name, device="dwarfmini"
+                    )
                 else:
                     logger.warning("dwarf.camera.feature_param_missing", name=name)
                 continue
@@ -3349,6 +3655,7 @@ class DwarfSession:
                 mode_index=1,
                 index=0,
                 continue_value=float(frames),
+                strict=True,
             )
         else:
             if is_mini:
@@ -3359,11 +3666,30 @@ class DwarfSession:
                 )
             else:
                 logger.warning("dwarf.camera.feature_param_missing", name="Astro img_to_take")
+            raise CaptureConfigurationError(
+                "Frame-count control is unavailable; requested count cannot be confirmed"
+            )
+        self.camera_state.applied_bin = (bin_x, bin_y)
+        self.camera_state.applied_frame_count = frames
 
     async def _start_astro_capture(self, *, timeout: float) -> int:
         if self.simulation:
             return protocol_pb2.OK
         request = astro_pb2.ReqCaptureRawLiveStacking()
+        if self._is_dwarf_mini():
+            options = await self._get_filter_options()
+            position = self.camera_state.filter_index
+            if position is None and options:
+                position = 0
+                self.camera_state.filter_index = 0
+                self.camera_state.filter_name = options[0].label
+            if position is None or position < 0 or position >= len(options):
+                raise CaptureConfigurationError("No valid DWARF mini imaging filter is selected")
+            option = options[position]
+            request.ir_index = int(option.index)
+            request.force_start = False
+        evidence_before = self._capture_evidence_snapshot()
+        self._capture_start_evidence_event.clear()
         try:
             response = await self._send_command(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
@@ -3371,21 +3697,38 @@ class DwarfSession:
                 request,
                 timeout=timeout,
             )
-        except asyncio.TimeoutError as exc:
+        except asyncio.TimeoutError:
             logger.warning(
                 "dwarf.camera.astro_capture_timeout",
                 timeout=timeout,
             )
             if self._is_dwarf_mini():
-                # mini firmware can start capture while delaying/omitting the start ACK.
-                logger.warning(
-                    "dwarf.camera.astro_capture_timeout_assumed_started",
-                    timeout=timeout,
+                evidence_timeout = max(
+                    float(self.settings.capture_start_evidence_timeout_seconds),
+                    0.1,
                 )
-                return protocol_pb2.OK
+                try:
+                    await asyncio.wait_for(
+                        self._capture_start_evidence_event.wait(),
+                        timeout=evidence_timeout,
+                    )
+                except asyncio.TimeoutError:
+                    pass
+                if self._capture_evidence_snapshot() != evidence_before:
+                    logger.warning(
+                        "dwarf.camera.astro_capture_timeout_corroborated",
+                        timeout=timeout,
+                        evidence=self._capture_evidence_snapshot(),
+                    )
+                    self.camera_state.applied_filter_name = option.label
+                    return protocol_pb2.OK
+                self.camera_state.capture_phase = CapturePhase.UNKNOWN
+                self.camera_state.last_error = "capture_start_unknown"
             raise
         code = getattr(response, "code", protocol_pb2.OK)
         if code == protocol_pb2.OK:
+            if self._is_dwarf_mini():
+                self.camera_state.applied_filter_name = option.label
             return code
 
         if code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
@@ -3475,19 +3818,26 @@ class DwarfSession:
             self._last_dark_check_code = code
             state.last_dark_check_code = code
         if code is None:
+            state.dark_status = "unknown"
             logger.warning(
                 "dwarf.camera.dark_library_unknown",
                 reason="no_response",
                 continue_without_darks=continue_without_darks,
             )
-            return continue_without_darks
+            if continue_without_darks:
+                return False
+            raise CaptureConfigurationError(
+                "Dark-frame status is unknown; explicitly allow capture without darks to proceed"
+            )
         if code == protocol_pb2.OK:
+            state.dark_status = "ready"
             if previous_code != code:
                 logger.info("dwarf.camera.dark_library_ready")
             if state.last_error == "dark_missing":
                 state.last_error = None
             return True
         if code == protocol_pb2.CODE_ASTRO_DARK_NOT_FOUND:
+            state.dark_status = "missing"
             if previous_code != code:
                 logger.warning(
                     "dwarf.camera.dark_library_missing",
@@ -3508,6 +3858,7 @@ class DwarfSession:
             progress=progress,
             continue_without_darks=continue_without_darks,
         )
+        state.dark_status = f"error:{code}"
         if continue_without_darks:
             state.last_error = f"dark_code:{code}"
             return False
@@ -3570,7 +3921,7 @@ class DwarfSession:
             logger.info("dwarf.camera.photo_fallback_started")
             return True
 
-    async def _stop_astro_capture(self) -> None:
+    async def _stop_astro_capture(self, *, strict: bool = False) -> None:
         if self.simulation:
             return
         try:
@@ -3582,6 +3933,8 @@ class DwarfSession:
             )
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.debug("dwarf.astro.stop_capture_failed", error=str(exc))
+            if strict:
+                raise CaptureConfigurationError("DWARF did not confirm capture abort") from exc
 
     async def _set_exposure_mode_manual(self) -> None:
         request = ReqSetExpMode()
@@ -3688,24 +4041,30 @@ class DwarfSession:
         gain_value = state.requested_gain
         if gain_value is None:
             return
+        if self._is_dwarf_mini():
+            selected = self._v3_selected_astro_preset
+            if selected is None:
+                selected = await self._select_v3_astro_preset(state.duration)
+            state.applied_gain_index = selected.gain
+            state.applied_gain_value = selected.gain
+            if selected.gain != int(round(gain_value)):
+                logger.info(
+                    "dwarf.camera.gain_snapped",
+                    requested_gain=gain_value,
+                    applied_gain=selected.gain,
+                    protocol="v3-astro-preset",
+                )
+            return
         try:
             requested_gain = int(round(gain_value))
         except (TypeError, ValueError):
             return
         resolved_gain, command_index = await self._resolve_gain_command(requested_gain)
         if self._gain_command_supported is False:
-            if self._gain_last_skipped_value != resolved_gain:
-                logger.debug(
-                    "dwarf.camera.gain_command_skipped",
-                    requested_gain=resolved_gain,
-                    command_index=command_index,
-                )
-                self._gain_last_skipped_value = resolved_gain
-            return
-        if (
-            self._gain_command_supported is True
-            and state.applied_gain_index == resolved_gain
-        ):
+            raise CaptureConfigurationError(
+                f"Gain control is unavailable; requested gain {requested_gain} was not applied"
+            )
+        if self._gain_command_supported is True and state.applied_gain_index == resolved_gain:
             return
 
         command_timeout = max(self.settings.camera_gain_command_timeout_seconds, 0.5)
@@ -3722,7 +4081,9 @@ class DwarfSession:
                     error_type=type(exc).__name__,
                 )
                 self._disable_gain_commands(resolved_gain, command_index=command_index)
-                return
+                raise CaptureConfigurationError(
+                    f"Could not enable manual gain for requested gain {requested_gain}"
+                ) from exc
 
         try:
             await self._set_gain_index(command_index, timeout=command_timeout)
@@ -3736,7 +4097,9 @@ class DwarfSession:
                 command_id=exc.command_id,
             )
             self._disable_gain_commands(resolved_gain, command_index=command_index)
-            return
+            raise CaptureConfigurationError(
+                f"DWARF rejected requested gain {requested_gain}"
+            ) from exc
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.warning(
                 "dwarf.camera.gain_set_error",
@@ -3746,7 +4109,9 @@ class DwarfSession:
                 error_type=type(exc).__name__,
             )
             self._disable_gain_commands(resolved_gain, command_index=command_index)
-            return
+            raise CaptureConfigurationError(
+                f"Could not apply requested gain {requested_gain}"
+            ) from exc
 
         if resolved_gain != requested_gain:
             logger.debug(
@@ -3757,6 +4122,7 @@ class DwarfSession:
             )
 
         state.applied_gain_index = resolved_gain
+        state.applied_gain_value = resolved_gain
         self._gain_command_supported = True
         self._gain_last_skipped_value = None
         logger.info(
@@ -3852,7 +4218,9 @@ class DwarfSession:
         media_type: int = 1,
     ) -> tuple[int | None, dict[str, Any] | None]:
         try:
-            entries = await self._http_client.list_album_media_infos(media_type=media_type, page_size=1)
+            entries = await self._http_client.list_album_media_infos(
+                media_type=media_type, page_size=1
+            )
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.warning("dwarf.camera.album_list_failed", error=str(exc))
             return None, None
@@ -3891,10 +4259,12 @@ class DwarfSession:
         state.start_time = None
 
     async def _fetch_capture(self, state: CameraState) -> None:
-        await asyncio.sleep(max(state.duration, 0.1))
+        await asyncio.sleep(max(state.duration * max(1, state.requested_frame_count), 0.1))
+        state.capture_phase = CapturePhase.PROCESSING
         astro_mode = state.capture_mode == "astro"
         image_captured = state.image is not None
         if not self.simulation:
+            state.capture_phase = CapturePhase.TRANSFERRING
             ftp_success = False
             try:
                 ftp_success = await self._attempt_ftp_capture(state)
@@ -3914,6 +4284,7 @@ class DwarfSession:
 
         if astro_mode and image_captured:
             await self._astro_go_live()
+        state.capture_phase = CapturePhase.READY if image_captured else CapturePhase.FAILED
 
     async def _attempt_ftp_capture(self, state: CameraState) -> bool:
         baseline = state.pending_ftp_baseline
@@ -3923,6 +4294,9 @@ class DwarfSession:
                 baseline,
                 timeout=timeout,
                 capture_kind=state.capture_mode,
+                not_before=(
+                    state.last_start_time - 5.0 if state.last_start_time is not None else None
+                ),
             )
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.warning(
@@ -4046,8 +4420,10 @@ class DwarfSession:
         state.pending_album_baseline = state.last_album_mod_time
 
     def _store_frame(self, state: CameraState, frame: np.ndarray, timestamp: float) -> None:
-        if frame.dtype != np.uint16:
-            frame = frame.astype(np.uint16, copy=False)
+        if not np.issubdtype(frame.dtype, np.integer) and not np.issubdtype(
+            frame.dtype, np.floating
+        ):
+            raise ValueError(f"unsupported_frame_dtype:{frame.dtype}")
         state.image = frame
         state.frame_height, state.frame_width = frame.shape[:2]
         state.image_timestamp = timestamp
@@ -4059,7 +4435,11 @@ class DwarfSession:
         name = identifier.rsplit("/", 1)[-1]
         lower = name.lower()
         if lower.endswith((".fits", ".fit")):
+            self.camera_state.source_format = "FITS"
+            self.camera_state.source_bit_depth = 16
             return self._decode_fits(content)
+        self.camera_state.source_format = "JPEG"
+        self.camera_state.source_bit_depth = 8
         return self._decode_jpeg(content)
 
     @staticmethod
@@ -4071,11 +4451,9 @@ class DwarfSession:
         if frame is None:
             raise ValueError("decode_failed")
         if frame.ndim == 3:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        if frame.dtype == np.uint8:
-            frame = (frame.astype(np.uint16, copy=False) << 8)
-        elif frame.dtype != np.uint16:
-            frame = frame.astype(np.uint16, copy=False)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if frame.dtype not in (np.uint8, np.uint16):
+            raise ValueError(f"unsupported_jpeg_dtype:{frame.dtype}")
         return frame
 
     @staticmethod
@@ -4234,7 +4612,9 @@ class DwarfSession:
             prefer_single_step = steps <= 10 or self._is_dwarf_mini()
             fallback_reason = None
             if steps > 10 and (last_update_age is None or last_update_age > 5.0):
-                fallback_reason = "stale_focus_telemetry" if last_update_age is not None else "no_focus_telemetry"
+                fallback_reason = (
+                    "stale_focus_telemetry" if last_update_age is not None else "no_focus_telemetry"
+                )
             logger.info(
                 "dwarf.focus.move.dispatch",
                 start=start_position,
@@ -4443,8 +4823,9 @@ def configure_session(settings: Settings) -> None:
     if _session is not None:
         ws_minor_version, ws_device_id = _resolve_ws_protocol_profile(settings)
         _session.settings = settings
+        _session.profile = get_device_profile(settings.dwarf_device_model)
         _session.simulation = settings.force_simulation
-        _session._ws_client.set_client_id(settings.dwarf_ws_client_id)
+        _session._ws_client.set_client_id(resolve_ws_client_id(settings))
         _session._ws_client.minor_version = ws_minor_version
         _session._ws_client.device_id = ws_device_id
         _session._ws_client.uri = f"ws://{settings.dwarf_ap_ip}:{settings.dwarf_ws_port}/"

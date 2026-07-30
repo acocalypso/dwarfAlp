@@ -6,9 +6,11 @@ __pycache__/
 var/
 venv/
 .pytest_cache/
+.coverage
 dwarf_python_api/
 build/
 dist/
 DwarfAlpacaGUI.spec
 logs/
 dwarfii_api/
+apk/DWARFLAB_3.4.1_apkcube.apks

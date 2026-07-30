@@ -1,5 +1,9 @@
 from dwarf_alpaca.config.settings import Settings
-from dwarf_alpaca.discovery import DEVICE_LIST, build_discovery_payload
+from dwarf_alpaca.discovery import (
+    DEVICE_LIST,
+    _resolve_discovery_interface,
+    build_discovery_payload,
+)
 
 
 def test_discovery_payload_lists_all_devices():
@@ -24,3 +28,12 @@ def test_discovery_payload_uses_mini_model_labels():
     assert payload["ServerName"] == "DWARF mini Alpaca Server"
     assert payload["ServerID"].startswith("DWARFmini")
     assert all("DWARF mini" in device["DeviceName"] for device in payload["Devices"])
+
+
+def test_discovery_binds_to_advertised_lan_interface():
+    settings = Settings(
+        discovery_interface="0.0.0.0",
+        http_advertise_host="192.168.1.42",
+    )
+
+    assert _resolve_discovery_interface(settings) == "192.168.1.42"

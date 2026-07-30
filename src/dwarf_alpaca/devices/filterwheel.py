@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from ..dwarf.session import get_session
 from ..device_profile import get_active_device_profile
+from ..dwarf.session import get_session
 from .utils import alpaca_response, bind_request_context, resolve_parameter
 
 router = APIRouter(dependencies=[Depends(bind_request_context)])
@@ -36,19 +36,9 @@ def _normalize_names_for_profile(names: list[str]) -> list[str]:
     profile = get_active_device_profile()
     if profile.model_id != "dwarfmini":
         return names
-    mapped: list[str] = []
-    for idx, raw in enumerate(names):
-        lowered = str(raw).strip().lower().replace("_", " ")
-        lowered = " ".join(part for part in lowered.split() if part)
-        if "duo" in lowered and "band" in lowered:
-            mapped.append("Duo-Band")
-        elif lowered in {"astro", "astro filter", "dark", "dark filter"}:
-            mapped.append("Dark")
-        elif lowered in {"vis", "vis filter", "no filter", "none", "clear"}:
-            mapped.append("No Filter")
-        else:
-            mapped.append(str(raw).strip() or f"Filter {idx}")
-    return mapped
+    # These are protocol-defined capture choices, not a runtime-discovered
+    # standalone wheel. In particular, Dark must not leak into this list.
+    return list(profile.filters.labels)
 
 
 async def preload_filters() -> None:
@@ -146,8 +136,8 @@ async def put_connected(
                 if position is None or position < 0 or position >= len(names):
                     profile = get_active_device_profile()
                     if profile.model_id == "dwarfmini":
-                        # Mini firmware can stall on filter writes; keep connect fast and
-                        # establish a virtual baseline. Real writes still happen on /position.
+                        # The Mini has no standalone move command. Establish the
+                        # default capture selector; it is embedded in StartExposure.
                         position = 0
                         session.camera_state.filter_index = 0
                         session.camera_state.filter_name = names[0] if names else ""
@@ -171,7 +161,10 @@ async def put_connected(
                                     detail="Filter wheel controls unavailable for this firmware profile",
                                 ) from exc
                             profile = get_active_device_profile()
-                            if profile.model_id == "dwarfmini" and "already pending" in str(exc).lower():
+                            if (
+                                profile.model_id == "dwarfmini"
+                                and "already pending" in str(exc).lower()
+                            ):
                                 position = 0
                                 session.camera_state.filter_index = 0
                                 session.camera_state.filter_name = names[0] if names else ""
@@ -211,7 +204,9 @@ async def put_connected(
                     error=str(exc),
                     error_type=type(exc).__name__,
                 )
-                raise HTTPException(status_code=500, detail="Failed to connect filter wheel") from exc
+                raise HTTPException(
+                    status_code=500, detail="Failed to connect filter wheel"
+                ) from exc
             return alpaca_response()
 
         if state.connected:

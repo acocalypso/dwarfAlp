@@ -32,7 +32,9 @@ message ReqStopGoto {
 
 // 开始叠图
 message ReqCaptureRawLiveStacking {
-
+    // DWARF app 3.4.1: 1 = Astro, 2 = Duo-Band on DWARF mini.
+    int32 ir_index = 1;
+    bool force_start = 2;
 }
 
 // 停止叠图

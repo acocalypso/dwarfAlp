@@ -9,7 +9,11 @@ import pytest
 
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.dwarf import exposure
-from dwarf_alpaca.dwarf.session import DwarfSession, FilterOption
+from dwarf_alpaca.dwarf.session import (
+    CaptureConfigurationError,
+    DwarfSession,
+    FilterOption,
+)
 from dwarf_alpaca.proto import protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import ComResponse, V3ResGetDeviceConfig, V3ResModeQuery
 
@@ -47,6 +51,7 @@ def test_non_mini_uses_v2_ws_profile() -> None:
     assert session._ws_client.minor_version == 2
     assert session._ws_client.device_id == 1
 
+
 @pytest.mark.asyncio
 async def test_mini_filter_labels_are_mapped_from_firmware_aliases() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
@@ -76,11 +81,13 @@ async def test_mini_filter_labels_are_mapped_from_firmware_aliases() -> None:
     session._filter_options = None
 
     labels = await session.get_filter_labels()
-    assert labels == ["Duo-Band", "Dark", "No Filter"]
+    assert labels == ["Astro", "Duo-Band"]
 
 
 @pytest.mark.asyncio
-async def test_ensure_default_filter_prefers_support_params(params_config: dict[str, object]) -> None:
+async def test_ensure_default_filter_prefers_support_params(
+    params_config: dict[str, object],
+) -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
     session.simulation = False
     session._params_config = params_config
@@ -108,75 +115,56 @@ async def test_ensure_default_filter_prefers_support_params(params_config: dict[
 
 
 @pytest.mark.asyncio
-async def test_mini_filter_options_use_ws_v3_param_when_http_lacks_filter_data() -> None:
+async def test_mini_filter_options_use_astro_start_ir_index() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
     session._params_config = {"data": {"version": "1.0.0"}}
-    session._ws_v3_filter_param_id = 8
-    session._ws_v3_filter_param_flag = 0
     session._filter_options = None
-
-    async def fake_ensure_ws_feature_params(self) -> None:  # type: ignore[override]
-        return None
-
-    session._ensure_ws_feature_params = types.MethodType(fake_ensure_ws_feature_params, session)
 
     options = await session._get_filter_options()
 
-    assert [opt.label for opt in options] == ["Duo-Band", "Dark", "No Filter"]
+    assert [opt.label for opt in options] == ["Astro", "Duo-Band"]
+    assert [opt.index for opt in options] == [1, 2]
     assert all(opt.controllable for opt in options)
-    assert all(opt.parameter and opt.parameter.get("__control") == "v3_camera_param" for opt in options)
+    assert all(
+        opt.parameter and opt.parameter.get("__control") == "astro_capture_ir_index"
+        for opt in options
+    )
 
 
 @pytest.mark.asyncio
-async def test_apply_filter_option_uses_v3_camera_param_control_for_mini() -> None:
+async def test_apply_filter_option_remembers_mini_ir_index_for_next_capture() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
 
-    captured: dict[str, int] = {}
-
-    async def fake_set_v3_camera_param(self, *, param_id: int, value: int, flag: int = 0) -> None:  # type: ignore[override]
-        captured["param_id"] = param_id
-        captured["value"] = value
-        captured["flag"] = flag
-
-    session._set_v3_camera_param = types.MethodType(fake_set_v3_camera_param, session)
-
     filter_option = FilterOption(
-        parameter={"__control": "v3_camera_param", "__v3_param_id": 8, "flag": 1},
-        mode_index=1,
+        parameter={"__control": "astro_capture_ir_index"},
+        mode_index=0,
         index=2,
-        label="No Filter",
+        label="Duo-Band",
         continue_value=None,
         controllable=True,
     )
 
-    await session._apply_filter_option(2, filter_option)
+    await session._apply_filter_option(1, filter_option)
 
-    assert captured == {"param_id": 8, "value": 2, "flag": 1}
-    assert session.camera_state.filter_name == "No Filter"
-    assert session.camera_state.filter_index == 2
+    assert session.camera_state.filter_name == "Duo-Band"
+    assert session.camera_state.filter_index == 1
+    assert session.camera_state.applied_filter_name is None
 
 
 @pytest.mark.asyncio
-async def test_mini_filter_options_use_default_param_when_discovery_missing() -> None:
+async def test_mini_filter_options_do_not_advertise_dark_as_normal_position() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
     session._params_config = {"data": {"version": "1.0.0"}}
-    session._ws_v3_filter_param_id = None
-    session._ws_v3_filter_param_flag = 0
     session._filter_options = None
-
-    async def fake_ensure_ws_feature_params(self) -> None:  # type: ignore[override]
-        self._ws_feature_params = []
-
-    session._ensure_ws_feature_params = types.MethodType(fake_ensure_ws_feature_params, session)
 
     options = await session._get_filter_options()
 
-    assert [opt.label for opt in options] == ["Duo-Band", "Dark", "No Filter"]
+    assert [opt.label for opt in options] == ["Astro", "Duo-Band"]
     assert all(opt.controllable for opt in options)
-    assert all(opt.parameter and opt.parameter.get("__v3_param_id") == 0x20100000000000D for opt in options)
+    assert "Dark" not in [opt.label for opt in options]
 
 
 @pytest.mark.asyncio
@@ -197,9 +185,10 @@ async def test_set_v3_camera_param_mini_uses_adjust_only_on_timeouts() -> None:
     session._ensure_ws = types.MethodType(fake_ensure_ws, session)
     session._send_and_check = types.MethodType(fake_send_and_check, session)
 
-    await session._set_v3_camera_param(param_id=13, value=2, flag=0)
+    with pytest.raises(CaptureConfigurationError, match="not confirmed"):
+        await session._set_v3_camera_param(param_id=13, value=2, flag=0)
 
-    # Mini path uses fast adjust-only retries and keeps state coherent even when unconfirmed.
+    # Mini path uses fast adjust-only retries but does not claim an unconfirmed write.
     command_ids = [cmd for cmd, _ in calls]
     assert set(command_ids) == {16703}
     assert len(command_ids) >= 1
@@ -244,7 +233,8 @@ async def test_set_v3_camera_param_mini_sticky_param_id_avoids_fanout() -> None:
     session._ensure_ws = types.MethodType(fake_ensure_ws, session)
     session._send_and_check = types.MethodType(fake_send_and_check, session)
 
-    await session._set_v3_camera_param(param_id=0x20100000000000D, value=2, flag=0)
+    with pytest.raises(CaptureConfigurationError, match="not confirmed"):
+        await session._set_v3_camera_param(param_id=0x20100000000000D, value=2, flag=0)
 
     assert calls == [(16703, 13)]
 
@@ -260,7 +250,7 @@ def test_mini_filter_param_id_detection_accepts_index_13() -> None:
 
 
 @pytest.mark.asyncio
-async def test_mini_filter_options_are_canonicalized_to_three_positions() -> None:
+async def test_mini_filter_options_ignore_unverified_http_aliases() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
     session._params_config = {
@@ -291,9 +281,8 @@ async def test_mini_filter_options_are_canonicalized_to_three_positions() -> Non
 
     options = await session._get_filter_options()
 
-    assert [entry.label for entry in options] == ["Duo-Band", "Dark", "No Filter"]
-    # Keep device values intact while exposing canonical Alpaca positions.
-    assert [entry.index for entry in options] == [0, 1, 2]
+    assert [entry.label for entry in options] == ["Astro", "Duo-Band"]
+    assert [entry.index for entry in options] == [1, 2]
 
 
 @pytest.mark.asyncio

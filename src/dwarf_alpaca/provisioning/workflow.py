@@ -8,7 +8,6 @@ from ..config.settings import Settings
 from ..dwarf.ble_provisioner import DwarfBleProvisioner
 from ..dwarf.state import StateStore
 
-
 logger = structlog.get_logger(__name__)
 
 
@@ -32,9 +31,7 @@ async def provision_sta(
         state_store.record_error("Wi-Fi password missing for provisioning")
         raise RuntimeError("Wi-Fi password is required for provisioning")
 
-    provisioner = DwarfBleProvisioner(
-        response_timeout=settings.ble_response_timeout_seconds
-    )
+    provisioner = DwarfBleProvisioner(response_timeout=settings.ble_response_timeout_seconds)
 
     resolved_adapter = adapter or settings.ble_adapter
     resolved_password = ble_password or settings.ble_password

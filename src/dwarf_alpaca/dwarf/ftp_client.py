@@ -68,6 +68,7 @@ class DwarfFtpClient:
         camera: str = "TELE",
         timeout: float = 30.0,
         capture_kind: str = "photo",
+        not_before: float | None = None,
     ) -> FtpPhotoCapture | None:
         """Poll the FTP service until a new photo appears relative to the baseline."""
 
@@ -89,7 +90,11 @@ class DwarfFtpClient:
                     attempt=attempt,
                 )
                 entry = None
-            if entry and self._is_new_entry(entry, baseline):
+            if (
+                entry
+                and self._is_new_entry(entry, baseline)
+                and (not_before is None or entry.timestamp >= not_before)
+            ):
                 try:
                     content = await asyncio.to_thread(self._download_file_sync, entry.path)
                 except all_errors as exc:

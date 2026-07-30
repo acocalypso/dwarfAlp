@@ -37,14 +37,15 @@ class DiscoveryService:
 
     async def _serve(self) -> None:
         loop = asyncio.get_running_loop()
+        interface = _resolve_discovery_interface(self.settings)
         transport, protocol = await loop.create_datagram_endpoint(
             lambda: _DiscoveryProtocol(self.settings),
-            local_addr=(self.settings.discovery_interface, self.settings.discovery_port),
+            local_addr=(interface, self.settings.discovery_port),
             allow_broadcast=True,
         )
         logger.info(
             "discovery.started",
-            interface=self.settings.discovery_interface,
+            interface=interface,
             port=self.settings.discovery_port,
         )
         try:
@@ -104,6 +105,13 @@ def _resolve_advertised_host(settings: Settings) -> str:
             except OSError:
                 pass
     return host
+
+
+def _resolve_discovery_interface(settings: Settings) -> str:
+    configured = settings.discovery_interface.strip()
+    if configured not in {"", "0.0.0.0", "::"}:
+        return configured
+    return _resolve_advertised_host(settings)
 
 
 def build_discovery_payload(settings: Settings, advertised_host: str) -> dict[str, Any]:

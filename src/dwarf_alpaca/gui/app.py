@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import sys
 from collections import OrderedDict
@@ -12,9 +11,9 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication,
-    QCompleter,
     QCheckBox,
     QComboBox,
+    QCompleter,
     QFileDialog,
     QFormLayout,
     QFrame,
@@ -41,15 +40,14 @@ try:
 except Exception:  # pragma: no cover - Python < 3.9 or missing tzdata
     available_timezones = None  # type: ignore[assignment]
 
+from ..cli import _configure_start_logging, _preflight_session
 from ..config.settings import Settings, load_settings, normalize_dwarf_device_model
 from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
 from ..dwarf.state import ConnectivityState, StateStore
 from ..provisioning.workflow import create_state_store, provision_sta
-from ..cli import _configure_start_logging, _preflight_session
 from .logging import QtLogHandler
 from .server import ServerService, ServerStatus
 from .workers import AsyncWorker
-
 
 logger = logging.getLogger(__name__)
 
@@ -66,10 +64,7 @@ def _load_timezone_choices() -> list[str]:
         choices = [
             tz
             for tz in candidates
-            if isinstance(tz, str)
-            and "/" in tz
-            and not tz.startswith("Etc/")
-            and tz[0].isalpha()
+            if isinstance(tz, str) and "/" in tz and not tz.startswith("Etc/") and tz[0].isalpha()
         ]
         if "UTC" not in choices:
             choices.append("UTC")
@@ -437,9 +432,7 @@ class ServerControlWidget(QGroupBox):
             hint_text = ""
         else:
             status_text = "Master lock status: not acquired"
-            hint_text = (
-                "Stop the server, shutdown the DWARF, do not use your phone app to connect to the DWARF as this will take the master lock."
-            )
+            hint_text = "Stop the server, shutdown the DWARF, do not use your phone app to connect to the DWARF as this will take the master lock."
         self.master_lock_label.setText(status_text)
         self.master_lock_hint_label.setText(hint_text)
         self.master_lock_hint_label.setVisible(bool(hint_text))
@@ -543,19 +536,19 @@ class MainWindow(QMainWindow):
             0: (
                 "Server",
                 "<b>Server tab</b><br/>Start or stop the Alpaca service, manage preflight checks,"
-                " and monitor server status messages."
+                " and monitor server status messages.",
             ),
             1: (
                 "Provisioning",
                 "<b>Provisioning tab</b><br/>Discover DWARF units over BLE, fetch Wi-Fi networks,"
                 " and provision STA credentials. Select a device, pick a network,"
-                " and provide SSID/password plus optional BLE password overrides."
+                " and provide SSID/password plus optional BLE password overrides.",
             ),
             2: (
                 "Settings",
                 "<b>Settings tab</b><br/>Override server host/port, DWARF IP, and websocket client ID."
                 " Choose the correct DWARF model (DWARF 3, DWARF 2, or DWARF mini)"
-                " and adjust simulation/preflight controls before launch."
+                " and adjust simulation/preflight controls before launch.",
             ),
         }
         self._refresh_state()
@@ -606,7 +599,9 @@ class MainWindow(QMainWindow):
 
     def _current_settings(self) -> Settings:
         if not self._settings:
-            self._settings = load_settings(str(self._settings_path) if self._settings_path else None)
+            self._settings = load_settings(
+                str(self._settings_path) if self._settings_path else None
+            )
         return self._settings
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
@@ -743,7 +738,9 @@ class MainWindow(QMainWindow):
         if not skip_preflight and not settings.force_simulation:
             timeout = self.settings_widget.preflight_timeout_spin.value()
             interval = self.settings_widget.preflight_interval_spin.value()
-            worker = AsyncWorker(lambda: _preflight_session(settings, timeout=timeout, interval=interval))
+            worker = AsyncWorker(
+                lambda: _preflight_session(settings, timeout=timeout, interval=interval)
+            )
             worker.finished_success.connect(lambda _: self._launch_server(settings))
             worker.finished_error.connect(self._on_preflight_error)
             self.server_widget.set_busy("Preflight in progress…")
@@ -770,7 +767,9 @@ class MainWindow(QMainWindow):
     def _handle_discover(self, payload: dict) -> None:
         worker = AsyncWorker(lambda: self._discover_devices(payload))
         worker.finished_success.connect(self._on_discover_success)
-        worker.finished_error.connect(lambda exc: self._handle_worker_error(exc, "Discovery failed"))
+        worker.finished_error.connect(
+            lambda exc: self._handle_worker_error(exc, "Discovery failed")
+        )
         self.provisioning_widget.show_status("Scanning for DWARF devices…")
         self._start_worker(worker)
 
@@ -819,7 +818,11 @@ class MainWindow(QMainWindow):
             return
         networks = [ssid for ssid in result if isinstance(ssid, str)]
         self.provisioning_widget.populate_wifi(networks)
-        message = "No Wi-Fi networks reported" if not networks else f"Retrieved {len(networks)} network(s)"
+        message = (
+            "No Wi-Fi networks reported"
+            if not networks
+            else f"Retrieved {len(networks)} network(s)"
+        )
         self.provisioning_widget.show_status(message)
 
     def _on_wifi_error(self, exc: Exception) -> None:
@@ -829,7 +832,9 @@ class MainWindow(QMainWindow):
     def _handle_provision(self, payload: dict) -> None:
         worker = AsyncWorker(lambda: self._provision(payload))
         worker.finished_success.connect(lambda _: self._on_provision_success())
-        worker.finished_error.connect(lambda exc: self._handle_worker_error(exc, "Provisioning failed"))
+        worker.finished_error.connect(
+            lambda exc: self._handle_worker_error(exc, "Provisioning failed")
+        )
         self.provisioning_widget.show_status("Provisioning in progress…")
         self._start_worker(worker)
 
@@ -857,8 +862,12 @@ class MainWindow(QMainWindow):
             return
         device_address = self.provisioning_widget.device_address_edit.text().strip()
         if not device_address:
-            self.provisioning_widget.show_status("Device address is required before starting the server")
-            QMessageBox.warning(self, "Server", "Please select or enter a device address before starting.")
+            self.provisioning_widget.show_status(
+                "Device address is required before starting the server"
+            )
+            QMessageBox.warning(
+                self, "Server", "Please select or enter a device address before starting."
+            )
             self.provisioning_widget.device_address_edit.setFocus()
             return
         settings = self._build_settings_for_server()

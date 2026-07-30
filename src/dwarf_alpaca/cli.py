@@ -3,16 +3,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from typing import Optional
 
-from datetime import datetime
-
 from .config.settings import Settings, load_settings, normalize_dwarf_device_model
-from .server import run_server
+from .dwarf.session import configure_session, get_session, resolve_ws_client_id
 from .provisioning.cli import provision_command, provision_guide_command
 from .provisioning.workflow import create_state_store
-from .dwarf.session import configure_session, get_session
+from .server import run_server
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +43,7 @@ def _configure_start_logging(settings: Settings) -> None:
         encoding="utf-8",
     )
     handler.setLevel(logging.INFO)
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
-    )
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
     setattr(handler, _START_LOG_HANDLER_FLAG, True)
     root_logger.addHandler(handler)
     logger.info("cli.start.logfile_enabled path=%s", log_path)
@@ -64,7 +61,7 @@ async def _preflight_session(
     logger.info(
         "cli.start.profile model=%s ws_client_id=%s",
         normalize_dwarf_device_model(settings.dwarf_device_model),
-        settings.dwarf_ws_client_id,
+        resolve_ws_client_id(settings),
     )
     session = await get_session()
     deadline = time.monotonic() + max(timeout, 0.0)

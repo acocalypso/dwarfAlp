@@ -4,16 +4,15 @@ import types
 import pytest
 
 from dwarf_alpaca.config.settings import Settings
-from dwarf_alpaca.dwarf.session import DwarfSession
+from dwarf_alpaca.dwarf.session import DwarfSession, FilterOption
 from dwarf_alpaca.proto import protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import (
-    ResNotifyFocus,
-    V3ResNotifyCameraParamState,
-    V3ResFocusInit,
-    WsPacket,
     TYPE_NOTIFICATION,
+    ResNotifyFocus,
+    V3ResFocusInit,
+    V3ResNotifyCameraParamState,
+    WsPacket,
 )
-from dwarf_alpaca.dwarf.session import FilterOption
 
 
 @pytest.mark.asyncio
@@ -86,12 +85,17 @@ async def test_focuser_connect_mini_initializes_position_from_v3_init() -> None:
 
 
 @pytest.mark.asyncio
-async def test_v3_filter_notification_updates_camera_filter_state() -> None:
+async def test_v3_camera_param_notification_is_not_treated_as_filter_readback() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini", force_simulation=True))
     session._filter_options = [
         FilterOption(parameter={"id": 13}, mode_index=0, index=0, label="Duo-Band"),
         FilterOption(parameter={"id": 13}, mode_index=0, index=1, label="Dark"),
-        FilterOption(parameter={"id": 13}, mode_index=0, index=2, label="No Filter"),
+        FilterOption(
+            parameter={"__control": "astro_capture_ir_index"},
+            mode_index=0,
+            index=2,
+            label="Duo-Band",
+        ),
     ]
 
     message = V3ResNotifyCameraParamState()
@@ -107,5 +111,5 @@ async def test_v3_filter_notification_updates_camera_filter_state() -> None:
 
     await session._handle_notification(packet)
 
-    assert session.camera_state.filter_index == 2
-    assert session.camera_state.filter_name == "No Filter"
+    assert session.camera_state.filter_index is None
+    assert session.camera_state.filter_name == ""

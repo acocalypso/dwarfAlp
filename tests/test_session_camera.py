@@ -3,21 +3,127 @@ import time
 import types
 
 import pytest
+from websockets.exceptions import ConnectionClosedOK
 
 from dwarf_alpaca.config.settings import Settings
-from dwarf_alpaca.dwarf.session import DwarfSession, _decode_v3_device_config_payload
-from dwarf_alpaca.proto import protocol_pb2
+from dwarf_alpaca.dwarf.session import (
+    CaptureBusyError,
+    CaptureConfigurationError,
+    CapturePhase,
+    DwarfSession,
+    _decode_v3_device_config_payload,
+)
+from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
+from dwarf_alpaca.proto import astro_pb2, protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import (
+    TYPE_NOTIFICATION,
     ComResponse,
     ResNotifyTemperature,
     V3ResNotifyDeviceState,
     V3ResNotifyModeChange,
     V3ResNotifyTemperature2,
     WsPacket,
-    TYPE_NOTIFICATION,
 )
-from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
-from websockets.exceptions import ConnectionClosedOK
+from dwarf_alpaca.proto.v3_astro_pb2 import V3ResGetAstroParams, V3ResSetAstroParams
+
+
+@pytest.mark.asyncio
+async def test_overlapping_capture_is_rejected_without_cancelling_first():
+    session = DwarfSession(Settings(force_simulation=True))
+    first_task = asyncio.create_task(asyncio.sleep(10))
+    session.camera_state.capture_task = first_task
+    session.camera_state.capture_phase = CapturePhase.EXPOSING
+
+    with pytest.raises(CaptureBusyError):
+        await session.camera_start_exposure(1.0, True)
+
+    assert not first_task.cancelled()
+    first_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first_task
+
+
+@pytest.mark.asyncio
+async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    session._params_config = {}
+    session.camera_state.duration = 1.0
+    session.camera_state.requested_gain = 60
+    calls: list[tuple[int, str]] = []
+
+    async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
+        if command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_GET_PARAMS:
+            response = V3ResGetAstroParams()
+            entry = response.params.add()
+            entry.pipe_params = "0|0|15|60|1|null"
+            return response
+        if command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_SET_PARAMS:
+            calls.append((command, request.params))
+            response = V3ResSetAstroParams()
+            response.pipe_params = request.params
+            return response
+        raise AssertionError(f"unexpected command {command}")
+
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
+
+    await session._ensure_exposure_settings(1.0)
+    await session._ensure_gain_settings()
+    await session._configure_astro_capture(frames=2, binning=(1, 1))
+
+    assert calls == [(protocol_pb2.DwarfCMD.CMD_V3_ASTRO_SET_PARAMS, "0|0|1|60|2|null")]
+    assert session.camera_state.applied_duration == 1.0
+    assert session.camera_state.applied_gain_value == 60
+    assert session.camera_state.applied_bin == (1, 1)
+    assert session.camera_state.applied_frame_count == 2
+
+
+@pytest.mark.asyncio
+async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    await session._get_filter_options()
+    session.camera_state.filter_index = 1
+    session.camera_state.filter_name = "Duo-Band"
+    captured: dict[str, object] = {}
+
+    async def fake_send_command(module_id, command_id, request, **_kwargs):
+        captured["module_id"] = module_id
+        captured["command_id"] = command_id
+        captured["request"] = astro_pb2.ReqCaptureRawLiveStacking.FromString(
+            request.SerializeToString()
+        )
+        response = ComResponse()
+        response.code = protocol_pb2.OK
+        return response
+
+    monkeypatch.setattr(session, "_send_command", fake_send_command)
+
+    code = await session._start_astro_capture(timeout=5.0)
+
+    assert code == protocol_pb2.OK
+    request = captured["request"]
+    assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
+    assert request.ir_index == 2
+    assert request.force_start is False
+    assert session.camera_state.applied_filter_name == "Duo-Band"
+
+
+def test_jpeg_decode_preserves_eight_bit_color_planes():
+    cv2 = pytest.importorskip("cv2")
+    import numpy as np
+
+    source = np.zeros((2, 3, 3), dtype=np.uint8)
+    source[:, :, 0] = 10
+    source[:, :, 1] = 20
+    source[:, :, 2] = 30
+    ok, encoded = cv2.imencode(".jpg", cv2.cvtColor(source, cv2.COLOR_RGB2BGR))
+    assert ok
+
+    decoded = DwarfSession._decode_jpeg(encoded.tobytes())
+
+    assert decoded.dtype == np.uint8
+    assert decoded.shape == (2, 3, 3)
 
 
 @pytest.mark.asyncio
@@ -248,7 +354,7 @@ async def test_camera_start_exposure_requires_goto(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_camera_start_exposure_mini_uses_photo_capture(monkeypatch):
+async def test_camera_start_exposure_mini_rejects_unverified_photo_capture(monkeypatch):
     session = DwarfSession(
         Settings(
             force_simulation=True,
@@ -281,14 +387,23 @@ async def test_camera_start_exposure_mini_uses_photo_capture(monkeypatch):
     monkeypatch.setattr(session, "_start_photo_capture", fake_photo_start)
     monkeypatch.setattr(session, "_fetch_capture", fake_fetch)
 
-    await session.camera_start_exposure(0.5, True)
+    with pytest.raises(CaptureConfigurationError, match="experimental"):
+        await session.camera_start_exposure(0.5, True)
 
     assert state.capture_mode == "photo"
-    assert state.last_error is None
-    assert calls["timeout"] == max(0.5 + 2.0, 5.0)
-    assert state.capture_task is not None
-    await asyncio.wait_for(state.capture_task, timeout=0.5)
-    state.capture_task = None
+    assert calls == {}
+
+
+@pytest.mark.asyncio
+async def test_camera_start_exposure_mini_rejects_unverified_dark_workflow():
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    with pytest.raises(CaptureConfigurationError, match="dedicated calibration workflow"):
+        await session.camera_start_exposure(1.0, False)
+
+    assert session.camera_state.capture_phase == CapturePhase.FAILED
+    assert session.camera_state.last_error == "mini_dark_calibration_unverified"
 
 
 @pytest.mark.asyncio
@@ -399,8 +514,14 @@ async def test_camera_go_live_after_capture(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_start_astro_capture_timeout_assumed_started_for_mini(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+async def test_start_astro_capture_timeout_without_evidence_fails_for_mini(monkeypatch):
+    session = DwarfSession(
+        Settings(
+            force_simulation=True,
+            dwarf_device_model="dwarfmini",
+            capture_start_evidence_timeout_seconds=0.01,
+        )
+    )
     session.simulation = False
 
     async def fake_send_command(*_args, **_kwargs):
@@ -408,9 +529,29 @@ async def test_start_astro_capture_timeout_assumed_started_for_mini(monkeypatch)
 
     monkeypatch.setattr(session, "_send_command", fake_send_command)
 
-    code = await session._start_astro_capture(timeout=5.0)
+    with pytest.raises(asyncio.TimeoutError):
+        await session._start_astro_capture(timeout=5.0)
 
-    assert code == protocol_pb2.OK
+
+@pytest.mark.asyncio
+async def test_start_astro_capture_timeout_with_progress_evidence_succeeds(monkeypatch):
+    session = DwarfSession(
+        Settings(
+            force_simulation=True,
+            dwarf_device_model="dwarfmini",
+            capture_start_evidence_timeout_seconds=0.01,
+        )
+    )
+    session.simulation = False
+
+    async def fake_send_command(*_args, **_kwargs):
+        session._v3_exposure_progress = (1, 30)
+        session._capture_start_evidence_event.set()
+        raise asyncio.TimeoutError()
+
+    monkeypatch.setattr(session, "_send_command", fake_send_command)
+
+    assert await session._start_astro_capture(timeout=5.0) == protocol_pb2.OK
 
 
 def test_decode_v3_device_config_payload_extracts_known_fields():
@@ -456,6 +597,27 @@ async def test_camera_connect_uses_v3_open_for_mini(monkeypatch):
     assert captured["module_id"] == protocol_pb2.ModuleId.MODULE_CAMERA_TELE
     assert captured["command_id"] == 10050
     assert captured["action"] == 1
+    assert session.camera_state.connected is True
+
+
+@pytest.mark.asyncio
+async def test_camera_connect_failure_does_not_claim_connected(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    async def fake_ensure_ws(*_args, **_kwargs):
+        return None
+
+    async def fake_send_and_check(*_args, **_kwargs):
+        raise RuntimeError("camera open rejected")
+
+    monkeypatch.setattr(session, "_ensure_ws", fake_ensure_ws)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    with pytest.raises(RuntimeError, match="camera open rejected"):
+        await session.camera_connect()
+
+    assert session.camera_state.connected is False
 
 
 @pytest.mark.asyncio
@@ -506,7 +668,8 @@ async def test_gain_commands_disable_after_timeout(monkeypatch):
     monkeypatch.setattr(session, "_resolve_gain_command", resolve_gain)
     monkeypatch.setattr(session, "_gain_manual_mode_enabled", manual_supported)
 
-    await session._ensure_gain_settings()
+    with pytest.raises(CaptureConfigurationError, match="manual gain"):
+        await session._ensure_gain_settings()
 
     assert session._gain_command_supported is False
     assert session.camera_state.applied_gain_index is None
@@ -514,7 +677,8 @@ async def test_gain_commands_disable_after_timeout(monkeypatch):
 
     calls["mode"] = 0
 
-    await session._ensure_gain_settings()
+    with pytest.raises(CaptureConfigurationError, match="unavailable"):
+        await session._ensure_gain_settings()
 
     assert calls == {"mode": 0, "index": 0}
 

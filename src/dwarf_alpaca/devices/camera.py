@@ -10,8 +10,13 @@ import numpy as np
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from ..dwarf.session import get_session
 from ..device_profile import get_active_device_profile
+from ..dwarf.session import (
+    CaptureBusyError,
+    CaptureConfigurationError,
+    CapturePhase,
+    get_session,
+)
 from ..dwarf.ws_client import DwarfCommandError
 from ..proto import protocol_pb2
 from .utils import alpaca_response, bind_request_context, resolve_parameter
@@ -36,6 +41,7 @@ class SensorProfile:
     ad_converter_bits: int
     max_binning: int
     pixel_size_um: float
+    min_gain_db: float
     max_gain_db: float
     min_exposure_s: float
     max_exposure_s: float
@@ -55,6 +61,7 @@ IMX678_PROFILE = SensorProfile(
     ad_converter_bits=12,
     max_binning=2,
     pixel_size_um=2.0,
+    min_gain_db=0.0,
     max_gain_db=200.0,
     min_exposure_s=0.00001,
     max_exposure_s=120.0,
@@ -109,6 +116,7 @@ def _active_sensor_profile() -> SensorProfile:
         ad_converter_bits=camera.ad_converter_bits,
         max_binning=camera.max_binning,
         pixel_size_um=camera.pixel_size_um,
+        min_gain_db=camera.min_gain_db,
         max_gain_db=camera.max_gain_db,
         min_exposure_s=camera.min_exposure_s,
         max_exposure_s=camera.max_exposure_s,
@@ -127,6 +135,7 @@ def _sync_state_to_profile() -> SensorProfile:
     state.max_bin_y = profile.max_binning
     state.pixel_size_x = profile.pixel_size_um
     state.pixel_size_y = profile.pixel_size_um
+    state.gain_min = int(profile.min_gain_db)
     state.gain_max = int(profile.max_gain_db)
     if state.subframe_width > state.sensor_width or state.subframe_width <= 0:
         state.subframe_start_x = 0
@@ -239,12 +248,12 @@ def get_supported_actions():
 
 @router.get("/canabortexposure")
 def get_can_abort_exposure():
-    return alpaca_response(value=True)
+    return alpaca_response(value=get_active_device_profile().capture.supports_abort)
 
 
 @router.get("/canstopexposure")
 def get_can_stop_exposure():
-    return alpaca_response(value=True)
+    return alpaca_response(value=get_active_device_profile().capture.supports_stop)
 
 
 @router.get("/canasymmetricbin")
@@ -322,7 +331,8 @@ def get_exposure_min():
 
 @router.get("/exposureresolution")
 def get_exposure_resolution():
-    return alpaca_response(value=0.000001)
+    profile = _sync_state_to_profile()
+    return alpaca_response(value=1.0 if profile.min_exposure_s >= 1.0 else 0.000001)
 
 
 @router.get("/readoutmode")
@@ -337,21 +347,25 @@ def get_readout_modes():
 
 @router.get("/gainmin")
 def get_gain_min():
+    _sync_state_to_profile()
     return alpaca_response(value=state.gain_min)
 
 
 @router.get("/gainmax")
 def get_gain_max():
+    _sync_state_to_profile()
     return alpaca_response(value=state.gain_max)
 
 
 @router.get("/gain")
 def get_gain():
+    _sync_state_to_profile()
     return alpaca_response(value=state.gain)
 
 
 @router.put("/gain")
 async def set_gain(request: Request, Gain: int | None = Query(None, alias="Gain")):
+    _sync_state_to_profile()
     value = await resolve_parameter(request, "Gain", int, Gain)
     if value < state.gain_min or value > state.gain_max:
         raise HTTPException(status_code=400, detail="Gain out of range")
@@ -503,25 +517,31 @@ async def get_camera_state():
         return alpaca_response(value=CAMERA_STATE_IDLE)
     session = await get_session()
     runtime = session.camera_state
-    if runtime.start_time is None:
-        if runtime.image is not None:
-            return alpaca_response(value=CAMERA_STATE_READY)
-        return alpaca_response(value=CAMERA_STATE_IDLE)
-
-    elapsed = time.time() - runtime.start_time
-    if elapsed < runtime.duration:
-        return alpaca_response(value=CAMERA_STATE_EXPOSING)
-    if runtime.image is None:
+    if runtime.capture_phase == CapturePhase.READY and runtime.image is not None:
+        return alpaca_response(value=CAMERA_STATE_READY)
+    if runtime.capture_phase in {
+        CapturePhase.PROCESSING,
+        CapturePhase.TRANSFERRING,
+    }:
         return alpaca_response(value=CAMERA_STATE_READOUT)
-    return alpaca_response(value=CAMERA_STATE_READY)
+    if runtime.capture_phase in {
+        CapturePhase.CONFIGURING,
+        CapturePhase.WAITING_FOR_DARK,
+        CapturePhase.STARTING,
+        CapturePhase.EXPOSING,
+        CapturePhase.ABORTING,
+        CapturePhase.UNKNOWN,
+    }:
+        return alpaca_response(value=CAMERA_STATE_EXPOSING)
+    return alpaca_response(value=CAMERA_STATE_IDLE)
 
 
 @router.get("/lastexposureduration")
 async def get_last_exposure_duration():
     session = await get_session()
     runtime = session.camera_state
-    if runtime.last_end_time is not None and runtime.last_start_time is not None:
-        return alpaca_response(value=max(runtime.last_end_time - runtime.last_start_time, 0.0))
+    if runtime.applied_duration is not None:
+        return alpaca_response(value=runtime.applied_duration)
     if runtime.start_time is not None:
         return alpaca_response(value=max(time.time() - runtime.start_time, 0.0))
     return alpaca_response(value=runtime.duration)
@@ -538,7 +558,9 @@ async def get_last_exposure_start_time():
 async def get_image_timestamp():
     session = await get_session()
     runtime = session.camera_state
-    timestamp = runtime.image_timestamp if runtime.image_timestamp is not None else runtime.last_end_time
+    timestamp = (
+        runtime.image_timestamp if runtime.image_timestamp is not None else runtime.last_end_time
+    )
     return alpaca_response(value=_format_timestamp(timestamp))
 
 
@@ -557,6 +579,15 @@ async def start_exposure(
     duration_value = await resolve_parameter(request, "Duration", float, Duration)
     if duration_value <= 0.0:
         raise HTTPException(status_code=400, detail="Duration must be greater than zero")
+    profile = _sync_state_to_profile()
+    if duration_value < profile.min_exposure_s or duration_value > profile.max_exposure_s:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Duration must be between {profile.min_exposure_s:g}s "
+                f"and {profile.max_exposure_s:g}s for this device profile"
+            ),
+        )
     light_value = await resolve_parameter(request, "Light", bool, Light)
     continue_without_dark = (
         ContinueWithoutDark
@@ -597,7 +628,13 @@ async def start_exposure(
         raw_duration=Duration,
         raw_light=Light,
         raw_continue_without_dark=ContinueWithoutDark,
-        raw_frame_count=(FrameCount if FrameCount is not None else NumFrames if NumFrames is not None else ImageCount),
+        raw_frame_count=(
+            FrameCount
+            if FrameCount is not None
+            else NumFrames
+            if NumFrames is not None
+            else ImageCount
+        ),
         resolved_duration=duration_value,
         resolved_light=light_value,
         continue_without_dark=continue_without_dark,
@@ -615,6 +652,8 @@ async def start_exposure(
             continue_without_darks=continue_without_dark,
         )
     except DwarfCommandError as exc:
+        session.camera_state.capture_phase = CapturePhase.FAILED
+        session.camera_state.start_time = None
         if exc.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
             raise HTTPException(
                 status_code=409,
@@ -625,12 +664,11 @@ async def start_exposure(
             ) from exc
         raise HTTPException(
             status_code=502,
-            detail=(
-                "DWARF command "
-                f"{exc.module_id}:{exc.command_id} failed with code {exc.code}"
-            ),
+            detail=(f"DWARF command {exc.module_id}:{exc.command_id} failed with code {exc.code}"),
         ) from exc
     except asyncio.TimeoutError as exc:
+        session.camera_state.capture_phase = CapturePhase.UNKNOWN
+        session.camera_state.start_time = None
         raise HTTPException(
             status_code=504,
             detail="Timed out while waiting for DWARF to start the exposure.",
@@ -644,21 +682,34 @@ async def start_exposure(
                     "(PHOTO_RAW and fallback PHOTO both failed)."
                 ),
             ) from exc
+        if isinstance(exc, CaptureBusyError):
+            raise HTTPException(
+                status_code=409, detail="A capture is already in progress."
+            ) from exc
+        if isinstance(exc, CaptureConfigurationError):
+            session.camera_state.capture_phase = CapturePhase.FAILED
+            session.camera_state.start_time = None
+            session.camera_state.last_error = f"configuration:{exc}"
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         raise
     return alpaca_response()
 
 
 @router.put("/stopexposure")
 async def stop_exposure():
-    session = await get_session()
-    await session.camera_abort_exposure()
-    return alpaca_response()
+    raise HTTPException(
+        status_code=400,
+        detail="StopExposure is not supported; use AbortExposure for immediate cancellation.",
+    )
 
 
 @router.put("/abortexposure")
 async def abort_exposure():
     session = await get_session()
-    await session.camera_abort_exposure()
+    try:
+        await session.camera_abort_exposure()
+    except CaptureConfigurationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return alpaca_response()
 
 
@@ -666,6 +717,22 @@ async def abort_exposure():
 async def get_image_ready():
     session = await get_session()
     return alpaca_response(value=session.camera_state.image is not None)
+
+
+@router.get("/percentcompleted")
+async def get_percent_completed():
+    session = await get_session()
+    runtime = session.camera_state
+    progress = session.get_v3_runtime_state().get("exposure_progress")
+    if isinstance(progress, list) and len(progress) == 2 and progress[1]:
+        return alpaca_response(value=max(0, min(100, int(round(100 * progress[0] / progress[1])))))
+    if runtime.capture_phase == CapturePhase.READY:
+        return alpaca_response(value=100)
+    if runtime.start_time is None or runtime.duration <= 0:
+        return alpaca_response(value=0)
+    total = runtime.duration * max(1, runtime.requested_frame_count)
+    elapsed = max(0.0, time.time() - runtime.start_time)
+    return alpaca_response(value=max(0, min(99, int(100 * elapsed / total))))
 
 
 @router.get("/imagebytes")
@@ -701,13 +768,17 @@ async def get_image_bytes():
         "ImageElementTypeName": _IMAGE_TYPE_NAMES.get(type_code, "Unknown"),
         "TransmissionElementType": type_code,
         "TransmissionElementTypeName": _IMAGE_TYPE_NAMES.get(type_code, "Unknown"),
-        "Rank": 2,
+        "Rank": processed_image.ndim,
         "Dim1": height,
         "Dim2": width,
         "BayerOffsetX": 0,
         "BayerOffsetY": 0,
         "BayerPattern": "RGGB",
+        "SourceFormat": runtime.source_format,
+        "SourceBitDepth": runtime.source_bit_depth,
     }
+    if processed_image.ndim == 3:
+        metadata["Dim3"] = processed_image.shape[2]
     return alpaca_response(value={"ImageBytes": encoded, **metadata})
 
 
@@ -818,6 +889,7 @@ def get_bin_x():
 
 @router.put("/binx")
 async def set_bin_x(request: Request, BinX: int | None = Query(None, alias="BinX")):
+    _sync_state_to_profile()
     value = await resolve_parameter(request, "BinX", int, BinX)
     if value < 1:
         raise HTTPException(status_code=400, detail="BinX must be at least 1")
@@ -834,6 +906,7 @@ def get_bin_y():
 
 @router.put("/biny")
 async def set_bin_y(request: Request, BinY: int | None = Query(None, alias="BinY")):
+    _sync_state_to_profile()
     value = await resolve_parameter(request, "BinY", int, BinY)
     if value < 1:
         raise HTTPException(status_code=400, detail="BinY must be at least 1")
@@ -845,10 +918,11 @@ async def set_bin_y(request: Request, BinY: int | None = Query(None, alias="BinY
 
 @router.get("/cameragains")
 def get_camera_gains():
+    _sync_state_to_profile()
     return alpaca_response(value=_gain_steps())
 
 
 @router.get("/gains")
 def get_available_gains():
+    _sync_state_to_profile()
     return alpaca_response(value=_gain_steps())
-

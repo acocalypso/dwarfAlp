@@ -2,9 +2,23 @@
   <img src="images/dwarfalplogo.png" alt="DWARF Alpaca Logo" width="200" />
 </p>
 
-# DWARF 3 Alpaca Server
+# DWARF Alpaca Server
 
-An ASCOM Alpaca device hub for the DWARF 3 smart telescope. The project speaks the DWARF control protocols (websocket, HTTP/JSON, FTP, RTSP, BLE) and exposes Telescope/0, Camera/0, Focuser/0, and FilterWheel/0 devices that can be driven from clients such as NINA, Voyager, or ASCOM Remote.
+An ASCOM Alpaca device hub for DWARFLAB smart telescopes. The project speaks
+WebSocket, HTTP/JSON, FTP, RTSP, and BLE protocols and exposes Telescope/0,
+Camera/0, Focuser/0, and model-dependent FilterWheel/0 devices.
+
+## Support status
+
+| Model | Implemented profile | Automated | Physical verification in this audit |
+| --- | --- | --- | --- |
+| DWARF 2 | Legacy V2 compatibility | Yes | No |
+| DWARF 3 | Restored legacy 1.2/device-1 path | Yes | No DWARF 3 available |
+| DWARF mini | V3 1.20/device-4 path | Yes | Not completed; device was unreachable |
+
+“Automated” means protocol mocks and simulation, not current-firmware hardware
+certification. See [the engineering audit](docs/engineering-audit.md) for the exact
+evidence and limitations.
 
 ---
 
@@ -66,6 +80,84 @@ For development extras (ruff, pytest, httpx CLI):
 ```powershell
 pip install -e .[development]
 ```
+
+For the reproducible locked environment:
+
+```powershell
+uv sync --extra development --locked
+```
+
+Generate or validate protobuf bindings:
+
+```powershell
+python scripts/generate_protos.py
+python scripts/generate_protos.py --check
+```
+
+### Select a model
+
+```powershell
+$env:DWARF_ALPACA_DWARF_DEVICE_MODEL = "dwarfmini" # or dwarf3 / dwarf2
+$env:DWARF_ALPACA_DWARF_AP_IP = "192.168.88.1"
+dwarf-alpaca serve
+```
+
+The model selects a capability profile and default client ID. An explicit
+`DWARF_ALPACA_DWARF_WS_CLIENT_ID` still overrides the client ID.
+
+### Capture behavior
+
+Alpaca capture uses the intended astronomy/raw-live-stacking workflow so exposure,
+gain, filter, binning, frame count, dark status, and FITS output can be checked.
+Direct mini `PHOTO_RAW`/`PHOTOGRAPH` capture is disabled by default because available
+evidence does not prove long-exposure, gain, and raw-output guarantees.
+
+Dark status defaults fail-safe. To bypass a missing or unknown dark for one request,
+the client must explicitly send `ContinueWithoutDark=true`; the driver never starts a
+long dark-capture procedure itself.
+
+`CanStopExposure` is false because distinct graceful-stop behavior is unproved.
+`CanAbortExposure` is true for the selected astronomy workflow.
+
+### Hardware tests
+
+Hardware tests never run by default and contain no motor movement or GOTO:
+
+```powershell
+$env:DWARF_ALPACA_RUN_HARDWARE = "1"
+$env:DWARF_ALPACA_DWARF_DEVICE_MODEL = "dwarfmini"
+$env:DWARF_ALPACA_DWARF_AP_IP = "192.168.88.1"
+pytest -m hardware tests/test_hardware_mini.py
+```
+
+Do not set the hardware flag unless the selected device is powered, attended, and
+safe to connect.
+
+### Minimal Alpaca client sequence
+
+With the server at `http://127.0.0.1:11111`:
+
+```powershell
+$base = "http://127.0.0.1:11111/api/v1"
+$tx = "ClientID=1&ClientTransactionID=1"
+
+Invoke-RestMethod -Method Put -Uri "$base/camera/0/connected?$tx&Connected=true"
+Invoke-RestMethod -Method Put -Uri "$base/filterwheel/0/connected?$tx&Connected=true"
+Invoke-RestMethod -Method Put -Uri "$base/camera/0/gain?$tx&Gain=60"
+Invoke-RestMethod -Method Put -Uri "$base/filterwheel/0/position?$tx&Position=0"
+Invoke-RestMethod -Method Put -Uri "$base/camera/0/binx?$tx&BinX=1"
+Invoke-RestMethod -Method Put -Uri "$base/camera/0/biny?$tx&BinY=1"
+Invoke-RestMethod -Method Put -Uri "$base/camera/0/startexposure?$tx&Duration=15&Light=true&FrameCount=1"
+
+Invoke-RestMethod -Uri "$base/camera/0/percentcompleted?$tx"
+Invoke-RestMethod -Uri "$base/camera/0/imageready?$tx"
+Invoke-RestMethod -Uri "$base/camera/0/imagebytes?$tx"
+```
+
+Query `/filterwheel/0/names` first and choose the corresponding zero-based position.
+Do not poll `imagebytes` until `imageready` is true. If the firmware reports no
+matching dark and you intentionally accept that limitation, append
+`&ContinueWithoutDark=true` to that single `startexposure` request.
 
 ### 3. Choose a connection mode
 
@@ -144,10 +236,10 @@ Settings may be supplied via env vars (`DWARF_ALPACA_*`), `.env`, or a YAML prof
 | `dwarf_ap_ip` | `192.168.88.1` | Fallback AP address. Overridden with STA IP after provisioning. |
 | `dwarf_http_port` / `dwarf_jpeg_port` | `8082` / `8092` | DWARF REST/album ports. |
 | `dwarf_ws_port` / `dwarf_rtsp_port` / `dwarf_ftp_port` | `9900` / `554` / `21` | Control-plane websocket, RTSP streaming, and FTP album ports. |
-| `dwarf_ws_client_id` | `0000DAF3-0000-1000-8000-00805F9B34FB` | Client identifier required to acquire the master lock. Adjust per hardware variant. |
+| `dwarf_ws_client_id` | Profile-derived | DAF2, DAF3, or DAF4 client identifier selected by model; an explicit value overrides it. |
 | `ws_ping_interval_seconds` | `5.0` | Heartbeat cadence for the websocket. |
 | `go_live_before_exposure` | `True` | Enable/disable RTSP warm-up before astro captures. |
-| `allow_continue_without_darks` | `True` | Permit exposures when the dark library check fails. |
+| `allow_continue_without_darks` | `False` | Global opt-in for captures when dark status is missing/unknown; prefer the per-request flag. |
 | `temperature_refresh_interval_seconds` | `5.0` | How often to poll DWARF temperature notifications. |
 | `ble_adapter` / `ble_password` | `None` | Defaults for provisioning workflows. |
 | `force_simulation` | `False` | Bypass hardware access and return simulated data. |

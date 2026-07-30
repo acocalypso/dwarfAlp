@@ -75,7 +75,9 @@ class StateStore:
                 for ssid, password in state.wifi_credentials.items()
                 if isinstance(ssid, str) and isinstance(password, str) and password
             },
-            last_device_address=state.last_device_address if isinstance(state.last_device_address, str) else None,
+            last_device_address=state.last_device_address
+            if isinstance(state.last_device_address, str)
+            else None,
             timezone_name=(
                 state.timezone_name.strip()
                 if isinstance(state.timezone_name, str) and state.timezone_name.strip()

@@ -7,16 +7,17 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple, Type, TypeVar
 
 import structlog
-import websockets
 from google.protobuf.message import DecodeError, Message
+from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosedOK
+from websockets.protocol import State
 
 from ..proto.dwarf_messages import (
-    ComResponse,
     TYPE_NOTIFICATION,
     TYPE_NOTIFICATION_RESPONSE,
     TYPE_REQUEST,
     TYPE_REQUEST_RESPONSE,
+    ComResponse,
     WsPacket,
 )
 
@@ -53,10 +54,12 @@ class DwarfWsClient:
         self.minor_version = minor_version
         self.device_id = device_id
         self._client_id = client_id or ""
-        self._ping_interval = None if not ping_interval or ping_interval <= 0 else float(ping_interval)
+        self._ping_interval = (
+            None if not ping_interval or ping_interval <= 0 else float(ping_interval)
+        )
 
         self._lock = asyncio.Lock()
-        self._conn: Optional[websockets.WebSocketClientProtocol] = None
+        self._conn: Optional[ClientConnection] = None
         self._reader_task: Optional[asyncio.Task[None]] = None
         self._pending: Dict[Tuple[int, int], _PendingRequest] = {}
         self._pending_aliases: Dict[Tuple[int, int], Tuple[int, int]] = {}
@@ -81,6 +84,10 @@ class DwarfWsClient:
         if conn is None:
             return False
 
+        state = getattr(conn, "state", None)
+        if state is not None:
+            return state is State.OPEN
+
         closed_attr = getattr(conn, "closed", None)
         if closed_attr is None:
             close_code = getattr(conn, "close_code", None)
@@ -102,7 +109,7 @@ class DwarfWsClient:
         async with self._lock:
             if self.connected:
                 return
-            self._conn = await websockets.connect(self.uri, ping_interval=None)
+            self._conn = await connect(self.uri, ping_interval=None)
             self._connected_event.set()
             self._reader_task = asyncio.create_task(self._reader_loop())
             self._start_ping_task()
@@ -147,7 +154,9 @@ class DwarfWsClient:
             )
         future: asyncio.Future[Message] = loop.create_future()
         alternates = dict(expected_responses or {})
-        self._pending[key] = _PendingRequest(future=future, response_cls=response_cls, alternate_responses=alternates)
+        self._pending[key] = _PendingRequest(
+            future=future, response_cls=response_cls, alternate_responses=alternates
+        )
         for alias_key in alternates:
             self._pending_aliases[alias_key] = key
 
@@ -285,15 +294,16 @@ class DwarfWsClient:
         command_id = getattr(packet, "cmd", 0)
         key = (module_id, command_id)
 
-        pending = self._pop_pending_request(key)
+        pending = None
         response_cls: Optional[Type[Message]] = None
-        if pending is None:
-            original_key = self._pending_aliases.pop(key, None)
-            if original_key is not None:
-                pending = self._pop_pending_request(original_key)
-                if pending:
-                    response_cls = pending.alternate_responses.get(key, pending.response_cls)
-        else:
+        original_key = self._pending_aliases.pop(key, None)
+        if original_key is not None:
+            pending = self._pop_pending_request(original_key)
+            if pending:
+                response_cls = pending.alternate_responses.get(key, pending.response_cls)
+        elif packet_type in {TYPE_REQUEST_RESPONSE, TYPE_NOTIFICATION_RESPONSE}:
+            pending = self._pop_pending_request(key)
+        if pending is not None and response_cls is None:
             response_cls = pending.response_cls
 
         if pending and not pending.future.done():

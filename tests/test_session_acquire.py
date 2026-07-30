@@ -1,4 +1,3 @@
-import asyncio
 import pytest
 
 from dwarf_alpaca.config.settings import Settings

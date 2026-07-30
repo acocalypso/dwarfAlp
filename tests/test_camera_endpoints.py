@@ -9,7 +9,6 @@ from dwarf_alpaca.devices.camera import state as camera_state
 from dwarf_alpaca.dwarf.session import get_session
 from dwarf_alpaca.server import build_app
 
-
 client = TestClient(build_app(Settings(force_simulation=True)))
 
 
@@ -285,7 +284,9 @@ def test_camera_start_exposure_returns_502_when_photo_start_fails():
 
 
 def test_camera_metadata_uses_mini_sensor_profile():
-    local_mini_client = TestClient(build_app(Settings(force_simulation=True, dwarf_device_model="dwarfmini")))
+    local_mini_client = TestClient(
+        build_app(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    )
 
     resp = local_mini_client.get("/api/v1/camera/0/name")
     assert resp.status_code == 200
@@ -309,7 +310,6 @@ def test_camera_metadata_uses_mini_sensor_profile():
 
     # Reset shared profile state for remaining tests in this module.
     build_app(Settings(force_simulation=True))
-
 
 
 def test_camera_temperature_reflects_session_state():

@@ -4,10 +4,10 @@ import asyncio
 from getpass import getpass
 from typing import Sequence
 
-from .workflow import create_state_store, provision_sta
 from ..config.settings import Settings
-from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
 from ..dwarf.ble_packets import DEFAULT_BLE_PASSWORD
+from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
+from .workflow import create_state_store, provision_sta
 
 
 async def _prompt(message: str, *, default: str | None = None, secret: bool = False) -> str:
@@ -57,9 +57,7 @@ async def provision_guide_command(
     resolved_adapter = adapter or settings.ble_adapter
     state_store = create_state_store(settings.state_directory)
     state = state_store.load()
-    provisioner = DwarfBleProvisioner(
-        response_timeout=settings.ble_response_timeout_seconds
-    )
+    provisioner = DwarfBleProvisioner(response_timeout=settings.ble_response_timeout_seconds)
 
     devices = await DwarfBleProvisioner.discover_devices(adapter=resolved_adapter)
     if not devices:
@@ -93,9 +91,7 @@ async def provision_guide_command(
         )
 
     saved_credentials = {
-        ssid: password
-        for ssid, password in state.wifi_credentials.items()
-        if ssid and password
+        ssid: password for ssid, password in state.wifi_credentials.items() if ssid and password
     }
     saved_ssids: Sequence[str] = sorted(saved_credentials)
     if saved_ssids:
@@ -149,9 +145,7 @@ async def provision_guide_command(
                     device_address=chosen.address,
                 )
             except RuntimeError as exc:
-                print(
-                    f"⚠️  Provisioning with saved Wi-Fi '{chosen_ssid}' failed: {exc}"
-                )
+                print(f"⚠️  Provisioning with saved Wi-Fi '{chosen_ssid}' failed: {exc}")
                 print("📡 Saved network unavailable, scanning for alternatives…")
             else:
                 print(

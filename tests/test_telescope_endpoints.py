@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
 import time
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +11,7 @@ from dwarf_alpaca.proto import protocol_pb2
 from dwarf_alpaca.server import build_app
 
 client = TestClient(build_app(Settings(force_simulation=True)))
+
 
 def _value(response):
     payload = response.json()
@@ -113,8 +114,6 @@ def test_move_axis_updates_rates_in_simulation():
         _disconnect_telescope()
 
 
-
-
 def test_move_axis_zero_rate_stops_motion():
     _connect_telescope()
     try:
@@ -197,6 +196,7 @@ def test_set_tracking_rate_rejects_unsupported_values():
 def test_utcdate_matches_system_clock_within_tolerance():
     resp = client.get("/api/v1/telescope/0/utcdate")
     assert resp.status_code == 200
+    assert _value(resp).endswith("Z")
     reported = _parse_iso8601(_value(resp))
     now = datetime.now(timezone.utc)
     assert abs((reported - now).total_seconds()) < 5
@@ -223,7 +223,9 @@ def test_setting_utcdate_with_local_time_does_not_introduce_persistent_offset():
     assert (second_value - first_value).total_seconds() >= 0
 
     reset_target = datetime.now(timezone.utc)
-    reset_resp = client.put("/api/v1/telescope/0/utcdate", json={"UTCDate": reset_target.isoformat()})
+    reset_resp = client.put(
+        "/api/v1/telescope/0/utcdate", json={"UTCDate": reset_target.isoformat()}
+    )
     assert reset_resp.status_code == 200
 
 

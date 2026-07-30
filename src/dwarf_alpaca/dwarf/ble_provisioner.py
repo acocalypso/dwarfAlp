@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass
-from typing import Any, Optional, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import structlog
 
@@ -29,8 +29,8 @@ except Exception:  # pragma: no cover
     _BleakDevice = None  # type: ignore
 
 if TYPE_CHECKING:  # pragma: no cover - typing aid
-    from bleak.backends.device import BLEDevice
     from bleak import BleakClient as BleakClientType
+    from bleak.backends.device import BLEDevice
 else:  # pragma: no cover
     BLEDevice = _BleakDevice  # type: ignore[assignment]
     BleakClientType = Any
@@ -269,9 +269,7 @@ class DwarfBleProvisioner:
         message = packet.payload
         assert isinstance(message, ble_pb2.ResGetconfig)
         if message.code != 0:
-            raise ProvisioningError(
-                f"DWARF returned error: {describe_ble_error(message.code)}"
-            )
+            raise ProvisioningError(f"DWARF returned error: {describe_ble_error(message.code)}")
         logger.info(
             "ble.provision.config", state=message.state, mode=message.wifi_mode, ip=message.ip
         )
@@ -282,7 +280,7 @@ class DwarfBleProvisioner:
         client: BleakClientType,
         queue: asyncio.Queue[ParsedPacket],
         *,
-    current_config: Any,
+        current_config: Any,
         ssid: str,
         password: str,
         ble_psd: str,
@@ -301,9 +299,7 @@ class DwarfBleProvisioner:
             return config.ip
 
         auto_start = 1 if config.state != 2 else 0
-        logger.info(
-            "ble.provision.send_sta", ssid=ssid, auto_start=auto_start
-        )
+        logger.info("ble.provision.send_sta", ssid=ssid, auto_start=auto_start)
         await client.write_gatt_char(
             DWARF_CHARACTERISTIC_UUID,
             build_req_sta(auto_start, ble_psd, ssid, password),

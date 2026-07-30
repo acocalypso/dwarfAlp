@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections import deque
-from typing import Deque, Optional
 
 import av
 import numpy as np
 import structlog
-
 
 logger = structlog.get_logger(__name__)
 

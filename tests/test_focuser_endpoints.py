@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.server import build_app
 
-
 client = TestClient(build_app(Settings(force_simulation=True)))
 
 

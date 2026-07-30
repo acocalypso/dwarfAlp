@@ -5,16 +5,16 @@ import asyncio
 import pytest
 
 from dwarf_alpaca.dwarf.ws_client import DwarfWsClient
+from dwarf_alpaca.proto import protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import (
+    TYPE_NOTIFICATION,
+    TYPE_REQUEST_RESPONSE,
     ComResponse,
     ReqCloseCamera,
     ReqsetMasterLock,
     ResNotifyHostSlaveMode,
-    TYPE_NOTIFICATION,
-    TYPE_REQUEST_RESPONSE,
     WsPacket,
 )
-from dwarf_alpaca.proto import protocol_pb2
 
 
 def test_ws_client_connected_handles_missing_closed():
@@ -123,3 +123,30 @@ async def test_ws_client_handles_master_lock_notification():
     assert isinstance(response, ResNotifyHostSlaveMode)
     assert response.mode == 0
     assert response.lock is True
+
+
+@pytest.mark.asyncio
+async def test_unexpected_same_command_notification_does_not_consume_response():
+    client = DwarfWsClient("127.0.0.1")
+
+    def response_builder(packet):
+        notification = WsPacket()
+        notification.module_id = packet.module_id
+        notification.cmd = packet.cmd
+        notification.type = TYPE_NOTIFICATION
+        notification.data = ComResponse(code=99).SerializeToString()
+
+        response_packet = WsPacket()
+        response_packet.module_id = packet.module_id
+        response_packet.cmd = packet.cmd
+        response_packet.type = TYPE_REQUEST_RESPONSE
+        response_packet.data = ComResponse(code=0).SerializeToString()
+        return [notification, response_packet]
+
+    dummy = DummyConnection(client, response_builder=response_builder)
+    client._conn = dummy  # type: ignore[attr-defined]
+    client._connected_event.set()
+
+    response = await client.send_command(1, 42, ReqCloseCamera())
+
+    assert response.code == 0

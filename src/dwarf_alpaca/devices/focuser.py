@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..dwarf.session import get_session
 from .utils import alpaca_response, bind_request_context, resolve_parameter
+
 router = APIRouter(dependencies=[Depends(bind_request_context)])
 
 
@@ -235,4 +236,3 @@ def set_temp_comp(TempComp: bool = Query(..., alias="TempComp")):
     if TempComp:
         raise HTTPException(status_code=400, detail="Temperature compensation not supported")
     return alpaca_response()
-

@@ -7,17 +7,18 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from ..dwarf.session import get_session
 from ..dwarf.ws_client import DwarfCommandError
 from ..proto import protocol_pb2
-
-from ..dwarf.session import get_session
 from .utils import alpaca_response, bind_request_context, resolve_parameter
-import structlog
+
 router = APIRouter(dependencies=[Depends(bind_request_context)])
 
 _MAX_MANUAL_AXIS_RATE = 4.0
+
 
 @dataclass
 class TelescopeState:
@@ -79,7 +80,9 @@ async def _resolve_with_aliases(
             raise
 
     if missing_error is not None:
-        raise HTTPException(status_code=400, detail=f"{names[0]} parameter required") from missing_error
+        raise HTTPException(
+            status_code=400, detail=f"{names[0]} parameter required"
+        ) from missing_error
     raise HTTPException(status_code=400, detail=f"{names[0]} parameter required")
 
 
@@ -91,8 +94,12 @@ def get_connected():
 @router.put("/connected")
 async def put_connected(
     request: Request,
-    Connected_query: bool | None = Query(None, alias="Connected", description="Set connection state"),
-    Simulation_query: bool | None = Query(None, alias="Simulation", description="Override simulation mode"),
+    Connected_query: bool | None = Query(
+        None, alias="Connected", description="Set connection state"
+    ),
+    Simulation_query: bool | None = Query(
+        None, alias="Simulation", description="Override simulation mode"
+    ),
 ):
     value = await resolve_parameter(request, "Connected", bool, Connected_query)
     session = await get_session()
@@ -213,7 +220,7 @@ def get_at_park():
 
 @router.get("/utcdate")
 def get_utc_date():
-    return alpaca_response(value=datetime.now(timezone.utc).isoformat())
+    return alpaca_response(value=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
 
 
 @router.put("/utcdate")
@@ -373,10 +380,14 @@ async def slew_to_coordinates_async(
             ra /= 15.0
             ra_converted_from_degrees = True
         else:
-            raise HTTPException(status_code=400, detail="RightAscension must be between 0 and 24 hours")
+            raise HTTPException(
+                status_code=400, detail="RightAscension must be between 0 and 24 hours"
+            )
 
     if not -90.0 <= dec <= 90.0:
-        raise HTTPException(status_code=400, detail="Declination must be between -90 and +90 degrees")
+        raise HTTPException(
+            status_code=400, detail="Declination must be between -90 and +90 degrees"
+        )
 
     session = await get_session()
     state.using_simulation = session.is_simulated
@@ -415,8 +426,7 @@ async def slew_to_coordinates_async(
                     detail += " Input RA appeared to be in degrees and was converted to hours."
             else:
                 detail = (
-                    "DWARF command "
-                    f"{exc.module_id}:{exc.command_id} failed with code {exc.code}"
+                    f"DWARF command {exc.module_id}:{exc.command_id} failed with code {exc.code}"
                 )
             raise HTTPException(status_code=502, detail=detail) from exc
         except asyncio.TimeoutError as exc:
@@ -722,16 +732,22 @@ def _process_motion() -> None:
             state.declination_rate = 0.0
         else:
             t = elapsed / duration
-            state.right_ascension = state.right_ascension + (state.target_ra - state.right_ascension) * t
+            state.right_ascension = (
+                state.right_ascension + (state.target_ra - state.right_ascension) * t
+            )
             state.declination = state.declination + (state.target_dec - state.declination) * t
         _update_alt_az()
         return
 
     if delta > 0.0:
         if abs(state.right_ascension_rate) > 0.0:
-            state.right_ascension = (state.right_ascension + (state.right_ascension_rate * delta) / 15.0) % 24.0
+            state.right_ascension = (
+                state.right_ascension + (state.right_ascension_rate * delta) / 15.0
+            ) % 24.0
         if abs(state.declination_rate) > 0.0:
-            state.declination = max(-90.0, min(90.0, state.declination + state.declination_rate * delta))
+            state.declination = max(
+                -90.0, min(90.0, state.declination + state.declination_rate * delta)
+            )
 
     state.altitude = state.declination
     state.azimuth = (state.right_ascension * 15.0) % 360.0
@@ -823,16 +839,15 @@ def _compute_alt_az(
     dec_rad = math.radians(dec_degrees)
     lat_rad = math.radians(latitude)
 
-    sin_alt = (
-        math.sin(dec_rad) * math.sin(lat_rad)
-        + math.cos(dec_rad) * math.cos(lat_rad) * math.cos(hour_angle)
-    )
+    sin_alt = math.sin(dec_rad) * math.sin(lat_rad) + math.cos(dec_rad) * math.cos(
+        lat_rad
+    ) * math.cos(hour_angle)
     sin_alt = max(-1.0, min(1.0, sin_alt))
     alt_rad = math.asin(sin_alt)
 
-    cos_az = (
-        math.sin(dec_rad) - math.sin(alt_rad) * math.sin(lat_rad)
-    ) / (math.cos(alt_rad) * math.cos(lat_rad) + 1e-9)
+    cos_az = (math.sin(dec_rad) - math.sin(alt_rad) * math.sin(lat_rad)) / (
+        math.cos(alt_rad) * math.cos(lat_rad) + 1e-9
+    )
     sin_az = -math.sin(hour_angle) * math.cos(dec_rad) / (math.cos(alt_rad) + 1e-9)
     az_rad = math.atan2(sin_az, cos_az)
 
@@ -845,10 +860,7 @@ def _local_sidereal_time(dt: datetime, longitude_deg: float) -> float:
     jd = _julian_date(dt)
     T = (jd - 2451545.0) / 36525.0
     gst = (
-        280.46061837
-        + 360.98564736629 * (jd - 2451545.0)
-        + 0.000387933 * T ** 2
-        - (T ** 3) / 38710000.0
+        280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933 * T**2 - (T**3) / 38710000.0
     )
     gst_hours = (gst % 360.0) / 15.0
     lst = (gst_hours + longitude_deg / 15.0) % 24.0
