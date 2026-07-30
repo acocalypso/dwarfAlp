@@ -104,6 +104,22 @@ message V3ResNotifyTimelapseProgress {
     int32 flag = 4;
 }
 
+// Calibration-frame state: CMD 15290.
+// Recovered from the DWARFLAB 3.4.1 embedded notify.proto descriptor.
+message V3ResNotifyCaliFrameState {
+    int32 state = 1;
+    int32 camera_type = 2;
+    int32 cali_frame_type = 3;
+}
+
+// Calibration-frame progress: CMD 15291.
+// Recovered from the DWARFLAB 3.4.1 embedded notify.proto descriptor.
+message V3ResNotifyCaliFrameProgress {
+    int32 progress = 1;
+    int32 camera_type = 2;
+    int32 cali_frame_type = 3;
+}
+
 // V3 Temperature2 notification: CMD 15292
 message V3ResNotifyTemperature2 {
     int32 temperature = 1;

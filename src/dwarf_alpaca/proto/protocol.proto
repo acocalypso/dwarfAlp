@@ -270,6 +270,8 @@ enum DwarfCMD {
     CMD_V3_NOTIFY_PHOTO_BURST_PROGRESS = 15285; // V3: Photo/burst progress
     CMD_V3_NOTIFY_VIDEO_PROGRESS = 15286; // V3: Video recording progress
     CMD_V3_NOTIFY_TIMELAPSE_PROGRESS = 15287; // V3: Timelapse progress
+    CMD_V3_NOTIFY_CALI_FRAME_STATE = 15290; // APK 3.4.1: calibration-frame state
+    CMD_V3_NOTIFY_CALI_FRAME_PROGRESS = 15291; // APK 3.4.1: calibration-frame progress
     CMD_V3_NOTIFY_TEMPERATURE2 = 15292; // V3: Temperature2
     CMD_V3_NOTIFY_OBSERVATION_STATE = 15296; // V3: Observation state
 

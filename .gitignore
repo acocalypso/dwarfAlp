@@ -3,6 +3,9 @@ __pycache__/
 *.egg-info/
 .env
 *_pb2.py
+# Runtime modules import these bindings directly. Keep the package's generated
+# bindings versioned so clean installs work and --check can detect stale output.
+!src/dwarf_alpaca/proto/*_pb2.py
 var/
 venv/
 .pytest_cache/

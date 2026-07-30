@@ -1,0 +1,5739 @@
+{
+  "schema_version": 1,
+  "source": {
+    "application": "DWARFLAB",
+    "package": "com.convergence.dwarflab",
+    "version_name": "3.4.1",
+    "version_code": 677,
+    "apk_sha256": "1E4F676A35EBE6F9D8CB7B3FB4720346C45C41FC41B7E7807151B0080C5DE294",
+    "generator": "scripts/extract_apk_api_inventory.py"
+  },
+  "limitations": [
+    "A null command_id means JADX emitted a symbolic third-party constant; raw_value_expression preserves the evidence without guessing.",
+    "Presence in WsCmd proves registration in app code, not support on every model.",
+    "Only request wrappers with a directly traceable WsCmd return are linked."
+  ],
+  "commands": [
+    {
+      "name": "CMD_CAMERA_TELE_OPEN_CAMERA",
+      "ordinal": 0,
+      "command_id": 10000,
+      "raw_value_expression": "10000",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 38,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_CLOSE_CAMERA",
+      "ordinal": 1,
+      "command_id": 10001,
+      "raw_value_expression": "10001",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 39,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_PHOTOGRAPH",
+      "ordinal": 2,
+      "command_id": 10002,
+      "raw_value_expression": "10002",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 40,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_BURST",
+      "ordinal": 3,
+      "command_id": 10003,
+      "raw_value_expression": "10003",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 41,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_STOP_BURST",
+      "ordinal": 4,
+      "command_id": null,
+      "raw_value_expression": "IMediaPlayer.MEDIA_INFO_VIDEO_DECODED_START",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 42,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_START_RECORD",
+      "ordinal": 5,
+      "command_id": 10005,
+      "raw_value_expression": "10005",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 43,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_STOP_RECORD",
+      "ordinal": 6,
+      "command_id": null,
+      "raw_value_expression": "IMediaPlayer.MEDIA_INFO_FIND_STREAM_INFO",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 44,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_EXP_MODE",
+      "ordinal": 7,
+      "command_id": 10007,
+      "raw_value_expression": "10007",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 45,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_EXP_MODE",
+      "ordinal": 8,
+      "command_id": null,
+      "raw_value_expression": "IMediaPlayer.MEDIA_INFO_VIDEO_SEEK_RENDERING_START",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 46,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_EXP",
+      "ordinal": 9,
+      "command_id": null,
+      "raw_value_expression": "IMediaPlayer.MEDIA_INFO_AUDIO_SEEK_RENDERING_START",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 47,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_EXP",
+      "ordinal": 10,
+      "command_id": 10010,
+      "raw_value_expression": "10010",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 48,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_GAIN_MODE",
+      "ordinal": 11,
+      "command_id": null,
+      "raw_value_expression": "RequestManager.NOTIFY_CONNECT_SUCCESS",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 49,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_GAIN_MODE",
+      "ordinal": 12,
+      "command_id": null,
+      "raw_value_expression": "RequestManager.NOTIFY_CONNECT_FAILED",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 50,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_GAIN",
+      "ordinal": 13,
+      "command_id": null,
+      "raw_value_expression": "RequestManager.NOTIFY_CONNECT_SUSPENDED",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 51,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_GAIN",
+      "ordinal": 14,
+      "command_id": 10014,
+      "raw_value_expression": "10014",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 52,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_BRIGHTNESS",
+      "ordinal": 15,
+      "command_id": 10015,
+      "raw_value_expression": "10015",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 53,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_BRIGHTNESS",
+      "ordinal": 16,
+      "command_id": 10016,
+      "raw_value_expression": "10016",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 54,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_CONTRAST",
+      "ordinal": 17,
+      "command_id": 10017,
+      "raw_value_expression": "10017",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 55,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_CONTRAST",
+      "ordinal": 18,
+      "command_id": 10018,
+      "raw_value_expression": "10018",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 56,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_SATURATION",
+      "ordinal": 19,
+      "command_id": 10019,
+      "raw_value_expression": "10019",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 57,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_SATURATION",
+      "ordinal": 20,
+      "command_id": 10020,
+      "raw_value_expression": "10020",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 58,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_HUE",
+      "ordinal": 21,
+      "command_id": 10021,
+      "raw_value_expression": "10021",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 59,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_HUE",
+      "ordinal": 22,
+      "command_id": 10022,
+      "raw_value_expression": "10022",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 60,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_SHARPNESS",
+      "ordinal": 23,
+      "command_id": 10023,
+      "raw_value_expression": "10023",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 61,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_SHARPNESS",
+      "ordinal": 24,
+      "command_id": 10024,
+      "raw_value_expression": "10024",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 62,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_WB_MODE",
+      "ordinal": 25,
+      "command_id": 10025,
+      "raw_value_expression": "10025",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 63,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_WB_MODE",
+      "ordinal": 26,
+      "command_id": 10026,
+      "raw_value_expression": "10026",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 64,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_WB_SCENE",
+      "ordinal": 27,
+      "command_id": 10027,
+      "raw_value_expression": "10027",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 65,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_WB_SCENE",
+      "ordinal": 28,
+      "command_id": 10028,
+      "raw_value_expression": "10028",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 66,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_WB_CT",
+      "ordinal": 29,
+      "command_id": 10029,
+      "raw_value_expression": "10029",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 67,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_WB_CT",
+      "ordinal": 30,
+      "command_id": 10030,
+      "raw_value_expression": "10030",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 68,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_IRCUT",
+      "ordinal": 31,
+      "command_id": 10031,
+      "raw_value_expression": "10031",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 69,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_IRCUT",
+      "ordinal": 32,
+      "command_id": 10032,
+      "raw_value_expression": "10032",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 70,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_START_TIMELAPSE_PHOTO",
+      "ordinal": 33,
+      "command_id": 10033,
+      "raw_value_expression": "10033",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 71,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO",
+      "ordinal": 34,
+      "command_id": 10034,
+      "raw_value_expression": "10034",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 72,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_ALL_PARAMS",
+      "ordinal": 35,
+      "command_id": 10035,
+      "raw_value_expression": "10035",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 73,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_ALL_PARAMS",
+      "ordinal": 36,
+      "command_id": 10036,
+      "raw_value_expression": "10036",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 74,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_FEATURE_PARAM",
+      "ordinal": 37,
+      "command_id": 10037,
+      "raw_value_expression": "10037",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 75,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_ALL_FEATURE_PARAMS",
+      "ordinal": 38,
+      "command_id": 10038,
+      "raw_value_expression": "10038",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 76,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE",
+      "ordinal": 39,
+      "command_id": 10039,
+      "raw_value_expression": "10039",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 77,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_JPG_QUALITY",
+      "ordinal": 40,
+      "command_id": 10040,
+      "raw_value_expression": "10040",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 78,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_PHOTO_RAW",
+      "ordinal": 41,
+      "command_id": 10041,
+      "raw_value_expression": "10041",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 79,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_RTSP_BITRATE_TYPE",
+      "ordinal": 42,
+      "command_id": 10042,
+      "raw_value_expression": "10042",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 80,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_DISABLE_ALL_ISP_PROCESSING",
+      "ordinal": 43,
+      "command_id": 10043,
+      "raw_value_expression": "10043",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 81,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_ENABLE_ALL_ISP_PROCESSING",
+      "ordinal": 44,
+      "command_id": 10044,
+      "raw_value_expression": "10044",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 82,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_ISP_MODULE_STATE",
+      "ordinal": 45,
+      "command_id": 10045,
+      "raw_value_expression": "10045",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 83,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_GET_ISP_MODULE_STATE",
+      "ordinal": 46,
+      "command_id": 10046,
+      "raw_value_expression": "10046",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 84,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SWITCH_RESOLUTION",
+      "ordinal": 47,
+      "command_id": 10047,
+      "raw_value_expression": "10047",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 85,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SWITCH_FRAMERATE",
+      "ordinal": 48,
+      "command_id": 10048,
+      "raw_value_expression": "10048",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 86,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SWITCH_CROP_RATIO",
+      "ordinal": 49,
+      "command_id": 10049,
+      "raw_value_expression": "10049",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 87,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_PREVIEW_QUALITY",
+      "ordinal": 50,
+      "command_id": 10050,
+      "raw_value_expression": "10050",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 88,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_TELE_SET_ND_FILTER",
+      "ordinal": 51,
+      "command_id": 10051,
+      "raw_value_expression": "10051",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 89,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_CALIBRATION",
+      "ordinal": 52,
+      "command_id": 11000,
+      "raw_value_expression": "11000",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 90,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_CALIBRATION",
+      "ordinal": 53,
+      "command_id": 11001,
+      "raw_value_expression": "11001",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 91,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_GOTO_DSO",
+      "ordinal": 54,
+      "command_id": 11002,
+      "raw_value_expression": "11002",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 92,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_GOTO_SOLAR_SYSTEM",
+      "ordinal": 55,
+      "command_id": 11003,
+      "raw_value_expression": "11003",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 93,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_GOTO",
+      "ordinal": 56,
+      "command_id": 11004,
+      "raw_value_expression": "11004",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsReqStopGoTo",
+          "protobuf_messages": [
+            "AstroProto.ReqStopGoto"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsReqStopGoTo.java",
+            "line": 18
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 94,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING",
+      "ordinal": 57,
+      "command_id": 11005,
+      "raw_value_expression": "11005",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 95,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING",
+      "ordinal": 58,
+      "command_id": 11006,
+      "raw_value_expression": "11006",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 96,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_CAPTURE_RAW_DARK",
+      "ordinal": 59,
+      "command_id": 11007,
+      "raw_value_expression": "11007",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 97,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_CAPTURE_RAW_DARK",
+      "ordinal": 60,
+      "command_id": 11008,
+      "raw_value_expression": "11008",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 98,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_CHECK_GOT_DARK",
+      "ordinal": 61,
+      "command_id": 11009,
+      "raw_value_expression": "11009",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 99,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_GO_LIVE",
+      "ordinal": 62,
+      "command_id": 11010,
+      "raw_value_expression": "11010",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 100,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_TRACK_SPECIAL_TARGET",
+      "ordinal": 63,
+      "command_id": 11011,
+      "raw_value_expression": "11011",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSunOrMoonStartTrackReq",
+          "protobuf_messages": [
+            "AstroProto.ReqTrackSpecialTarget"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSunOrMoonStartTrackReq.java",
+            "line": 28
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 101,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_TRACK_SPECIAL_TARGET",
+      "ordinal": 64,
+      "command_id": 11012,
+      "raw_value_expression": "11012",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSunOrMoonStopTrackReq",
+          "protobuf_messages": [
+            "AstroProto.ReqStopTrackSpecialTarget"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSunOrMoonStopTrackReq.java",
+            "line": 17
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 102,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_ONE_CLICK_GOTO_DSO",
+      "ordinal": 65,
+      "command_id": 11013,
+      "raw_value_expression": "11013",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 103,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_ONE_CLICK_GOTO_SOLAR_SYSTEM",
+      "ordinal": 66,
+      "command_id": 11014,
+      "raw_value_expression": "11014",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 104,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_ONE_CLICK_GOTO",
+      "ordinal": 67,
+      "command_id": 11015,
+      "raw_value_expression": "11015",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsStopAstroTrackingReq",
+          "protobuf_messages": [
+            "AstroProto.ReqStopOneClickGoto"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsStopAstroTrackingReq.java",
+            "line": 18
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 105,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING",
+      "ordinal": 68,
+      "command_id": 11016,
+      "raw_value_expression": "11016",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 106,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING",
+      "ordinal": 69,
+      "command_id": 11017,
+      "raw_value_expression": "11017",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 107,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_EQ_SOLVING",
+      "ordinal": 70,
+      "command_id": 11018,
+      "raw_value_expression": "11018",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 108,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_EQ_SOLVING",
+      "ordinal": 71,
+      "command_id": 11019,
+      "raw_value_expression": "11019",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 109,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_WIDE_GO_LIVE",
+      "ordinal": 72,
+      "command_id": 11020,
+      "raw_value_expression": "11020",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 110,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_CAPTURE_RAW_DARK_WITH_PARAM",
+      "ordinal": 73,
+      "command_id": 11021,
+      "raw_value_expression": "11021",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 111,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_CAPTURE_RAW_DARK_WITH_PARAM",
+      "ordinal": 74,
+      "command_id": 11022,
+      "raw_value_expression": "11022",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 112,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_GET_DARK_FRAME_LIST",
+      "ordinal": 75,
+      "command_id": 11023,
+      "raw_value_expression": "11023",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 113,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_DEL_DARK_FRAME_LIST",
+      "ordinal": 76,
+      "command_id": 11024,
+      "raw_value_expression": "11024",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 114,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_CAPTURE_WIDE_RAW_DARK_WITH_PARAM",
+      "ordinal": 77,
+      "command_id": 11025,
+      "raw_value_expression": "11025",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 115,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_CAPTURE_WIDE_RAW_DARK_WITH_PARAM",
+      "ordinal": 78,
+      "command_id": 11026,
+      "raw_value_expression": "11026",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 116,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_GET_WIDE_DARK_FRAME_LIST",
+      "ordinal": 79,
+      "command_id": 11027,
+      "raw_value_expression": "11027",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 117,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_DEL_WIDE_DARK_FRAME_LIST",
+      "ordinal": 80,
+      "command_id": 11028,
+      "raw_value_expression": "11028",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 118,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_AI_ENHANCE",
+      "ordinal": 81,
+      "command_id": 11029,
+      "raw_value_expression": "11029",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 119,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_AI_ENHANCE",
+      "ordinal": 82,
+      "command_id": 11030,
+      "raw_value_expression": "11030",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 120,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_TELE_MOSAIC",
+      "ordinal": 83,
+      "command_id": 11031,
+      "raw_value_expression": "11031",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 121,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_CHECK_IF_RESTACKABLE",
+      "ordinal": 84,
+      "command_id": 11032,
+      "raw_value_expression": "11032",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 122,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_MAKE_FITS_THUMB",
+      "ordinal": 85,
+      "command_id": 11033,
+      "raw_value_expression": "11033",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 123,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_MAKE_FITS_THUMB",
+      "ordinal": 86,
+      "command_id": 11034,
+      "raw_value_expression": "11034",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 124,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_RESTACKED",
+      "ordinal": 87,
+      "command_id": 11035,
+      "raw_value_expression": "11035",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 125,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_RESTACKED",
+      "ordinal": 88,
+      "command_id": 11036,
+      "raw_value_expression": "11036",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 126,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_FAST_STOP_CAPTURE_RAW_LIVE_STACKING",
+      "ordinal": 89,
+      "command_id": 11037,
+      "raw_value_expression": "11037",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 127,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_FAST_STOP_WIDE_CAPTURE_LIVE_STACKING",
+      "ordinal": 90,
+      "command_id": 11038,
+      "raw_value_expression": "11038",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 128,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_GET_ASTRO_SHOOTING_TIME",
+      "ordinal": 91,
+      "command_id": 11039,
+      "raw_value_expression": "11039",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 129,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_GET_QUICK_SET_LIST",
+      "ordinal": 92,
+      "command_id": 11040,
+      "raw_value_expression": "11040",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 130,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_SET_QUICK_SET",
+      "ordinal": 93,
+      "command_id": 11041,
+      "raw_value_expression": "11041",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 131,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_ONE_CLICK_SHOOTING",
+      "ordinal": 94,
+      "command_id": 11042,
+      "raw_value_expression": "11042",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsStartOneClickShooting",
+          "protobuf_messages": [
+            "AstroProto.ReqOneClickShooting"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsStartOneClickShooting.java",
+            "line": 32
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 132,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_GET_CALI_FRAME_LIST",
+      "ordinal": 95,
+      "command_id": 11043,
+      "raw_value_expression": "11043",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsMessageGetCaliFrameListReq",
+          "protobuf_messages": [
+            "AstroProto.ReqGetCaliFrameList"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsMessageGetCaliFrameListReq.java",
+            "line": 38
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 133,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_DEL_CALI_FRAME_LIST",
+      "ordinal": 96,
+      "command_id": 11044,
+      "raw_value_expression": "11044",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsDelCaliFrameListReq",
+          "protobuf_messages": [
+            "AstroProto.ReqDelCaliFrameList"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsDelCaliFrameListReq.java",
+            "line": 31
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 134,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_CAPTURE_CALI_FRAME",
+      "ordinal": 97,
+      "command_id": 11045,
+      "raw_value_expression": "11045",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsStartCaptureCaliFrameReq",
+          "protobuf_messages": [
+            "AstroProto.ReqCaptureCaliFrame"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsStartCaptureCaliFrameReq.java",
+            "line": 55
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 135,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_CAPTURE_CALI_FRAME",
+      "ordinal": 98,
+      "command_id": 11046,
+      "raw_value_expression": "11046",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsStopCaptureCaliFrameReq",
+          "protobuf_messages": [
+            "AstroProto.ReqStopCaptureCaliFrame"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsStopCaptureCaliFrameReq.java",
+            "line": 33
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 136,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_START_SKY_TARGET_FINDER",
+      "ordinal": 99,
+      "command_id": 11047,
+      "raw_value_expression": "11047",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsReqStartSkyTargetFinder",
+          "protobuf_messages": [
+            "AstroProto.ReqStartSkyTargetFinder"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsReqStartSkyTargetFinder.java",
+            "line": 30
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 137,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_STOP_SKY_TARGET_FINDER",
+      "ordinal": 100,
+      "command_id": 11048,
+      "raw_value_expression": "11048",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsReqStopSkyTargetFinder",
+          "protobuf_messages": [
+            "AstroProto.ReqStopSkyTargetFinder"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsReqStopSkyTargetFinder.java",
+            "line": 18
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 138,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_GET_GYRO_ATTITUDE",
+      "ordinal": 101,
+      "command_id": 11049,
+      "raw_value_expression": "11049",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 139,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ASTRO_CONTINUE_SHOOTING",
+      "ordinal": 102,
+      "command_id": 11050,
+      "raw_value_expression": "11050",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 140,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_CLOSE_CAMERA",
+      "ordinal": 104,
+      "command_id": 12001,
+      "raw_value_expression": "12001",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 142,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_EXP_MODE",
+      "ordinal": 105,
+      "command_id": 12002,
+      "raw_value_expression": "12002",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 143,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_GET_EXP_MODE",
+      "ordinal": 106,
+      "command_id": 12003,
+      "raw_value_expression": "12003",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 144,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_EXP",
+      "ordinal": 107,
+      "command_id": 12004,
+      "raw_value_expression": "12004",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 145,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_BRIGHTNESS",
+      "ordinal": 111,
+      "command_id": 12008,
+      "raw_value_expression": "12008",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 149,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_GET_BRIGHTNESS",
+      "ordinal": 112,
+      "command_id": 12009,
+      "raw_value_expression": "12009",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 150,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_CONTRAST",
+      "ordinal": 113,
+      "command_id": 12010,
+      "raw_value_expression": "12010",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 151,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_GET_CONTRAST",
+      "ordinal": 114,
+      "command_id": 12011,
+      "raw_value_expression": "12011",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 152,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_SATURATION",
+      "ordinal": 115,
+      "command_id": 12012,
+      "raw_value_expression": "12012",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 153,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_HUE",
+      "ordinal": 117,
+      "command_id": 12014,
+      "raw_value_expression": "12014",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 155,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_GET_HUE",
+      "ordinal": 118,
+      "command_id": 12015,
+      "raw_value_expression": "12015",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 156,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_SHARPNESS",
+      "ordinal": 119,
+      "command_id": 12016,
+      "raw_value_expression": "12016",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 157,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_WB_MODE",
+      "ordinal": 121,
+      "command_id": 12018,
+      "raw_value_expression": "12018",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 159,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_WB_CT",
+      "ordinal": 123,
+      "command_id": 12020,
+      "raw_value_expression": "12020",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 161,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_GET_WB_CT",
+      "ordinal": 124,
+      "command_id": 12021,
+      "raw_value_expression": "12021",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 162,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_PHOTOGRAPH",
+      "ordinal": 125,
+      "command_id": 12022,
+      "raw_value_expression": "12022",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 163,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_STOP_BURST",
+      "ordinal": 127,
+      "command_id": 12024,
+      "raw_value_expression": "12024",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 165,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_START_TIMELAPSE_PHOTO",
+      "ordinal": 128,
+      "command_id": 12025,
+      "raw_value_expression": "12025",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 166,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_PHOTO_RAW",
+      "ordinal": 132,
+      "command_id": 12029,
+      "raw_value_expression": "12029",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 170,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_START_RECORD",
+      "ordinal": 133,
+      "command_id": 12030,
+      "raw_value_expression": "12030",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 171,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_WIDE_SET_PREVIEW_QUALITY",
+      "ordinal": 137,
+      "command_id": 12036,
+      "raw_value_expression": "12036",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 175,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SYSTEM_SET_TIME_ZONE",
+      "ordinal": 140,
+      "command_id": 13001,
+      "raw_value_expression": "13001",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 178,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SYSTEM_SET_MTP_MODE",
+      "ordinal": 141,
+      "command_id": 13002,
+      "raw_value_expression": "13002",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 179,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SYSTEM_SET_CPU_MODE",
+      "ordinal": 142,
+      "command_id": 13003,
+      "raw_value_expression": "13003",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 180,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SYSTEM_SET_MASTER",
+      "ordinal": 143,
+      "command_id": 13004,
+      "raw_value_expression": "13004",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 181,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SYSTEM_DEVICE_ACTIVATE_WRITE_FILE",
+      "ordinal": 145,
+      "command_id": 13006,
+      "raw_value_expression": "13006",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 183,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SYSTEM_DEVICE_ACTIVATE_NOTIFY_ACTIVATE_SUCCESSFULL",
+      "ordinal": 146,
+      "command_id": 13007,
+      "raw_value_expression": "13007",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 184,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SYSTEM_FACTORY_TEST_UN_ACTIVATE",
+      "ordinal": 147,
+      "command_id": 13008,
+      "raw_value_expression": "13008",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 185,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SYSTEM_SET_LOCATION",
+      "ordinal": 149,
+      "command_id": 13010,
+      "raw_value_expression": "13010",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsReqSetLocation",
+          "protobuf_messages": [
+            "SystemProto.ReqSetLocation"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsReqSetLocation.java",
+            "line": 30
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 187,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_RGB_POWER_OPEN_RGB",
+      "ordinal": 150,
+      "command_id": 13500,
+      "raw_value_expression": "13500",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 188,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_RGB_POWER_CLOSE_RGB",
+      "ordinal": 151,
+      "command_id": 13501,
+      "raw_value_expression": "13501",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 189,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_RGB_POWER_POWER_DOWN",
+      "ordinal": 152,
+      "command_id": 13502,
+      "raw_value_expression": "13502",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 190,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_RGB_POWER_POWERIND_ON",
+      "ordinal": 153,
+      "command_id": 13503,
+      "raw_value_expression": "13503",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 191,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_RGB_POWER_POWERIND_OFF",
+      "ordinal": 154,
+      "command_id": 13504,
+      "raw_value_expression": "13504",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 192,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_RUN",
+      "ordinal": 156,
+      "command_id": 14000,
+      "raw_value_expression": "14000",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 194,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_STOP",
+      "ordinal": 157,
+      "command_id": 14002,
+      "raw_value_expression": "14002",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 195,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_SERVICE_JOYSTICK",
+      "ordinal": 158,
+      "command_id": 14006,
+      "raw_value_expression": "14006",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 196,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_SERVICE_JOYSTICK_FIXED_ANGLE",
+      "ordinal": 159,
+      "command_id": 14007,
+      "raw_value_expression": "14007",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 197,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP",
+      "ordinal": 160,
+      "command_id": 14008,
+      "raw_value_expression": "14008",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 198,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_SERVICE_DUAL_CAMERA_LINKAGE",
+      "ordinal": 161,
+      "command_id": 14009,
+      "raw_value_expression": "14009",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 199,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_RUN_IN_PULSE",
+      "ordinal": 162,
+      "command_id": 14010,
+      "raw_value_expression": "14010",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 200,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_GET_POSITION",
+      "ordinal": 163,
+      "command_id": 14011,
+      "raw_value_expression": "14011",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 201,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_START_ATTITUDE_NOTIFY",
+      "ordinal": 164,
+      "command_id": 14012,
+      "raw_value_expression": "14012",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 202,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_STOP_ATTITUDE_NOTIFY",
+      "ordinal": 165,
+      "command_id": 14013,
+      "raw_value_expression": "14013",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 203,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_LEVEL_CALIBRATION_MOVE",
+      "ordinal": 166,
+      "command_id": 14014,
+      "raw_value_expression": "14014",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsLevelCalibrationMoveReq",
+          "protobuf_messages": [
+            "MotorControlProto.ReqMotorLevelCalibrationMove"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsLevelCalibrationMoveReq.java",
+            "line": 28
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 204,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_SAVE_LEVEL_CALIBRATION_OFFSET",
+      "ordinal": 167,
+      "command_id": 14015,
+      "raw_value_expression": "14015",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsLevelCalibrationSaveReq",
+          "protobuf_messages": [
+            "MotorControlProto.ReqMotorLevelCalibrationSave"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsLevelCalibrationSaveReq.java",
+            "line": 18
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 205,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_STEP_MOTOR_RESET_LEVEL_CALIBRATION_DEFAULT",
+      "ordinal": 168,
+      "command_id": 14016,
+      "raw_value_expression": "14016",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsLevelCalibrationResetReq",
+          "protobuf_messages": [
+            "MotorControlProto.ReqMotorLevelCalibrationResetDefault"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsLevelCalibrationResetReq.java",
+            "line": 18
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 206,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_TRACK_START_TRACK",
+      "ordinal": 169,
+      "command_id": 14800,
+      "raw_value_expression": "14800",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 207,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_TRACK_STOP_TRACK",
+      "ordinal": 170,
+      "command_id": 14801,
+      "raw_value_expression": "14801",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 208,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SENTRY_MODE_START",
+      "ordinal": 171,
+      "command_id": 14802,
+      "raw_value_expression": "14802",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsStartSentryModeReq",
+          "protobuf_messages": [
+            "TrackProto.ReqStartSentryMode"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsStartSentryModeReq.java",
+            "line": 27
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 209,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_MOT_START",
+      "ordinal": 173,
+      "command_id": 14804,
+      "raw_value_expression": "14804",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 211,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_MOT_TRACK_ONE",
+      "ordinal": 174,
+      "command_id": 14805,
+      "raw_value_expression": "14805",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 212,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_UFOTRACK_MODE_START",
+      "ordinal": 175,
+      "command_id": 14806,
+      "raw_value_expression": "14806",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 213,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_UFOTRACK_MODE_STOP",
+      "ordinal": 176,
+      "command_id": 14807,
+      "raw_value_expression": "14807",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 214,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_MOT_WIDE_TRACK_ONE",
+      "ordinal": 177,
+      "command_id": 14808,
+      "raw_value_expression": "14808",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 215,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SWITCH_MAIN_PREVIEW",
+      "ordinal": 178,
+      "command_id": 14809,
+      "raw_value_expression": "14809",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 216,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_UFO_HAND_AOTO_MODE",
+      "ordinal": 179,
+      "command_id": 14810,
+      "raw_value_expression": "14810",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 217,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_TRACK_START_CLICK",
+      "ordinal": 181,
+      "command_id": 14812,
+      "raw_value_expression": "14812",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 219,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_FOCUS_AUTO_FOCUS",
+      "ordinal": 182,
+      "command_id": 15000,
+      "raw_value_expression": "15000",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 220,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_FOCUS_MANUAL_SINGLE_STEP_FOCUS",
+      "ordinal": 183,
+      "command_id": 15001,
+      "raw_value_expression": "15001",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 221,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_FOCUS_START_MANUAL_CONTINU_FOCUS",
+      "ordinal": 184,
+      "command_id": 15002,
+      "raw_value_expression": "15002",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 222,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS",
+      "ordinal": 185,
+      "command_id": 15003,
+      "raw_value_expression": "15003",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 223,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_FOCUS_START_ASTRO_AUTO_FOCUS",
+      "ordinal": 186,
+      "command_id": 15004,
+      "raw_value_expression": "15004",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 224,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS",
+      "ordinal": 187,
+      "command_id": 15005,
+      "raw_value_expression": "15005",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 225,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_WIDE_FOCUS_MANUAL_SINGLE_STEP_FOCUS",
+      "ordinal": 190,
+      "command_id": 15015,
+      "raw_value_expression": "15015",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 228,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_WIDE_FOCUS_START_MANUAL_CONTINU_FOCUS",
+      "ordinal": 191,
+      "command_id": 15016,
+      "raw_value_expression": "15016",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 229,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_WIDE_FOCUS_START_ASTRO_AUTO_FOCUS",
+      "ordinal": 193,
+      "command_id": 15018,
+      "raw_value_expression": "15018",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 231,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_WIDE_FOCUS_STOP_ASTRO_AUTO_FOCUS",
+      "ordinal": 194,
+      "command_id": 15019,
+      "raw_value_expression": "15019",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 232,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_WIDE_FOCUS_AUTO_INFINITY_FOCUS",
+      "ordinal": 195,
+      "command_id": 15020,
+      "raw_value_expression": "15020",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 233,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GUIDE_FOCUS_SET_USER_INFINITY_POS",
+      "ordinal": 196,
+      "command_id": 15027,
+      "raw_value_expression": "15027",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 234,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GUIDE_FOCUS_GET_USER_INFINITY_POS",
+      "ordinal": 197,
+      "command_id": 15028,
+      "raw_value_expression": "15028",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 235,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GUIDE_FOCUS_MANUAL_SINGLE_STEP_FOCUS",
+      "ordinal": 198,
+      "command_id": 15029,
+      "raw_value_expression": "15029",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 236,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GUIDE_FOCUS_START_MANUAL_CONTINU_FOCUS",
+      "ordinal": 199,
+      "command_id": 15030,
+      "raw_value_expression": "15030",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 237,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GUIDE_FOCUS_STOP_MANUAL_CONTINU_FOCUS",
+      "ordinal": 200,
+      "command_id": 15031,
+      "raw_value_expression": "15031",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 238,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_STOP",
+      "ordinal": 205,
+      "command_id": 15501,
+      "raw_value_expression": "15501",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 243,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_GET_CURRENT_UPLOAD_STATE",
+      "ordinal": 208,
+      "command_id": 15505,
+      "raw_value_expression": "15505",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 246,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_GET_UPLOAD_PREDICT",
+      "ordinal": 209,
+      "command_id": 15506,
+      "raw_value_expression": "15506",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsGetUploadPredictReq",
+          "protobuf_messages": [
+            "PanoramaProto.ReqGetUploadPredict"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsGetUploadPredictReq.java",
+            "line": 27
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 247,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_START_COMPRESS",
+      "ordinal": 210,
+      "command_id": 15507,
+      "raw_value_expression": "15507",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsReqPanoramaStartCompress",
+          "protobuf_messages": [
+            "PanoramaProto.ReqCompressPanorama"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsReqPanoramaStartCompress.java",
+            "line": 27
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 248,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_STOP_COMPRESS",
+      "ordinal": 211,
+      "command_id": 15508,
+      "raw_value_expression": "15508",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsReqPanoramaStopCompress",
+          "protobuf_messages": [
+            "PanoramaProto.ReqStopCompressPanorama"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsReqPanoramaStopCompress.java",
+            "line": 18
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 249,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_START_FRAMING",
+      "ordinal": 212,
+      "command_id": 15509,
+      "raw_value_expression": "15509",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 250,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_STOP_FRAMING",
+      "ordinal": 213,
+      "command_id": 15510,
+      "raw_value_expression": "15510",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 251,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_RESET_FRAMING",
+      "ordinal": 214,
+      "command_id": 15511,
+      "raw_value_expression": "15511",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 252,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_UPDATE_FRAMING_RECT",
+      "ordinal": 215,
+      "command_id": 15512,
+      "raw_value_expression": "15512",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 253,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PANORAMA_STOP_FRAMEING_AND_START_GRID",
+      "ordinal": 216,
+      "command_id": 15513,
+      "raw_value_expression": "15513",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 254,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_FOCUS_GET_USER_INFINITY_POS",
+      "ordinal": 217,
+      "command_id": 15011,
+      "raw_value_expression": "15011",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 255,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_FOCUS_SET_USER_INFINITY_POS",
+      "ordinal": 218,
+      "command_id": 15012,
+      "raw_value_expression": "15012",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 256,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TELE_WIDE_PICTURE_MATCHING",
+      "ordinal": 219,
+      "command_id": 15200,
+      "raw_value_expression": "15200",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 257,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_ELE",
+      "ordinal": 220,
+      "command_id": 15201,
+      "raw_value_expression": "15201",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 258,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_CHARGE",
+      "ordinal": 221,
+      "command_id": 15202,
+      "raw_value_expression": "15202",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 259,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_SDCARD_INFO",
+      "ordinal": 222,
+      "command_id": 15203,
+      "raw_value_expression": "15203",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 260,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TELE_RECORD_TIME",
+      "ordinal": 223,
+      "command_id": 15204,
+      "raw_value_expression": "15204",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 261,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TELE_TIMELAPSE_OUT_TIME",
+      "ordinal": 224,
+      "command_id": 15205,
+      "raw_value_expression": "15205",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 262,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_CAPTURE_RAW_DARK",
+      "ordinal": 225,
+      "command_id": 15206,
+      "raw_value_expression": "15206",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 263,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PROGRASS_CAPTURE_RAW_DARK",
+      "ordinal": 226,
+      "command_id": 15207,
+      "raw_value_expression": "15207",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 264,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING",
+      "ordinal": 227,
+      "command_id": 15208,
+      "raw_value_expression": "15208",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 265,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING",
+      "ordinal": 228,
+      "command_id": 15209,
+      "raw_value_expression": "15209",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 266,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_ASTRO_CALIBRATION",
+      "ordinal": 229,
+      "command_id": 15210,
+      "raw_value_expression": "15210",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 267,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_ASTRO_GOTO",
+      "ordinal": 230,
+      "command_id": 15211,
+      "raw_value_expression": "15211",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 268,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_ASTRO_TRACKING",
+      "ordinal": 231,
+      "command_id": 15212,
+      "raw_value_expression": "15212",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 269,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TELE_SET_PARAM",
+      "ordinal": 232,
+      "command_id": 15213,
+      "raw_value_expression": "15213",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 270,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WIDE_SET_PARAM",
+      "ordinal": 233,
+      "command_id": 15214,
+      "raw_value_expression": "15214",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 271,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TELE_FUNCTION_STATE",
+      "ordinal": 234,
+      "command_id": 15215,
+      "raw_value_expression": "15215",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 272,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WIDE_FUNCTION_STATE",
+      "ordinal": 235,
+      "command_id": 15216,
+      "raw_value_expression": "15216",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 273,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_SET_FEATURE_PARAM",
+      "ordinal": 236,
+      "command_id": 15217,
+      "raw_value_expression": "15217",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 274,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TELE_BURST_PROGRESS",
+      "ordinal": 237,
+      "command_id": 15218,
+      "raw_value_expression": "15218",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 275,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PANORAMA_PROGRESS",
+      "ordinal": 238,
+      "command_id": 15219,
+      "raw_value_expression": "15219",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 276,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WIDE_BURST_PROGRESS",
+      "ordinal": 239,
+      "command_id": 15220,
+      "raw_value_expression": "15220",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 277,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_POWER_IND_STATE",
+      "ordinal": 241,
+      "command_id": 15222,
+      "raw_value_expression": "15222",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 279,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WS_HOST_SLAVE_MODE",
+      "ordinal": 242,
+      "command_id": 15223,
+      "raw_value_expression": "15223",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 280,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_MTP_STATE",
+      "ordinal": 243,
+      "command_id": 15224,
+      "raw_value_expression": "15224",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 281,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WIDE_TIMELAPSE_OUT_TIME",
+      "ordinal": 245,
+      "command_id": 15226,
+      "raw_value_expression": "15226",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 283,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_CPU_MODE",
+      "ordinal": 246,
+      "command_id": 15227,
+      "raw_value_expression": "15227",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 284,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_ASTRO_TRACKING_SPECIAL",
+      "ordinal": 247,
+      "command_id": 15228,
+      "raw_value_expression": "15228",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 285,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_POWER_OFF",
+      "ordinal": 248,
+      "command_id": 15229,
+      "raw_value_expression": "15229",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 286,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_ALBUM_UPDATE",
+      "ordinal": 249,
+      "command_id": 15230,
+      "raw_value_expression": "15230",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 287,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_SENTRY_MODE_TRACK_RESULT",
+      "ordinal": 251,
+      "command_id": 15232,
+      "raw_value_expression": "15232",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 289,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_ASTRO_ONE_CLICK_GOTO",
+      "ordinal": 252,
+      "command_id": 15233,
+      "raw_value_expression": "15233",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 290,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STREAM_TYPE",
+      "ordinal": 253,
+      "command_id": 15234,
+      "raw_value_expression": "15234",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 291,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WIDE_RECORD_TIME",
+      "ordinal": 254,
+      "command_id": 15235,
+      "raw_value_expression": "15235",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 292,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING",
+      "ordinal": 255,
+      "command_id": 15236,
+      "raw_value_expression": "15236",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 293,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING",
+      "ordinal": 256,
+      "command_id": 15237,
+      "raw_value_expression": "15237",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 294,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_MULTI_TRACK_RESULT",
+      "ordinal": 257,
+      "command_id": 15238,
+      "raw_value_expression": "15238",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 295,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_EQ_SOLVING_STATE",
+      "ordinal": 258,
+      "command_id": 15239,
+      "raw_value_expression": "15239",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 296,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PANORAMA_UPLOAD_COMPRESS_PROGRESS",
+      "ordinal": 263,
+      "command_id": 15244,
+      "raw_value_expression": "15244",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 301,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PANORAMA_UPLOAD_COMPLETE",
+      "ordinal": 265,
+      "command_id": 15245,
+      "raw_value_expression": "15245",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 303,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_CAPTURE_WIDE_RAW_DARK",
+      "ordinal": 266,
+      "command_id": 15247,
+      "raw_value_expression": "15247",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 304,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_SHOOTING_SCHEDULE_RESULT_AND_STATE",
+      "ordinal": 267,
+      "command_id": 15248,
+      "raw_value_expression": "15248",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 305,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_SHOOTING_TASK_STATE",
+      "ordinal": 268,
+      "command_id": 15249,
+      "raw_value_expression": "15249",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 306,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_SKY_SEACHER_STATE",
+      "ordinal": 269,
+      "command_id": 15250,
+      "raw_value_expression": "15250",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 307,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WIDE_TRACK_RESULT",
+      "ordinal": 271,
+      "command_id": 15252,
+      "raw_value_expression": "15252",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 309,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_AI_ENHANCE",
+      "ordinal": 272,
+      "command_id": 15253,
+      "raw_value_expression": "15253",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 310,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PROGRESS_AI_ENHANCE",
+      "ordinal": 273,
+      "command_id": 15254,
+      "raw_value_expression": "15254",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 311,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WAIT_SHOOTING_PROGRESS",
+      "ordinal": 274,
+      "command_id": 15255,
+      "raw_value_expression": "15255",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 312,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_CALIBRATION_RESULT",
+      "ordinal": 275,
+      "command_id": 15256,
+      "raw_value_expression": "15256",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 313,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_FOCUS_POSITION",
+      "ordinal": 276,
+      "command_id": 15257,
+      "raw_value_expression": "15257",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 314,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_UFO_AUTO_HAND_MODE",
+      "ordinal": 277,
+      "command_id": 15258,
+      "raw_value_expression": "15258",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 315,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_CURRENT_PANORAMA_UPLOAD_STATE",
+      "ordinal": 278,
+      "command_id": 15259,
+      "raw_value_expression": "15259",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 316,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_LOW_TEMP_PROTECTION_MODE",
+      "ordinal": 279,
+      "command_id": 15260,
+      "raw_value_expression": "15260",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 317,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE",
+      "ordinal": 280,
+      "command_id": 15261,
+      "raw_value_expression": "15261",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 318,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_BODY_STATUS",
+      "ordinal": 281,
+      "command_id": 15262,
+      "raw_value_expression": "15262",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 319,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PROGRESS_CAPTURE_MOSAIC",
+      "ordinal": 282,
+      "command_id": 15263,
+      "raw_value_expression": "15263",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 320,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_GENERAL_INT_PARAM",
+      "ordinal": 283,
+      "command_id": 15264,
+      "raw_value_expression": "15264",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 321,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_GENERAL_FLOAT_PARAM",
+      "ordinal": 284,
+      "command_id": 15265,
+      "raw_value_expression": "15265",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 322,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_GENERAL_BOOL_PARAM",
+      "ordinal": 285,
+      "command_id": 15266,
+      "raw_value_expression": "15266",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 323,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_SWITCH_SHOOTING_MODE",
+      "ordinal": 286,
+      "command_id": 15267,
+      "raw_value_expression": "15267",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 324,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TELE_SWITCH_CROP_RATIO",
+      "ordinal": 287,
+      "command_id": 15268,
+      "raw_value_expression": "15268",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 325,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TELE_SHOOTING_TECH_STATE",
+      "ordinal": 288,
+      "command_id": 15269,
+      "raw_value_expression": "15269",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 326,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WB",
+      "ordinal": 289,
+      "command_id": 15270,
+      "raw_value_expression": "15270",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 327,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WIDE_SHOOTING_TECH_STATE",
+      "ordinal": 290,
+      "command_id": 15271,
+      "raw_value_expression": "15271",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 328,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_RESOLUTION_PARAM",
+      "ordinal": 291,
+      "command_id": 15272,
+      "raw_value_expression": "15272",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 329,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PHOTO_STATE",
+      "ordinal": 292,
+      "command_id": 15273,
+      "raw_value_expression": "15273",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 330,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_BURST_STATE",
+      "ordinal": 293,
+      "command_id": 15274,
+      "raw_value_expression": "15274",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 331,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_RECORD_STATE",
+      "ordinal": 294,
+      "command_id": 15275,
+      "raw_value_expression": "15275",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 332,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TIMELAPSE_STATE",
+      "ordinal": 295,
+      "command_id": 15276,
+      "raw_value_expression": "15276",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 333,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PANORAMA_STATE",
+      "ordinal": 296,
+      "command_id": 15277,
+      "raw_value_expression": "15277",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 334,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_ASTRO_AUTO_FOCUS_STATE",
+      "ordinal": 297,
+      "command_id": 15278,
+      "raw_value_expression": "15278",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 335,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_NORMAL_AUTO_FOCUS_STATE",
+      "ordinal": 298,
+      "command_id": 15279,
+      "raw_value_expression": "15279",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 336,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_ASTRO_AUTO_FOCUS_FAST_STATE",
+      "ordinal": 299,
+      "command_id": 15280,
+      "raw_value_expression": "15280",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 337,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_AREA_AUTO_FOCUS_STATE",
+      "ordinal": 300,
+      "command_id": 15281,
+      "raw_value_expression": "15281",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 338,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_DUAL_CAMERA_LINKAGE_STATE",
+      "ordinal": 301,
+      "command_id": 15282,
+      "raw_value_expression": "15282",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 339,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_RESOLUTION_FPS_STATE",
+      "ordinal": 302,
+      "command_id": 15283,
+      "raw_value_expression": "15283",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 340,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_NORMAL_TRACK_STATE",
+      "ordinal": 303,
+      "command_id": 15284,
+      "raw_value_expression": "15284",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 341,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_BURST_PROGRESS",
+      "ordinal": 304,
+      "command_id": 15285,
+      "raw_value_expression": "15285",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 342,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_RECORD_TIME",
+      "ordinal": 305,
+      "command_id": 15286,
+      "raw_value_expression": "15286",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 343,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_TIMELAPSE_OUT_TIME",
+      "ordinal": 306,
+      "command_id": 15287,
+      "raw_value_expression": "15287",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 344,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_LONG_EXP_PROGRESS",
+      "ordinal": 307,
+      "command_id": 15288,
+      "raw_value_expression": "15288",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 345,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_SENTRY_MOTOR_STATE",
+      "ordinal": 308,
+      "command_id": 15289,
+      "raw_value_expression": "15289",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 346,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_STATE_CAPTURE_CALI_FRAME",
+      "ordinal": 309,
+      "command_id": 15290,
+      "raw_value_expression": "15290",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 347,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PROGRESS_CAPTURE_CALI_FRAME",
+      "ordinal": 310,
+      "command_id": 15291,
+      "raw_value_expression": "15291",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 348,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_CMOS_TEMPERATURE",
+      "ordinal": 311,
+      "command_id": 15292,
+      "raw_value_expression": "15292",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 349,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PANORAMA_COMPRESS_PROGRESS",
+      "ordinal": 312,
+      "command_id": 15293,
+      "raw_value_expression": "15293",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 350,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_PANORAMA_COMPRESS_COMPLETE",
+      "ordinal": 313,
+      "command_id": 15294,
+      "raw_value_expression": "15294",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 351,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_SKY_TARGET_FINDER_STATE",
+      "ordinal": 314,
+      "command_id": 15296,
+      "raw_value_expression": "15296",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 352,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_DEVICE_ATTITUDE",
+      "ordinal": 315,
+      "command_id": 15295,
+      "raw_value_expression": "15295",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 353,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_WIDE_FOCUS_POSITION",
+      "ordinal": 319,
+      "command_id": 15300,
+      "raw_value_expression": "15300",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 357,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_LENS_DEFOG_STATE",
+      "ordinal": 320,
+      "command_id": 15301,
+      "raw_value_expression": "15301",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 358,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_AUTO_COOLING_STATE",
+      "ordinal": 321,
+      "command_id": 15302,
+      "raw_value_expression": "15302",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 359,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_AUTO_SHUTDOWN_STATE",
+      "ordinal": 322,
+      "command_id": 15303,
+      "raw_value_expression": "15303",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 360,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_ROLL_LEVEL_CALIBRATION_ANGLE",
+      "ordinal": 323,
+      "command_id": 15304,
+      "raw_value_expression": "15304",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 361,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_NOTIFY_GUIDE_FOCUS_POSITION",
+      "ordinal": 324,
+      "command_id": 15305,
+      "raw_value_expression": "15305",
+      "transport": "websocket",
+      "direction": "notification",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 362,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_ITIPS_GET",
+      "ordinal": 325,
+      "command_id": 15700,
+      "raw_value_expression": "15700",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 363,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_SYNC_SHOOTING_SCHEDULE",
+      "ordinal": 326,
+      "command_id": 16100,
+      "raw_value_expression": "16100",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 364,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CANCEL_SHOOTING_SCHEDULE",
+      "ordinal": 327,
+      "command_id": 16101,
+      "raw_value_expression": "16101",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 365,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GET_ALL_SHOOTING_SCHEDULE",
+      "ordinal": 328,
+      "command_id": 16102,
+      "raw_value_expression": "16102",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 366,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GET_SHOOTING_SCHEDULE_BY_ID",
+      "ordinal": 329,
+      "command_id": 16103,
+      "raw_value_expression": "16103",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 367,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_REPLACE_SHOOTING_SCHEDULE",
+      "ordinal": 330,
+      "command_id": 16105,
+      "raw_value_expression": "16105",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 368,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_UNLOCK_SHOOTING_SCHEDULE",
+      "ordinal": 331,
+      "command_id": 16106,
+      "raw_value_expression": "16106",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 369,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_LOCK_SHOOTING_SCHEDULE",
+      "ordinal": 332,
+      "command_id": 16107,
+      "raw_value_expression": "16107",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 370,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_DELETE_SHOOTING_SCHEDULE",
+      "ordinal": 333,
+      "command_id": 16108,
+      "raw_value_expression": "16108",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 371,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GLOBAL_TASK_MANAGER_START_TASK",
+      "ordinal": 334,
+      "command_id": 16400,
+      "raw_value_expression": "16400",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 372,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GLOBAL_TASK_MANAGER_STOP_TASK",
+      "ordinal": 335,
+      "command_id": 16401,
+      "raw_value_expression": "16401",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 373,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE",
+      "ordinal": 336,
+      "command_id": 16402,
+      "raw_value_expression": "16402",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsReqSwitchShootingMode",
+          "protobuf_messages": [
+            "TaskCenterProto.ReqSwitchShootingMode"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsReqSwitchShootingMode.java",
+            "line": 24
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 374,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH",
+      "ordinal": 337,
+      "command_id": 16403,
+      "raw_value_expression": "16403",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsReqSwitchShootingTech",
+          "protobuf_messages": [
+            "TaskCenterProto.ReqSwitchShootingTech"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsReqSwitchShootingTech.java",
+            "line": 24
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 375,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA",
+      "ordinal": 338,
+      "command_id": 16404,
+      "raw_value_expression": "16404",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsEnterCamReq",
+          "protobuf_messages": [
+            "TaskCenterProto.ClientParams",
+            "TaskCenterProto.ReqEnterCamera"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsEnterCamReq.java",
+            "line": 23
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 376,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO",
+      "ordinal": 339,
+      "command_id": 16405,
+      "raw_value_expression": "16405",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 377,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_GLOBAL_VOICE_ASSISTANT_TASK",
+      "ordinal": 340,
+      "command_id": 16406,
+      "raw_value_expression": "16406",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 378,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_VOICE_ASSISTANT_TASK",
+      "ordinal": 341,
+      "command_id": 16800,
+      "raw_value_expression": "16800",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsVoiceAssistantReq",
+          "protobuf_messages": [
+            "VoiceAssistantProto.ReqVoiceCommand"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsVoiceAssistantReq.java",
+            "line": 18
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 379,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PARAM_SET_EXPOSURE",
+      "ordinal": 342,
+      "command_id": 16700,
+      "raw_value_expression": "16700",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSetExposureParamReq",
+          "protobuf_messages": [
+            "ParamProto.ReqSetExposure"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetExposureParamReq.java",
+            "line": 28
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 380,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PARAM_SET_GAIN",
+      "ordinal": 343,
+      "command_id": 16701,
+      "raw_value_expression": "16701",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSetGainParamReq",
+          "protobuf_messages": [
+            "ParamProto.ReqSetExposure"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetGainParamReq.java",
+            "line": 28
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 381,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PARAM_SET_WB",
+      "ordinal": 344,
+      "command_id": 16702,
+      "raw_value_expression": "16702",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSetWBParamReq",
+          "protobuf_messages": [
+            "ParamProto.ReqSetExposure"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetWBParamReq.java",
+            "line": 30
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 382,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PARAM_SET_GENERAL_INT_PARAM",
+      "ordinal": 345,
+      "command_id": 16703,
+      "raw_value_expression": "16703",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSetEnumParamReq",
+          "protobuf_messages": [
+            "ParamProto.ReqSetGeneralIntParam"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetEnumParamReq.java",
+            "line": 28
+          }
+        },
+        {
+          "class": "WsSetGeneralIntParamReq",
+          "protobuf_messages": [
+            "ParamProto.ReqSetGeneralIntParam"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetGeneralIntParamReq.java",
+            "line": 28
+          }
+        },
+        {
+          "class": "WsUpdateGeneralIntParamReq",
+          "protobuf_messages": [
+            "ParamProto.ReqSetGeneralIntParam"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsUpdateGeneralIntParamReq.java",
+            "line": 26
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 383,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PARAM_SET_GENERAL_FLOAT_PARAM",
+      "ordinal": 346,
+      "command_id": 16704,
+      "raw_value_expression": "16704",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 384,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PARAM_SET_GENERAL_BOOL_PARAM",
+      "ordinal": 347,
+      "command_id": 16705,
+      "raw_value_expression": "16705",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSetBooleanParamWsMessageReq",
+          "protobuf_messages": [
+            "ParamProto.ReqSetGeneralBoolParams"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetBooleanParamWsMessageReq.java",
+            "line": 26
+          }
+        },
+        {
+          "class": "WsSetGeneralBooleanParamReq",
+          "protobuf_messages": [
+            "ParamProto.ReqSetGeneralBoolParams"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetGeneralBooleanParamReq.java",
+            "line": 28
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 385,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_PARAM_SET_AUTO_PARAMS",
+      "ordinal": 348,
+      "command_id": 16706,
+      "raw_value_expression": "16706",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSetAutoSetParamsReq",
+          "protobuf_messages": [
+            "ParamProto.ReqSetAutoParam"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetAutoSetParamsReq.java",
+            "line": 28
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 386,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_GUIDE_SET_EXP",
+      "ordinal": 349,
+      "command_id": 16900,
+      "raw_value_expression": "16900",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 387,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_GUIDE_GET_EXP",
+      "ordinal": 350,
+      "command_id": 16901,
+      "raw_value_expression": "16901",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 388,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_GUIDE_SET_GAIN",
+      "ordinal": 351,
+      "command_id": 16902,
+      "raw_value_expression": "16902",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 389,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_CAMERA_GUIDE_GET_GAIN",
+      "ordinal": 352,
+      "command_id": 16903,
+      "raw_value_expression": "16903",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 390,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_DEVICE_LENS_DEFOG",
+      "ordinal": 353,
+      "command_id": null,
+      "raw_value_expression": "FirebaseError.ERROR_INVALID_CUSTOM_TOKEN",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSetLensDefogReq",
+          "protobuf_messages": [
+            "DeviceProto.ReqLensDefog"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetLensDefogReq.java",
+            "line": 25
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 391,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_DEVICE_AUTO_COOLING",
+      "ordinal": 354,
+      "command_id": 17001,
+      "raw_value_expression": "17001",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSetAutoCoolingReq",
+          "protobuf_messages": [
+            "DeviceProto.ReqAutoCooling"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetAutoCoolingReq.java",
+            "line": 25
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 392,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CMD_DEVICE_AUTO_SHUTDOWN",
+      "ordinal": 355,
+      "command_id": null,
+      "raw_value_expression": "FirebaseError.ERROR_CUSTOM_TOKEN_MISMATCH",
+      "transport": "websocket",
+      "direction": "request",
+      "request_wrappers": [
+        {
+          "class": "WsSetAutoShutdownReq",
+          "protobuf_messages": [
+            "DeviceProto.ReqAutoShutdown"
+          ],
+          "evidence": {
+            "source": "com/convergence/dwarflab/data/bean/ws/request/WsSetAutoShutdownReq.java",
+            "line": 25
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "source": "com/convergence/dwarflab/data/bean/ws/WsCmd.java",
+          "line": 393,
+          "kind": "APK enum declaration"
+        }
+      ],
+      "confidence": "confirmed in app code"
+    }
+  ]
+}
