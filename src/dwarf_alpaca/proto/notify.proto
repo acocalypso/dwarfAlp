@@ -14,7 +14,7 @@ message AstroCalibrationState {
     int32 plate_solving_times = 2;
 }
 
-// Successful mount-calibration result: CMD 15256.
+// Successful V3 mount-calibration result for all DWARF models: CMD 15256.
 // Recovered from the DWARFLAB 3.4.1 embedded notify.proto descriptor.
 message CalibrationResult {
     double azi = 1;

@@ -252,8 +252,6 @@ class SettingsOverridesWidget(QGroupBox):
                 "force_simulation": self.force_sim_checkbox.isChecked(),
                 "calibrate_after_server_start": (
                     self.calibrate_after_start_checkbox.isChecked()
-                    if selected_model in {"dwarf3", "dwarfmini"}
-                    else False
                 ),
                 "timezone_name": timezone_name,
             }
@@ -288,17 +286,10 @@ class SettingsOverridesWidget(QGroupBox):
             self.ws_client_id_combo.setEditText(target_client_id)
 
     def _sync_calibration_availability(self) -> None:
-        model = normalize_dwarf_device_model(self.device_model_combo.currentData())
-        supported = model in {"dwarf3", "dwarfmini"}
-        self.calibrate_after_start_checkbox.setEnabled(supported)
-        if supported:
-            self.calibrate_after_start_checkbox.setToolTip(
-                "Run mount calibration after the server starts. This may move the telescope."
-            )
-        else:
-            self.calibrate_after_start_checkbox.setToolTip(
-                "Post-start calibration is not available for DWARF 2."
-            )
+        self.calibrate_after_start_checkbox.setEnabled(True)
+        self.calibrate_after_start_checkbox.setToolTip(
+            "Run V3 mount calibration after the server starts. This may move the telescope."
+        )
 
     def set_timezone_name(self, name: Optional[str]) -> None:
         if not isinstance(name, str) or not name.strip():

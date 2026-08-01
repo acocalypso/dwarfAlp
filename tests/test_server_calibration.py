@@ -23,7 +23,7 @@ class DummySession:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model", ["dwarf3", "dwarfmini"])
+@pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
 async def test_calibration_runs_after_start_for_supported_models(monkeypatch, model: str) -> None:
     session = DummySession()
 
@@ -45,7 +45,6 @@ async def test_calibration_runs_after_start_for_supported_models(monkeypatch, mo
 @pytest.mark.parametrize(
     "settings",
     [
-        Settings(dwarf_device_model="dwarf2", calibrate_after_server_start=True),
         Settings(dwarf_device_model="dwarf3", calibrate_after_server_start=False),
         Settings(
             dwarf_device_model="dwarfmini",
@@ -54,7 +53,7 @@ async def test_calibration_runs_after_start_for_supported_models(monkeypatch, mo
         ),
     ],
 )
-async def test_calibration_after_start_skips_unsupported_or_disabled_modes(
+async def test_calibration_after_start_skips_disabled_or_simulated_modes(
     monkeypatch, settings: Settings
 ) -> None:
     async def fail_get_session():

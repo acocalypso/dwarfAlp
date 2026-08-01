@@ -246,13 +246,18 @@ Settings may be supplied via env vars (`DWARF_ALPACA_*`), `.env`, or a YAML prof
 | `temperature_refresh_interval_seconds` | `5.0` | How often to poll DWARF temperature notifications. |
 | `ble_adapter` / `ble_password` | `None` | Defaults for provisioning workflows. |
 | `force_simulation` | `False` | Bypass hardware access and return simulated data. |
-| `auto_calibrate_on_slew` | `True` | Calibrate DWARF 3/mini before the first requested slew and retry one failed GOTO after recalibration. May move the telescope. |
-| `calibrate_after_server_start` | `False` | Opt-in post-start mount calibration for DWARF 3 and DWARF mini. May move the telescope. |
+| `auto_calibrate_on_slew` | `True` | Calibrate any V3 DWARF before the first requested slew and retry one failed GOTO after recalibration. May move the telescope. |
+| `calibrate_after_server_start` | `False` | Opt-in post-start V3 mount calibration for DWARF 2, DWARF 3, and DWARF mini. May move the telescope. |
+| `calibration_autofocus_timeout_seconds` | `120` | Maximum time to wait for the mandatory astronomical autofocus before calibration. |
+| `calibration_timeout_seconds` | `300` | Allows firmware calibration to make multiple plate-solving attempts in poor sky conditions. |
 
 The Control Center reports calibration progress received on notification `15210` and
-only reports a firmware-confirmed Mini success after notification `15256` supplies the
+only reports firmware-confirmed success after notification `15256` supplies the
 solved azimuth and altitude. Missing completion evidence is displayed and logged as
 `not confirmed`, while an explicit firmware error is displayed as `failed`.
+Every calibration first runs astronomical autofocus (`15004`) and waits for the shared
+V3 autofocus-complete notification (`15278` or `15280`, state `3`). The GUI displays
+the autofocus phase and the firmware's current plate-solving attempt count.
 
 See `config/profiles.yaml` for sample overlays.
 

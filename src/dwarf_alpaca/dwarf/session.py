@@ -80,6 +80,7 @@ from ..proto.dwarf_messages import (
     V3ResNotifyTemperature2,
     V3ResShootingModeSwitch,
 )
+from ..proto.focus_pb2 import ReqAstroAutoFocus
 from ..proto.notify_pb2 import AstroCalibrationState, CalibrationResult
 from ..proto.v3_astro_pb2 import (
     V3ReqGetAstroParams,
@@ -87,6 +88,7 @@ from ..proto.v3_astro_pb2 import (
     V3ResGetAstroParams,
     V3ResSetAstroParams,
 )
+from ..proto.v3_notify_pb2 import V3ResNotifyAutoFocusState
 from . import exposure
 from .ftp_client import DwarfFtpClient, FtpPhotoEntry
 from .http_client import DwarfHttpClient
@@ -503,6 +505,8 @@ class DwarfSession:
         self._last_calibration_time: float | None = None
         self._last_calibration_ip: str | None = None
         self._calibration_task = None  # type: asyncio.Task[None] | None
+        self._calibration_result_event = asyncio.Event()
+        self._autofocus_completion_event = asyncio.Event()
         self._calibration_status = "unknown"
         self._calibration_detail: str | None = None
         self._calibration_azimuth: float | None = None
@@ -993,6 +997,11 @@ class DwarfSession:
             self._handle_v3_camera_param_state_notification(packet)
         elif command_id == _CMD_NOTIFY_V3_MODE_CHANGE:
             self._handle_v3_mode_change_notification(packet)
+        elif command_id in {
+            protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE,
+            protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT,
+        }:
+            self._handle_v3_autofocus_state_notification(packet)
         elif command_id == _CMD_NOTIFY_V3_TEMPERATURE2:
             self._handle_v3_temperature2_notification(packet)
         elif command_id == _CMD_NOTIFY_V3_OBSERVATION_STATE:
@@ -1062,6 +1071,7 @@ class DwarfSession:
             f"Azimuth {self._calibration_azimuth:.2f}\N{DEGREE SIGN}, "
             f"altitude {self._calibration_altitude:.2f}\N{DEGREE SIGN}"
         )
+        self._calibration_result_event.set()
         logger.info(
             "dwarf.telescope.calibration.notification.result",
             outcome="successful",
@@ -1160,6 +1170,39 @@ class DwarfSession:
             return
         self._v3_mode_change = (changing, mode, sub_mode)
         self._v3_device_state_mode = mode
+
+    def _handle_v3_autofocus_state_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            logger.warning("dwarf.focus.autofocus.notification.empty")
+            return
+        message = V3ResNotifyAutoFocusState()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.warning(
+                "dwarf.focus.autofocus.notification.decode_failed",
+                command_id=getattr(packet, "cmd", None),
+                payload_hex=raw_data.hex(),
+                error=str(exc),
+            )
+            return
+        state_value = int(message.state)
+        state_name = {1: "running", 3: "completed"}.get(state_value, "unknown")
+        if state_value == 1:
+            self._calibration_status = "autofocusing"
+            self._calibration_detail = "Astronomical autofocus is running"
+        elif state_value == 3:
+            self._calibration_status = "autofocus completed"
+            self._calibration_detail = "Starting mount calibration"
+            self._autofocus_completion_event.set()
+        logger.info(
+            "dwarf.focus.autofocus.notification.state",
+            command_id=getattr(packet, "cmd", None),
+            state=state_name,
+            state_value=state_value,
+            payload_hex=raw_data.hex(),
+        )
 
     def _handle_v3_temperature2_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -1431,7 +1474,7 @@ class DwarfSession:
         expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
         suppress_timeout_warning: bool = False,
         close_ws_on_timeout: bool = True,
-    ) -> None:
+    ) -> Message:
         lock = self._get_ws_command_lock()
         async with lock:
             expected_summary = {
@@ -1448,7 +1491,7 @@ class DwarfSession:
                 expected_responses=expected_summary,
             )
             try:
-                await send_and_check(
+                response = await send_and_check(
                     self._ws_client,
                     module_id,
                     command_id,
@@ -1470,6 +1513,7 @@ class DwarfSession:
                 module_id=module_id,
                 command_id=command_id,
             )
+            return response
 
     async def _send_request(
         self,
@@ -1957,7 +2001,7 @@ class DwarfSession:
             await self.telescope_abort_slew()
             await asyncio.sleep(0.2)
             await self._halt_manual_motion()
-            if retry_after_calibration and self.profile.model_id != "dwarf2":
+            if retry_after_calibration:
                 self._last_calibration_time = None
                 self._last_calibration_ip = None
                 await self.ensure_calibration()
@@ -2239,29 +2283,83 @@ class DwarfSession:
                 error_type=type(exc).__name__,
             )
 
+    async def _autofocus_before_calibration(self) -> None:
+        timeout = max(
+            1.0, float(self.settings.calibration_autofocus_timeout_seconds)
+        )
+        deadline = time.monotonic() + timeout
+        self._autofocus_completion_event.clear()
+        self._calibration_status = "autofocusing"
+        self._calibration_detail = "Astronomical autofocus is starting"
+        request = ReqAstroAutoFocus(mode=1)
+        logger.info("dwarf.focus.autofocus.before_calibration.starting", timeout=timeout)
+        response = await self._send_and_check(
+            protocol_pb2.ModuleId.MODULE_FOCUS,
+            protocol_pb2.DwarfCMD.CMD_FOCUS_START_ASTRO_AUTO_FOCUS,
+            request,
+            timeout=timeout,
+            expected_responses={
+                (
+                    protocol_pb2.ModuleId.MODULE_NOTIFY,
+                    protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE,
+                ): V3ResNotifyAutoFocusState,
+                (
+                    protocol_pb2.ModuleId.MODULE_NOTIFY,
+                    protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT,
+                ): V3ResNotifyAutoFocusState,
+            },
+        )
+        # A normal command response is only an acknowledgement. Notification
+        # state=3 is the shared V3 evidence that autofocus actually completed.
+        # Older test doubles return None and represent a completed call.
+        completed_in_response = isinstance(
+            response, V3ResNotifyAutoFocusState
+        ) and int(response.state) == 3
+        if response is not None and not completed_in_response:
+            remaining = max(0.0, deadline - time.monotonic())
+            await asyncio.wait_for(
+                self._autofocus_completion_event.wait(), timeout=remaining
+            )
+        self._calibration_status = "autofocus completed"
+        self._calibration_detail = "Starting mount calibration"
+        logger.info("dwarf.focus.autofocus.before_calibration.completed")
+
     async def ensure_calibration(self) -> None:
         if self.simulation:
-            return
-        if self.profile.model_id == "dwarf2":
-            logger.info("dwarf.telescope.calibration.skipped_for_model", model="dwarf2")
             return
         if self._has_recent_calibration():
             return
         async with self._calibration_lock:
             if self._has_recent_calibration():
                 return
+            try:
+                await self._autofocus_before_calibration()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                self._calibration_status = "autofocus failed"
+                self._calibration_detail = str(exc) or type(exc).__name__
+                logger.warning(
+                    "dwarf.focus.autofocus.before_calibration.failed",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+                raise
             request = astro_pb2.ReqStartCalibration()
             self._calibration_status = "starting"
             self._calibration_detail = None
             self._calibration_azimuth = None
             self._calibration_altitude = None
+            self._calibration_result_event.clear()
             logger.info("dwarf.telescope.calibration.starting")
+            timeout = max(1.0, float(self.settings.calibration_timeout_seconds))
+            deadline = time.monotonic() + timeout
             try:
-                await self._send_and_check(
+                response = await self._send_and_check(
                     protocol_pb2.ModuleId.MODULE_ASTRO,
                     protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
                     request,
-                    timeout=max(1.0, float(self.settings.calibration_timeout_seconds)),
+                    timeout=timeout,
                     expected_responses={
                         (
                             protocol_pb2.ModuleId.MODULE_NOTIFY,
@@ -2269,6 +2367,14 @@ class DwarfSession:
                         ): CalibrationResult,
                     },
                 )
+                # A ComResponse only acknowledges command 11000. Every V3 model
+                # must still wait for the solved-coordinate result on 15256.
+                # Older test doubles return None and represent a completed call.
+                if response is not None and not isinstance(response, CalibrationResult):
+                    remaining = max(0.0, deadline - time.monotonic())
+                    await asyncio.wait_for(
+                        self._calibration_result_event.wait(), timeout=remaining
+                    )
             except asyncio.TimeoutError:
                 self._calibration_status = "not confirmed"
                 self._calibration_detail = "No completion notification before timeout"

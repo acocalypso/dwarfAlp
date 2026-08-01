@@ -12,11 +12,13 @@ from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
 from dwarf_alpaca.proto import protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import TYPE_NOTIFICATION, WsPacket
 from dwarf_alpaca.proto.notify_pb2 import AstroCalibrationState, CalibrationResult
+from dwarf_alpaca.proto.v3_notify_pb2 import V3ResNotifyAutoFocusState
 
 
 @pytest.mark.asyncio
-async def test_explicit_mini_calibration_uses_shared_v3_command() -> None:
-    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+@pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
+async def test_explicit_calibration_uses_shared_v3_command(model: str) -> None:
+    session = DwarfSession(Settings(dwarf_device_model=model))
     session.simulation = False
     calls: list[tuple[int, int]] = []
     captured_expected_responses = None
@@ -34,9 +36,13 @@ async def test_explicit_mini_calibration_uses_shared_v3_command() -> None:
 
     assert calls == [
         (
+            protocol_pb2.ModuleId.MODULE_FOCUS,
+            protocol_pb2.DwarfCMD.CMD_FOCUS_START_ASTRO_AUTO_FOCUS,
+        ),
+        (
             protocol_pb2.ModuleId.MODULE_ASTRO,
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
-        )
+        ),
     ]
     assert captured_expected_responses == {
         (
@@ -82,12 +88,39 @@ async def test_calibration_notifications_record_progress_and_success() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "command_id",
+    [
+        protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE,
+        protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT,
+    ],
+)
+async def test_autofocus_completion_notifications_are_shared_v3(command_id: int) -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarf2"))
+    session.simulation = False
+    notification = V3ResNotifyAutoFocusState(state=3)
+    packet = WsPacket(
+        module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
+        cmd=command_id,
+        type=TYPE_NOTIFICATION,
+        data=notification.SerializeToString(),
+    )
+
+    await session._handle_notification(packet)
+
+    assert session._autofocus_completion_event.is_set()
+    assert session.get_calibration_status()["status"] == "autofocus completed"
+
+
+@pytest.mark.asyncio
 async def test_calibration_timeout_is_not_reported_as_successful() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
 
-    async def timeout(self, *args, **kwargs):
-        raise TimeoutError
+    async def timeout(self, module_id, command_id, *args, **kwargs):
+        if command_id == protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION:
+            raise TimeoutError
+        return None
 
     session._send_and_check = types.MethodType(timeout, session)
 
@@ -103,7 +136,11 @@ def test_auto_calibration_is_enabled_for_requested_slews_by_default() -> None:
     settings = Settings()
 
     assert settings.auto_calibrate_on_slew is True
-    assert settings.calibration_wait_for_slew_seconds >= settings.calibration_timeout_seconds
+    assert settings.calibration_timeout_seconds >= 300.0
+    assert settings.calibration_wait_for_slew_seconds >= (
+        settings.calibration_autofocus_timeout_seconds
+        + settings.calibration_timeout_seconds
+    )
 
 
 @pytest.mark.asyncio

@@ -350,7 +350,7 @@ async def send_and_check(
     *,
     timeout: float = 10.0,
     expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
-) -> None:
+) -> Message:
     response = await client.send_command(
         module_id,
         command_id,
@@ -361,6 +361,7 @@ async def send_and_check(
     code = getattr(response, "code", 0)
     if code != 0:
         raise DwarfCommandError(module_id, command_id, code)
+    return response
 
 
 __all__ = [

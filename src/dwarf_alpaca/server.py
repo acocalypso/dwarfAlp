@@ -29,10 +29,6 @@ async def _calibrate_after_start(settings: Settings) -> None:
     model = normalize_dwarf_device_model(settings.dwarf_device_model)
     if settings.force_simulation or not settings.calibrate_after_server_start:
         return
-    if model not in {"dwarf3", "dwarfmini"}:
-        logger.warning("server.calibration_after_start_unsupported", model=model)
-        return
-
     session = None
     acquired = False
     try:

@@ -268,6 +268,7 @@ enum DwarfCMD {
     CMD_V3_NOTIFY_VIDEO_STATE = 15275; // V3: Video recording state
     CMD_V3_NOTIFY_TIMELAPSE_STATE = 15276; // V3: Timelapse state
     CMD_V3_NOTIFY_AUTOFOCUS_STATE = 15278; // V3: AutoFocus state
+    CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT = 15280; // V3: alternate AutoFocus state
     CMD_V3_NOTIFY_PHOTO_BURST_PROGRESS = 15285; // V3: Photo/burst progress
     CMD_V3_NOTIFY_VIDEO_PROGRESS = 15286; // V3: Video recording progress
     CMD_V3_NOTIFY_TIMELAPSE_PROGRESS = 15287; // V3: Timelapse progress

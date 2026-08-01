@@ -208,7 +208,7 @@ def test_settings_widget_can_select_dwarf_mini(qapp):
         window.close()
 
 
-@pytest.mark.parametrize("model", ["dwarf3", "dwarfmini"])
+@pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
 def test_post_start_calibration_option_is_available_for_supported_models(qapp, model):
     window = MainWindow()
     try:
@@ -225,7 +225,7 @@ def test_post_start_calibration_option_is_available_for_supported_models(qapp, m
         window.close()
 
 
-def test_post_start_calibration_option_is_disabled_for_dwarf2(qapp):
+def test_post_start_calibration_option_is_available_for_dwarf2(qapp):
     window = MainWindow()
     try:
         checkbox = window.settings_widget.calibrate_after_start_checkbox
@@ -233,9 +233,9 @@ def test_post_start_calibration_option_is_disabled_for_dwarf2(qapp):
         combo = window.settings_widget.device_model_combo
         combo.setCurrentIndex(combo.findData("dwarf2"))
 
-        assert not checkbox.isEnabled()
+        assert checkbox.isEnabled()
         settings = window._build_settings_for_server()
-        assert settings.calibrate_after_server_start is False
+        assert settings.calibrate_after_server_start is True
     finally:
         window.close()
 
