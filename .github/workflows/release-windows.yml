@@ -1,0 +1,131 @@
+name: Build and release Windows executable
+
+run-name: Release ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v0.1.0"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark this release as a pre-release"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Build and publish Windows release
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      MANUAL_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Validate release tag
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+            throw "Release tag '$env:RELEASE_TAG' must use a version such as v0.1.0 or v0.1.0-rc.1."
+          }
+
+      - name: Install locked dependencies
+        run: uv sync --extra development --locked
+
+      - name: Run lint checks
+        run: uv run ruff check src tests
+
+      - name: Run tests
+        run: uv run pytest -q -p no:cacheprovider
+
+      - name: Build executable
+        run: uv run pyinstaller --noconfirm --clean DwarfAlpacaGUI.spec
+
+      - name: Prepare release assets
+        id: assets
+        shell: pwsh
+        run: |
+          $assetDirectory = Join-Path $env:RUNNER_TEMP "release-assets"
+          New-Item -ItemType Directory -Path $assetDirectory -Force | Out-Null
+
+          $assetName = "DwarfAlpacaGUI-$env:RELEASE_TAG-windows-x64.exe"
+          $assetPath = Join-Path $assetDirectory $assetName
+          Copy-Item -LiteralPath "dist\DwarfAlpacaGUI.exe" -Destination $assetPath
+
+          $checksumPath = Join-Path $assetDirectory "SHA256SUMS.txt"
+          $hash = (Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $assetName" | Set-Content -LiteralPath $checksumPath -Encoding utf8
+
+          "directory=$assetDirectory" >> $env:GITHUB_OUTPUT
+          "executable=$assetPath" >> $env:GITHUB_OUTPUT
+          "checksum=$checksumPath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DwarfAlpacaGUI-${{ env.RELEASE_TAG }}-windows-x64
+          path: ${{ steps.assets.outputs.directory }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseTitle = "Dwarf Alpaca $env:RELEASE_TAG"
+          $isPrerelease = $env:MANUAL_PRERELEASE -eq "true" -or $env:RELEASE_TAG.Contains("-")
+          $releaseExists = $null -ne (gh release view $env:RELEASE_TAG 2>$null)
+
+          if ($releaseExists) {
+            gh release upload $env:RELEASE_TAG `
+              "${{ steps.assets.outputs.executable }}#Windows x64 executable" `
+              "${{ steps.assets.outputs.checksum }}#SHA-256 checksums" `
+              --clobber
+            exit $LASTEXITCODE
+          }
+
+          $arguments = @(
+            "release", "create", $env:RELEASE_TAG,
+            "${{ steps.assets.outputs.executable }}#Windows x64 executable",
+            "${{ steps.assets.outputs.checksum }}#SHA-256 checksums",
+            "--title", $releaseTitle,
+            "--generate-notes",
+            "--target", $env:GITHUB_SHA
+          )
+          if ($isPrerelease) {
+            $arguments += "--prerelease"
+          }
+
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
