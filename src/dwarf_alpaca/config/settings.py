@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     calibration_timeout_seconds: float = 60.0
     calibration_wait_for_slew_seconds: float = 10.0
     auto_calibrate_on_slew: bool = False
+    calibrate_after_server_start: bool = False
     focuser_target_tolerance_steps: int = 5
 
     ble_adapter: Optional[str] = None

@@ -169,6 +169,7 @@ class SettingsOverridesWidget(QGroupBox):
         self.ws_client_id_combo.setInsertPolicy(QComboBox.NoInsert)
         self.force_sim_checkbox = QCheckBox("Force simulation mode")
         self.skip_preflight_checkbox = QCheckBox("Skip connectivity preflight")
+        self.calibrate_after_start_checkbox = QCheckBox("Calibrate after server start")
         self.preflight_timeout_spin = QSpinBox()
         self.preflight_timeout_spin.setRange(5, 1800)
         self.preflight_timeout_spin.setSuffix(" s")
@@ -189,6 +190,7 @@ class SettingsOverridesWidget(QGroupBox):
             self.timezone_combo.addItem(tz, tz)
 
         self.device_model_combo.currentIndexChanged.connect(self._sync_client_id_for_selected_model)
+        self.device_model_combo.currentIndexChanged.connect(self._sync_calibration_availability)
 
         form.addRow("HTTP host", self.http_host_edit)
         form.addRow("HTTP port", self.http_port_spin)
@@ -197,6 +199,7 @@ class SettingsOverridesWidget(QGroupBox):
         form.addRow("WS client ID", self.ws_client_id_combo)
         form.addRow(self.force_sim_checkbox)
         form.addRow(self.skip_preflight_checkbox)
+        form.addRow(self.calibrate_after_start_checkbox)
         form.addRow("Preflight timeout", self.preflight_timeout_spin)
         form.addRow("Preflight interval", self.preflight_interval_spin)
         form.addRow("Timezone", self.timezone_combo)
@@ -217,6 +220,8 @@ class SettingsOverridesWidget(QGroupBox):
             self.ws_client_id_combo.setEditText(settings.dwarf_ws_client_id)
         self.force_sim_checkbox.setChecked(settings.force_simulation)
         self.skip_preflight_checkbox.setChecked(False)
+        self.calibrate_after_start_checkbox.setChecked(settings.calibrate_after_server_start)
+        self._sync_calibration_availability()
         self.preflight_timeout_spin.setValue(180)
         self.preflight_interval_spin.setValue(5)
         self.set_timezone_name(settings.timezone_name)
@@ -245,6 +250,11 @@ class SettingsOverridesWidget(QGroupBox):
                 "dwarf_device_model": selected_model,
                 "dwarf_ws_client_id": selected_client_id,
                 "force_simulation": self.force_sim_checkbox.isChecked(),
+                "calibrate_after_server_start": (
+                    self.calibrate_after_start_checkbox.isChecked()
+                    if selected_model in {"dwarf3", "dwarfmini"}
+                    else False
+                ),
                 "timezone_name": timezone_name,
             }
         )
@@ -276,6 +286,19 @@ class SettingsOverridesWidget(QGroupBox):
             self.ws_client_id_combo.setCurrentIndex(idx)
         else:
             self.ws_client_id_combo.setEditText(target_client_id)
+
+    def _sync_calibration_availability(self) -> None:
+        model = normalize_dwarf_device_model(self.device_model_combo.currentData())
+        supported = model in {"dwarf3", "dwarfmini"}
+        self.calibrate_after_start_checkbox.setEnabled(supported)
+        if supported:
+            self.calibrate_after_start_checkbox.setToolTip(
+                "Run mount calibration after the server starts. This may move the telescope."
+            )
+        else:
+            self.calibrate_after_start_checkbox.setToolTip(
+                "Post-start calibration is not available for DWARF 2."
+            )
 
     def set_timezone_name(self, name: Optional[str]) -> None:
         if not isinstance(name, str) or not name.strip():
@@ -591,7 +614,8 @@ class MainWindow(QMainWindow):
                 "Settings",
                 "<b>Settings tab</b><br/>Override server host/port, DWARF IP, and websocket client ID."
                 " Choose the correct DWARF model (DWARF 3, DWARF 2, or DWARF mini)"
-                " and adjust simulation/preflight controls before launch.",
+                " and adjust simulation, preflight, and optional post-start calibration controls"
+                " before launch.",
             ),
         }
         self._refresh_state()

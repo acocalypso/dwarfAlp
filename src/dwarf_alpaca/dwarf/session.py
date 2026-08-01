@@ -2079,8 +2079,8 @@ class DwarfSession:
     async def ensure_calibration(self) -> None:
         if self.simulation:
             return
-        if self._is_dwarf_mini():
-            logger.info("dwarf.telescope.calibration.skipped_for_mini")
+        if self.profile.model_id == "dwarf2":
+            logger.info("dwarf.telescope.calibration.skipped_for_model", model="dwarf2")
             return
         if self._has_recent_calibration():
             return

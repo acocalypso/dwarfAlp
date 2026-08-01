@@ -13,6 +13,29 @@ from dwarf_alpaca.proto import protocol_pb2
 
 
 @pytest.mark.asyncio
+async def test_explicit_mini_calibration_uses_shared_v3_command() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    calls: list[tuple[int, int]] = []
+
+    async def fake_send_and_check(
+        self, module_id, command_id, request, *, timeout=10.0, expected_responses=None
+    ):
+        calls.append((module_id, command_id))
+
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    await session.ensure_calibration()
+
+    assert calls == [
+        (
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_telescope_slew_retries_after_busy(monkeypatch):
     settings = Settings()
     settings.auto_calibrate_on_slew = True

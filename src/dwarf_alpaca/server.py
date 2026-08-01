@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager, suppress
 
 import structlog
 import uvicorn
@@ -10,7 +11,7 @@ from fastapi import FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from .config.settings import Settings
+from .config.settings import Settings, normalize_dwarf_device_model
 from .device_profile import configure_device_profile, get_device_profile
 from .devices.camera import router as camera_router
 from .devices.filterwheel import preload_filters
@@ -18,10 +19,41 @@ from .devices.filterwheel import router as filterwheel_router
 from .devices.focuser import router as focuser_router
 from .devices.telescope import router as telescope_router
 from .discovery import DiscoveryService
-from .dwarf.session import configure_session, shutdown_session
+from .dwarf.session import configure_session, get_session, shutdown_session
 from .management.router import router as management_router
 
 logger = structlog.get_logger(__name__)
+
+
+async def _calibrate_after_start(settings: Settings) -> None:
+    model = normalize_dwarf_device_model(settings.dwarf_device_model)
+    if settings.force_simulation or not settings.calibrate_after_server_start:
+        return
+    if model not in {"dwarf3", "dwarfmini"}:
+        logger.warning("server.calibration_after_start_unsupported", model=model)
+        return
+
+    session = None
+    acquired = False
+    try:
+        session = await get_session()
+        await session.acquire("telescope")
+        acquired = True
+        logger.info("server.calibration_after_start.begin", model=model)
+        await session.ensure_calibration()
+        logger.info("server.calibration_after_start.completed", model=model)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # pragma: no cover - hardware dependent
+        logger.warning(
+            "server.calibration_after_start.failed",
+            model=model,
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+    finally:
+        if session is not None and acquired:
+            await session.release("telescope")
 
 
 class AccessLogMiddleware(BaseHTTPMiddleware):
@@ -74,9 +106,16 @@ def build_app(settings: Settings) -> FastAPI:
     @asynccontextmanager
     async def _lifespan(app: FastAPI):
         await preload_filters()
+        calibration_task: asyncio.Task[None] | None = None
+        if settings.calibrate_after_server_start:
+            calibration_task = asyncio.create_task(_calibrate_after_start(settings))
         try:
             yield
         finally:
+            if calibration_task and not calibration_task.done():
+                calibration_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await calibration_task
             await shutdown_session()
 
     app = FastAPI(
