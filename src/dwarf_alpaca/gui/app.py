@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import structlog
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
@@ -53,6 +54,28 @@ logger = logging.getLogger(__name__)
 
 
 APP_ICON_PATH = Path(__file__).resolve().parents[3] / "images" / "dwarfalplogo.ico"
+
+
+def _configure_gui_structlog() -> None:
+    """Route structured logs through stdlib in windowed/frozen applications.
+
+    PyInstaller's ``--windowed`` bootloader sets ``sys.stdout`` and
+    ``sys.stderr`` to ``None``. Structlog's default print logger cannot create
+    its per-stream weak-reference lock for ``None``, so background-task cleanup
+    would otherwise fail while trying to log.
+    """
+
+    structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.stdlib.add_log_level,
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.JSONRenderer(),
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+    )
 
 
 def _load_timezone_choices() -> list[str]:
@@ -830,11 +853,24 @@ class MainWindow(QMainWindow):
         self._handle_worker_error(exc, "Wi-Fi scan failed")
 
     def _handle_provision(self, payload: dict) -> None:
+        if not str(payload.get("device_address") or "").strip():
+            self.provisioning_widget.show_status(
+                "Select a discovered DWARF device before provisioning Wi-Fi"
+            )
+            return
+        if not str(payload.get("ssid") or "").strip():
+            self.provisioning_widget.show_status(
+                "Select or enter a Wi-Fi network before provisioning"
+            )
+            return
+        if not str(payload.get("password") or ""):
+            self.provisioning_widget.show_status(
+                "Enter the Wi-Fi password before provisioning"
+            )
+            return
         worker = AsyncWorker(lambda: self._provision(payload))
         worker.finished_success.connect(lambda _: self._on_provision_success())
-        worker.finished_error.connect(
-            lambda exc: self._handle_worker_error(exc, "Provisioning failed")
-        )
+        worker.finished_error.connect(self._on_provision_error)
         self.provisioning_widget.show_status("Provisioning in progress…")
         self._start_worker(worker)
 
@@ -853,6 +889,10 @@ class MainWindow(QMainWindow):
         self.provisioning_widget.show_status("Provisioning succeeded")
         self._refresh_state()
 
+    def _on_provision_error(self, exc: Exception) -> None:
+        self.provisioning_widget.show_status(f"Provisioning failed: {exc}")
+        self._handle_worker_error(exc, "Provisioning failed")
+
     # endregion
 
     # region server control
@@ -860,33 +900,17 @@ class MainWindow(QMainWindow):
         if self.server_service.is_running():
             QMessageBox.information(self, "Server", "Server is already running")
             return
-        device_address = self.provisioning_widget.device_address_edit.text().strip()
-        if not device_address:
-            self.provisioning_widget.show_status(
-                "Device address is required before starting the server"
-            )
-            QMessageBox.warning(
-                self, "Server", "Please select or enter a device address before starting."
-            )
-            self.provisioning_widget.device_address_edit.setFocus()
-            return
         settings = self._build_settings_for_server()
         skip_preflight = self.settings_widget.skip_preflight_checkbox.isChecked()
         self._pending_start = (settings, skip_preflight)
-        provisioning_payload = self._build_provisioning_payload()
-        if provisioning_payload:
-            self.server_widget.set_busy("Provisioning before start…")
-            worker = AsyncWorker(lambda: self._provision(provisioning_payload))
-            worker.finished_success.connect(self._on_prestart_provision_success)
-            worker.finished_error.connect(self._on_prestart_provision_error)
-            self._start_worker(worker)
-        else:
-            self.provisioning_widget.show_status("Skipping provisioning (no credentials provided)")
-            self._continue_start_after_provision()
+        # Starting against an already reachable STA/AP address must not trigger
+        # BLE provisioning. Provisioning is an explicit action on its own tab.
+        self._continue_start_after_provision()
 
     def _build_settings_for_server(self) -> Settings:
         base = self._current_settings()
         override = self.settings_widget.apply(base)
+        entered_ip = self.settings_widget.dwarf_ip_edit.text().strip()
         store = self._state_store
         if store is None:
             store = create_state_store(override.state_directory)
@@ -901,7 +925,7 @@ class MainWindow(QMainWindow):
             if detected_mode in ("", "unknown"):
                 detected_mode = "sta" if state.sta_ip else "ap"
             override.network_mode = detected_mode
-            if state.sta_ip:
+            if state.sta_ip and not entered_ip:
                 override.dwarf_ap_ip = state.sta_ip
                 self.settings_widget.dwarf_ip_edit.setText(state.sta_ip)
             needs_save = False
@@ -957,6 +981,7 @@ class MainWindow(QMainWindow):
 def main() -> None:
     import sys
 
+    _configure_gui_structlog()
     app = QApplication(sys.argv)
     icon = _load_app_icon()
     if not icon.isNull():

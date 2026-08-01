@@ -2294,6 +2294,7 @@ class DwarfSession:
             raise CaptureBusyError("capture_already_in_progress")
         mini_profile = self._is_dwarf_mini()
         state.capture_id = uuid.uuid4().hex
+        capture_id = state.capture_id
         state.capture_phase = CapturePhase.CONFIGURING
         state.capture_start_monotonic = time.monotonic()
         state.duration = duration
@@ -2432,6 +2433,15 @@ class DwarfSession:
         state.capture_phase = CapturePhase.STARTING
         await self._refresh_capture_baseline(capture_kind=state.capture_mode)
 
+        if state.capture_id != capture_id or state.capture_phase != CapturePhase.STARTING:
+            logger.info(
+                "dwarf.camera.astro_capture_start_cancelled",
+                capture_id=capture_id,
+                active_capture_id=state.capture_id,
+                capture_phase=state.capture_phase.value,
+            )
+            return
+
         astro_code = protocol_pb2.OK
         try:
             astro_code = await self._start_astro_capture(timeout=command_timeout)
@@ -2445,12 +2455,22 @@ class DwarfSession:
             state.last_error = "timeout"
             raise
 
+        if state.capture_id != capture_id or state.capture_phase != CapturePhase.STARTING:
+            logger.info(
+                "dwarf.camera.astro_capture_started_then_aborted",
+                capture_id=capture_id,
+                active_capture_id=state.capture_id,
+                capture_phase=state.capture_phase.value,
+            )
+            return
+
         if astro_code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
             logger.warning(
-                "dwarf.camera.astro_capture_goto_response",
+                "dwarf.camera.astro_capture_goto_warning_ignored",
                 duration=duration,
                 light=light,
                 goto_target=self._last_goto_target,
+                code=astro_code,
             )
 
         state.last_error = None
@@ -2470,6 +2490,7 @@ class DwarfSession:
         state = self.camera_state
         if not self.simulation and state.capture_mode != "astro":
             raise CaptureConfigurationError("abort_not_supported_for_photo_workflow")
+        state.capture_id = None
         state.capture_phase = CapturePhase.ABORTING
         if not self.simulation:
             await self._stop_astro_capture(strict=True)
@@ -3687,7 +3708,13 @@ class DwarfSession:
                 raise CaptureConfigurationError("No valid DWARF mini imaging filter is selected")
             option = options[position]
             request.ir_index = int(option.index)
-            request.force_start = False
+            request.force_start = not self._has_recent_goto()
+            logger.info(
+                "dwarf.camera.astro_capture_start_options",
+                filter=option.label,
+                ir_index=request.ir_index,
+                force_start=request.force_start,
+            )
         evidence_before = self._capture_evidence_snapshot()
         self._capture_start_evidence_event.clear()
         try:
@@ -3733,11 +3760,14 @@ class DwarfSession:
 
         if code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
             logger.warning(
-                "dwarf.camera.astro_capture_goto_ignored",
+                "dwarf.camera.astro_capture_goto_warning",
                 module_id=protocol_pb2.ModuleId.MODULE_ASTRO,
                 command_id=protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
                 code=code,
+                non_fatal=True,
             )
+            if self._is_dwarf_mini():
+                self.camera_state.applied_filter_name = option.label
             return code
 
         if code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
@@ -4176,11 +4206,16 @@ class DwarfSession:
         )
 
     async def _refresh_capture_baseline(self, *, capture_kind: str) -> None:
-        await self._refresh_ftp_baseline(capture_kind=capture_kind)
+        state = self.camera_state
         if capture_kind == "photo":
+            await self._refresh_ftp_baseline(capture_kind=capture_kind)
             await self._refresh_album_baseline()
         else:
-            state = self.camera_state
+            # Walking every astronomy directory over FTP can take longer than
+            # NINA's 10-second StartExposure timeout. Astro retrieval already
+            # rejects files older than last_start_time, so the cached entry is
+            # a sufficient stale-file guard and keeps StartExposure responsive.
+            state.pending_ftp_baseline = state.last_ftp_entry
             state.pending_album_baseline = state.last_album_mod_time
 
     async def _refresh_ftp_baseline(self, *, capture_kind: str) -> None:

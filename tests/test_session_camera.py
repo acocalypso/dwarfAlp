@@ -105,8 +105,92 @@ async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
     request = captured["request"]
     assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
     assert request.ir_index == 2
-    assert request.force_start is False
+    assert request.force_start is True
     assert session.camera_state.applied_filter_name == "Duo-Band"
+
+
+@pytest.mark.asyncio
+async def test_mini_astro_start_does_not_force_after_recent_goto(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    captured: dict[str, object] = {}
+
+    async def fake_send_command(_module_id, _command_id, request, **_kwargs):
+        captured["request"] = astro_pb2.ReqCaptureRawLiveStacking.FromString(
+            request.SerializeToString()
+        )
+        response = ComResponse()
+        response.code = protocol_pb2.OK
+        return response
+
+    monkeypatch.setattr(session, "_send_command", fake_send_command)
+    monkeypatch.setattr(session, "_has_recent_goto", lambda: True)
+
+    await session._start_astro_capture(timeout=5.0)
+
+    request = captured["request"]
+    assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
+    assert request.force_start is False
+
+
+@pytest.mark.asyncio
+async def test_astro_baseline_does_not_scan_ftp(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    async def fail_scan(*_args, **_kwargs):
+        raise AssertionError("astro StartExposure must not block on an FTP scan")
+
+    monkeypatch.setattr(type(session._ftp_client), "get_latest_photo_entry", fail_scan)
+
+    await session._refresh_capture_baseline(capture_kind="astro")
+
+    assert session.camera_state.pending_ftp_baseline is None
+
+
+@pytest.mark.asyncio
+async def test_abort_during_configuration_prevents_late_capture_start(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    state = session.camera_state
+    baseline_entered = asyncio.Event()
+    release_baseline = asyncio.Event()
+    starts: list[bool] = []
+
+    async def noop(*_args, **_kwargs):
+        return None
+
+    async def ensure_dark(*_args, **_kwargs):
+        return True
+
+    async def blocking_baseline(*_args, **_kwargs):
+        baseline_entered.set()
+        await release_baseline.wait()
+
+    async def fake_start(*, timeout: float):
+        starts.append(True)
+        return protocol_pb2.OK
+
+    monkeypatch.setattr(session, "_ensure_ws", noop)
+    monkeypatch.setattr(session, "_ensure_exposure_settings", noop)
+    monkeypatch.setattr(session, "_ensure_gain_settings", noop)
+    monkeypatch.setattr(session, "_ensure_selected_filter", noop)
+    monkeypatch.setattr(session, "_astro_go_live", noop)
+    monkeypatch.setattr(session, "_ensure_dark_library", ensure_dark)
+    monkeypatch.setattr(session, "_configure_astro_capture", noop)
+    monkeypatch.setattr(session, "_refresh_capture_baseline", blocking_baseline)
+    monkeypatch.setattr(session, "_start_astro_capture", fake_start)
+    monkeypatch.setattr(session, "_stop_astro_capture", noop)
+
+    start_task = asyncio.create_task(session.camera_start_exposure(1.0, True))
+    await baseline_entered.wait()
+    await session.camera_abort_exposure()
+    release_baseline.set()
+    await start_task
+
+    assert starts == []
+    assert state.capture_id is None
+    assert state.capture_phase == CapturePhase.IDLE
 
 
 def test_jpeg_decode_preserves_eight_bit_color_planes():
@@ -304,7 +388,7 @@ async def test_camera_start_exposure_simulation_can_use_photo_mode_for_mini():
 
 
 @pytest.mark.asyncio
-async def test_camera_start_exposure_requires_goto(monkeypatch):
+async def test_camera_start_exposure_accepts_nonfatal_need_goto_warning(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
     session.simulation = False
     state = session.camera_state
