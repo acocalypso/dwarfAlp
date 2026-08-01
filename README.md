@@ -257,6 +257,10 @@ The Control Center reports calibration progress received on notification `15210`
 only reports firmware-confirmed success after notification `15256` supplies the
 solved azimuth and altitude. Missing completion evidence is displayed and logged as
 `not confirmed`, while an explicit firmware error is displayed as `failed`.
+While command `11000` is active, the driver also writes a chronological calibration
+trace for every incoming notification. Trace entries include elapsed time, sequence,
+module/command names and IDs, packet type, payload length, and bounded payload hex;
+the final entry records total duration, notification count, status, and error.
 Every calibration first runs astronomical autofocus (`15004`) and waits for the shared
 V3 autofocus-complete notification (`15278` or `15280`, state `3`). The GUI displays
 the autofocus phase and the firmware's current plate-solving attempt count.

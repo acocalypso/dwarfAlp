@@ -97,6 +97,26 @@ async def test_calibration_notifications_record_progress_and_success() -> None:
 
 
 @pytest.mark.asyncio
+async def test_calibration_trace_counts_known_and_unknown_notifications() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    session._begin_calibration_trace(latitude=48.1372, longitude=11.5756)
+
+    unknown_packet = WsPacket(
+        module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
+        cmd=15999,
+        type=TYPE_NOTIFICATION,
+        data=b"\x08\x01",
+    )
+    await session._handle_notification(unknown_packet)
+
+    assert session._calibration_trace_notifications == 1
+    assert session._calibration_trace_started is not None
+    session._finish_calibration_trace(outcome="test")
+    assert session._calibration_trace_started is None
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "command_id",
     [

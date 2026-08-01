@@ -513,6 +513,9 @@ class DwarfSession:
         self._calibration_detail: str | None = None
         self._calibration_azimuth: float | None = None
         self._calibration_altitude: float | None = None
+        self._calibration_trace_started: float | None = None
+        self._calibration_trace_last_state: float | None = None
+        self._calibration_trace_notifications = 0
 
     @property
     def is_simulated(self) -> bool:
@@ -1019,6 +1022,7 @@ class DwarfSession:
         )
 
     async def _handle_notification(self, packet: Message) -> None:
+        self._trace_calibration_notification(packet)
         module_id = getattr(packet, "module_id", None)
         if module_id != protocol_pb2.ModuleId.MODULE_NOTIFY:
             return
@@ -1057,6 +1061,66 @@ class DwarfSession:
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_ELE:
             self._handle_battery_notification(packet)
 
+    @staticmethod
+    def _enum_name(enum_wrapper: Any, value: int) -> str:
+        try:
+            return str(enum_wrapper.Name(value))
+        except (KeyError, ValueError):
+            return "UNKNOWN"
+
+    def _trace_calibration_notification(self, packet: Message) -> None:
+        started = self._calibration_trace_started
+        if started is None:
+            return
+        self._calibration_trace_notifications += 1
+        module_id = int(getattr(packet, "module_id", 0))
+        command_id = int(getattr(packet, "cmd", 0))
+        packet_type = int(getattr(packet, "type", 0))
+        raw_data = bytes(getattr(packet, "data", b"") or b"")
+        logged_data = raw_data[:512]
+        logger.info(
+            "dwarf.telescope.calibration.trace.notification",
+            sequence=self._calibration_trace_notifications,
+            elapsed_seconds=round(time.monotonic() - started, 3),
+            module_id=module_id,
+            module_name=self._enum_name(protocol_pb2.ModuleId, module_id),
+            command_id=command_id,
+            command_name=self._enum_name(protocol_pb2.DwarfCMD, command_id),
+            packet_type=packet_type,
+            payload_length=len(raw_data),
+            payload_hex=logged_data.hex(),
+            payload_truncated=len(logged_data) != len(raw_data),
+        )
+
+    def _begin_calibration_trace(self, *, latitude: float, longitude: float) -> None:
+        self._calibration_trace_started = time.monotonic()
+        self._calibration_trace_last_state = None
+        self._calibration_trace_notifications = 0
+        logger.info(
+            "dwarf.telescope.calibration.trace.started",
+            latitude=latitude,
+            longitude=longitude,
+        )
+
+    def _finish_calibration_trace(
+        self, *, outcome: str, error: BaseException | None = None
+    ) -> None:
+        started = self._calibration_trace_started
+        if started is None:
+            return
+        logger.info(
+            "dwarf.telescope.calibration.trace.finished",
+            outcome=outcome,
+            elapsed_seconds=round(time.monotonic() - started, 3),
+            notification_count=self._calibration_trace_notifications,
+            final_status=self._calibration_status,
+            final_detail=self._calibration_detail,
+            error=None if error is None else str(error),
+            error_type=None if error is None else type(error).__name__,
+        )
+        self._calibration_trace_started = None
+        self._calibration_trace_last_state = None
+
     def _handle_calibration_state_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
         if not raw_data:
@@ -1082,6 +1146,10 @@ class DwarfSession:
             4: "plate solving",
         }.get(state_value, "unknown")
         plate_solving_times = int(message.plate_solving_times)
+        now = time.monotonic()
+        started = self._calibration_trace_started
+        previous_state = self._calibration_trace_last_state
+        self._calibration_trace_last_state = now
         self._calibration_status = state_name
         self._calibration_detail = (
             f"Plate solving attempt {plate_solving_times}"
@@ -1093,6 +1161,10 @@ class DwarfSession:
             state=state_name.replace(" ", "_"),
             state_value=state_value,
             plate_solving_times=plate_solving_times,
+            elapsed_seconds=(None if started is None else round(now - started, 3)),
+            since_previous_state_seconds=(
+                None if previous_state is None else round(now - previous_state, 3)
+            ),
             payload_hex=raw_data.hex(),
         )
 
@@ -2414,6 +2486,7 @@ class DwarfSession:
                 longitude=longitude,
                 latitude=latitude,
             )
+            self._begin_calibration_trace(latitude=latitude, longitude=longitude)
             timeout = max(1.0, float(self.settings.calibration_timeout_seconds))
             deadline = time.monotonic() + timeout
             try:
@@ -2437,7 +2510,10 @@ class DwarfSession:
                     await asyncio.wait_for(
                         self._calibration_result_event.wait(), timeout=remaining
                     )
-            except asyncio.TimeoutError:
+            except asyncio.CancelledError as exc:
+                self._finish_calibration_trace(outcome="cancelled", error=exc)
+                raise
+            except asyncio.TimeoutError as exc:
                 self._calibration_status = "not confirmed"
                 self._calibration_detail = "No completion notification before timeout"
                 logger.warning(
@@ -2445,6 +2521,7 @@ class DwarfSession:
                     outcome="not_confirmed",
                     reason="completion_notification_timeout",
                 )
+                self._finish_calibration_trace(outcome="not_confirmed", error=exc)
                 raise
             except Exception as exc:
                 self._calibration_status = "failed"
@@ -2455,6 +2532,7 @@ class DwarfSession:
                     error=str(exc),
                     error_type=type(exc).__name__,
                 )
+                self._finish_calibration_trace(outcome="failed", error=exc)
                 raise
             self._last_calibration_time = time.time()
             self._last_calibration_ip = self.settings.dwarf_ap_ip
@@ -2467,6 +2545,7 @@ class DwarfSession:
                 azimuth=self._calibration_azimuth,
                 altitude=self._calibration_altitude,
             )
+            self._finish_calibration_trace(outcome="successful")
 
     async def _start_goto_command(
         self,
