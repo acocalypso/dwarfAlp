@@ -2,8 +2,12 @@ import pytest
 import structlog
 from PySide6.QtWidgets import QApplication
 
-from dwarf_alpaca.dwarf.state import ConnectivityState
-from dwarf_alpaca.gui.app import MainWindow, _configure_gui_structlog
+from dwarf_alpaca.dwarf.state import ConnectivityState, StateStore
+from dwarf_alpaca.gui.app import (
+    MainWindow,
+    _configure_gui_structlog,
+    _infer_dwarf_model_from_name,
+)
 
 
 @pytest.fixture(scope="module")
@@ -59,6 +63,77 @@ def test_start_allows_direct_ip_without_device_address(qapp):
         assert started_with is not None
         assert started_with.dwarf_ap_ip == "192.168.178.97"
         assert window._pending_start is None
+    finally:
+        window.close()
+
+
+def test_build_settings_replaces_untouched_default_with_sta_ip(qapp, tmp_path):
+    window = MainWindow()
+    try:
+        window._settings = window._settings.model_copy(update={"state_directory": tmp_path})  # type: ignore[attr-defined]
+        window._latest_state = ConnectivityState(sta_ip="10.0.0.5", mode="sta")  # type: ignore[attr-defined]
+
+        settings = window._build_settings_for_server()
+
+        assert settings.dwarf_ap_ip == "10.0.0.5"
+        assert window.settings_widget.dwarf_ip_edit.text() == "10.0.0.5"
+    finally:
+        window.close()
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("DWARF_mini_BC5D00", "dwarfmini"),
+        ("DWARF3_123456", "dwarf3"),
+        ("DWARF_II_123456", "dwarf2"),
+        ("unrelated BLE device", None),
+    ],
+)
+def test_infer_dwarf_model_from_ble_name(name, expected):
+    assert _infer_dwarf_model_from_name(name) == expected
+
+
+def test_refresh_state_applies_provisioned_mini_profile_and_ip(qapp, tmp_path):
+    window = MainWindow()
+    try:
+        store = StateStore(tmp_path / "connectivity.json")
+        store.save(
+            ConnectivityState(
+                sta_ip="192.168.178.90",
+                mode="sta",
+                device_model="dwarfmini",
+            )
+        )
+        window._state_store = store  # type: ignore[attr-defined]
+
+        window._refresh_state()
+
+        settings = window._build_settings_for_server()
+        assert settings.dwarf_ap_ip == "192.168.178.90"
+        assert settings.dwarf_device_model == "dwarfmini"
+        assert settings.dwarf_ws_client_id == "0000DAF4-0000-1000-8000-00805F9B34FB"
+        assert window.settings_widget.device_model_combo.currentData() == "dwarfmini"
+    finally:
+        window.close()
+
+
+def test_selecting_discovered_mini_updates_settings_and_state(qapp, tmp_path):
+    window = MainWindow()
+    try:
+        store = StateStore(tmp_path / "connectivity.json")
+        window._state_store = store  # type: ignore[attr-defined]
+        window._latest_state = store.load()  # type: ignore[attr-defined]
+        address = "BE:EF:BE:EF:29:73"
+
+        window._on_discover_success([("DWARF_mini_BC5D00", address)])
+        window.provisioning_widget.devices_list.setCurrentRow(0)
+
+        assert window.settings_widget.device_model_combo.currentData() == "dwarfmini"
+        assert window.settings_widget.ws_client_id_combo.currentData() == (
+            "0000DAF4-0000-1000-8000-00805F9B34FB"
+        )
+        assert store.load().device_model == "dwarfmini"
     finally:
         window.close()
 

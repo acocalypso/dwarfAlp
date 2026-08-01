@@ -112,6 +112,18 @@ _MODEL_DEFAULT_CLIENT_ID = {model: client_id for _, model, client_id in DWARF_MO
 _CLIENT_ID_MODEL = {client_id: model for _, model, client_id in DWARF_MODEL_CHOICES}
 
 
+def _infer_dwarf_model_from_name(name: str) -> str | None:
+    normalized = " ".join((name or "").lower().replace("_", " ").replace("-", " ").split())
+    compact = normalized.replace(" ", "")
+    if "mini" in normalized or "dwarf4" in compact:
+        return "dwarfmini"
+    if "dwarf3" in compact:
+        return "dwarf3"
+    if "dwarf2" in compact or "dwarfii" in compact:
+        return "dwarf2"
+    return None
+
+
 @dataclass
 class WifiNetwork:
     ssid: str
@@ -237,6 +249,13 @@ class SettingsOverridesWidget(QGroupBox):
             }
         )
         return settings.model_validate(data)
+
+    def set_device_model(self, model: str) -> None:
+        normalized = normalize_dwarf_device_model(model)
+        index = self.device_model_combo.findData(normalized)
+        if index >= 0:
+            self.device_model_combo.setCurrentIndex(index)
+            self._sync_client_id_for_selected_model()
 
     def _sync_client_id_for_selected_model(self) -> None:
         model = normalize_dwarf_device_model(self.device_model_combo.currentData())
@@ -517,6 +536,7 @@ class MainWindow(QMainWindow):
         self._connectivity_summary: str = ""
         self._saved_credentials: OrderedDict[str, str] = OrderedDict()
         self._latest_state: Optional[ConnectivityState] = None
+        self._discovered_device_models: dict[str, str] = {}
         self._pending_start: Optional[tuple[Settings, bool]] = None
         self._server_status_message: str = "Stopped"
 
@@ -653,6 +673,28 @@ class MainWindow(QMainWindow):
             updated_settings = updated_settings.with_timezone_name(tz_name)
         self.settings_widget.set_timezone_name(tz_name)
 
+        if state.device_model:
+            model = normalize_dwarf_device_model(state.device_model)
+            client_id = _MODEL_DEFAULT_CLIENT_ID[model]
+            if (
+                updated_settings.dwarf_device_model != model
+                or updated_settings.dwarf_ws_client_id != client_id
+            ):
+                updated_settings = updated_settings.model_copy(
+                    update={
+                        "dwarf_device_model": model,
+                        "dwarf_ws_client_id": client_id,
+                    }
+                )
+            self.settings_widget.set_device_model(model)
+
+        if state.sta_ip:
+            if updated_settings.dwarf_ap_ip != state.sta_ip:
+                updated_settings = updated_settings.model_copy(
+                    update={"dwarf_ap_ip": state.sta_ip, "network_mode": "sta"}
+                )
+            self.settings_widget.dwarf_ip_edit.setText(state.sta_ip)
+
         if updated_settings is not current_settings:
             self._settings = updated_settings
         summary = self._format_state_summary(state)
@@ -672,6 +714,8 @@ class MainWindow(QMainWindow):
             parts.append(f"Last error: {state.last_error}")
         if state.last_device_address:
             parts.append(f"Last device: {state.last_device_address}")
+        if state.device_model:
+            parts.append(f"Device model: {state.device_model}")
         if state.wifi_credentials:
             networks = ", ".join(state.wifi_credentials.keys())
             parts.append(f"Saved networks: {networks}")
@@ -731,6 +775,17 @@ class MainWindow(QMainWindow):
             self._state_store = store
         state = self._latest_state or store.load()
         state.last_device_address = normalized
+        detected_model = self._discovered_device_models.get(normalized)
+        if detected_model:
+            state.device_model = detected_model
+            client_id = _MODEL_DEFAULT_CLIENT_ID[detected_model]
+            self._settings = self._current_settings().model_copy(
+                update={
+                    "dwarf_device_model": detected_model,
+                    "dwarf_ws_client_id": client_id,
+                }
+            )
+            self.settings_widget.set_device_model(detected_model)
         self._latest_state = state
         store.save(state)
 
@@ -807,6 +862,11 @@ class MainWindow(QMainWindow):
         if not isinstance(result, list):
             return
         devices = [(name, address) for name, address in result if isinstance(name, str)]
+        self._discovered_device_models = {
+            address: model
+            for name, address in devices
+            if address and (model := _infer_dwarf_model_from_name(name)) is not None
+        }
         self.provisioning_widget.populate_devices(devices)
         self.provisioning_widget.show_status(f"Found {len(devices)} device(s)")
 
@@ -911,6 +971,7 @@ class MainWindow(QMainWindow):
         base = self._current_settings()
         override = self.settings_widget.apply(base)
         entered_ip = self.settings_widget.dwarf_ip_edit.text().strip()
+        ip_is_manual_override = bool(entered_ip and entered_ip != base.dwarf_ap_ip)
         store = self._state_store
         if store is None:
             store = create_state_store(override.state_directory)
@@ -925,7 +986,7 @@ class MainWindow(QMainWindow):
             if detected_mode in ("", "unknown"):
                 detected_mode = "sta" if state.sta_ip else "ap"
             override.network_mode = detected_mode
-            if state.sta_ip and not entered_ip:
+            if state.sta_ip and not ip_is_manual_override:
                 override.dwarf_ap_ip = state.sta_ip
                 self.settings_widget.dwarf_ip_edit.setText(state.sta_ip)
             needs_save = False
