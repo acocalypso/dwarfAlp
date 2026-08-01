@@ -440,6 +440,86 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
             ),
         ),
         MessageSpec(
+            name="V3ReqShootingModeSwitch",
+            fields=(
+                (
+                    "mode_id",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ResShootingModeSwitch",
+            fields=(
+                (
+                    "code",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "mode_id",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ModeSwitchInner",
+            fields=(
+                (
+                    "value",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ReqModeSwitch",
+            fields=(
+                (
+                    "field1",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "field2",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "inner",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.V3ModeSwitchInner",
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="V3ResModeSwitch",
+            fields=(
+                (
+                    "code",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "mode",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
             name="V3ReqGetDeviceConfig",
             fields=(),
         ),
@@ -1061,6 +1141,11 @@ V3ReqSetCameraParam = _prototype("V3ReqSetCameraParam")
 V3ReqAdjustParam = _prototype("V3ReqAdjustParam")
 V3ReqModeQuery = _prototype("V3ReqModeQuery")
 V3ResModeQuery = _prototype("V3ResModeQuery")
+V3ReqShootingModeSwitch = _prototype("V3ReqShootingModeSwitch")
+V3ResShootingModeSwitch = _prototype("V3ResShootingModeSwitch")
+V3ModeSwitchInner = _prototype("V3ModeSwitchInner")
+V3ReqModeSwitch = _prototype("V3ReqModeSwitch")
+V3ResModeSwitch = _prototype("V3ResModeSwitch")
 V3ReqGetDeviceConfig = _prototype("V3ReqGetDeviceConfig")
 V3ResGetDeviceConfig = _prototype("V3ResGetDeviceConfig")
 ReqCloseCamera = _prototype("ReqCloseCamera")

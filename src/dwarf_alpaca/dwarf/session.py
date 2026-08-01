@@ -63,17 +63,21 @@ from ..proto.dwarf_messages import (
     V3ReqFocusInit,
     V3ReqGetDeviceConfig,
     V3ReqModeQuery,
+    V3ReqModeSwitch,
     V3ReqOpenTeleCamera,
     V3ReqSetCameraParam,
+    V3ReqShootingModeSwitch,
     V3ResFocusInit,
     V3ResGetDeviceConfig,
     V3ResModeQuery,
+    V3ResModeSwitch,
     V3ResNotifyCameraParamState,
     V3ResNotifyDeviceState,
     V3ResNotifyExposureProgress,
     V3ResNotifyModeChange,
     V3ResNotifyObservationState,
     V3ResNotifyTemperature2,
+    V3ResShootingModeSwitch,
 )
 from ..proto.v3_astro_pb2 import (
     V3ReqGetAstroParams,
@@ -249,6 +253,8 @@ _MODULE_DEVICE_CONFIG = 14
 _CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700
 _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM = 16703
 _CMD_V3_DEVICE_CONFIG_MODE_QUERY = 16402
+_CMD_V3_DEVICE_CONFIG_SHOOTING_MODE = 16403
+_CMD_V3_DEVICE_CONFIG_MODE_SWITCH = 16404
 _CMD_V3_DEVICE_CONFIG_GET_CONFIG = 16405
 _CMD_V3_FOCUS_INIT = 15011
 _CMD_NOTIFY_V3_EXPOSURE_PROGRESS = 15255
@@ -886,6 +892,60 @@ class DwarfSession:
                 )
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.debug("dwarf.system.v3_device_config_failed", error=str(exc))
+
+    async def _enter_v3_astro_mode(self) -> None:
+        """Put a V3 device into the Deep Sky workflow before applying astro parameters."""
+
+        if self.simulation or not self._uses_v3_protocol():
+            return
+
+        mode_switch = V3ReqModeSwitch()
+        mode_switch.inner.value = 1
+        mode_response = await self._send_request(
+            _MODULE_DEVICE_CONFIG,
+            _CMD_V3_DEVICE_CONFIG_MODE_SWITCH,
+            mode_switch,
+            V3ResModeSwitch,
+            timeout=8.0,
+        )
+        mode_code = int(getattr(mode_response, "code", protocol_pb2.OK))
+        mode = int(getattr(mode_response, "mode", 0))
+        if mode_code != protocol_pb2.OK or mode != 2:
+            raise CaptureConfigurationError(
+                f"{self.profile.display_name} did not enter astronomy mode "
+                f"(code {mode_code}, mode {mode})"
+            )
+
+        shooting_switch = V3ReqShootingModeSwitch()
+        shooting_switch.mode_id = 2
+        shooting_response = await self._send_request(
+            _MODULE_DEVICE_CONFIG,
+            _CMD_V3_DEVICE_CONFIG_SHOOTING_MODE,
+            shooting_switch,
+            V3ResShootingModeSwitch,
+            timeout=8.0,
+        )
+        shooting_code = int(getattr(shooting_response, "code", protocol_pb2.OK))
+        shooting_mode = int(getattr(shooting_response, "mode_id", 0))
+        if shooting_code != protocol_pb2.OK or shooting_mode != 2:
+            raise CaptureConfigurationError(
+                f"{self.profile.display_name} did not enter Deep Sky shooting mode "
+                f"(code {shooting_code}, mode {shooting_mode})"
+            )
+
+        open_tele = V3ReqOpenTeleCamera()
+        open_tele.action = 1
+        await self._send_and_check(
+            protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+            10050,
+            open_tele,
+            timeout=8.0,
+        )
+        logger.info(
+            "dwarf.camera.v3_astro_mode_ready",
+            device_mode=mode,
+            shooting_mode=shooting_mode,
+        )
 
     async def _handle_notification(self, packet: Message) -> None:
         module_id = getattr(packet, "module_id", None)
@@ -2349,6 +2409,7 @@ class DwarfSession:
             )
 
         await self._ensure_ws()
+        await self._enter_v3_astro_mode()
         await self._ensure_exposure_settings(duration)
         await self._ensure_gain_settings()
         await self._ensure_selected_filter()

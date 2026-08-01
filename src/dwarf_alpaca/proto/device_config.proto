@@ -14,7 +14,7 @@ message V3ResModeQuery {
 
 // Shooting mode switch: CMD 16403
 message V3ReqShootingModeSwitch {
-    int32 mode_id = 1; // 1=photo, 3=burst, 4=video, 5=timelapse
+    int32 mode_id = 1; // 1=photo, 2=deep sky/astro, 3=burst, 4=video, 5=timelapse
 }
 
 message V3ResShootingModeSwitch {

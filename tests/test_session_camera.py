@@ -19,12 +19,65 @@ from dwarf_alpaca.proto.dwarf_messages import (
     TYPE_NOTIFICATION,
     ComResponse,
     ResNotifyTemperature,
+    V3ResModeSwitch,
     V3ResNotifyDeviceState,
     V3ResNotifyModeChange,
     V3ResNotifyTemperature2,
+    V3ResShootingModeSwitch,
     WsPacket,
 )
 from dwarf_alpaca.proto.v3_astro_pb2 import V3ResGetAstroParams, V3ResSetAstroParams
+
+
+@pytest.mark.asyncio
+async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    calls: list[tuple[int, int, object]] = []
+
+    async def fake_send_request(module_id, command_id, request, _response_cls, **_kwargs):
+        calls.append((module_id, command_id, request))
+        if command_id == protocol_pb2.DwarfCMD.CMD_V3_DEVICE_CONFIG_MODE_SWITCH:
+            response = V3ResModeSwitch()
+            response.code = protocol_pb2.OK
+            response.mode = 2
+            return response
+        if command_id == protocol_pb2.DwarfCMD.CMD_V3_DEVICE_CONFIG_SHOOTING_MODE:
+            response = V3ResShootingModeSwitch()
+            response.code = protocol_pb2.OK
+            response.mode_id = 2
+            return response
+        raise AssertionError(f"unexpected command {command_id}")
+
+    async def fake_send_and_check(module_id, command_id, request, **_kwargs):
+        calls.append((module_id, command_id, request))
+
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    await session._enter_v3_astro_mode()
+
+    assert [command for _, command, _ in calls] == [16404, 16403, 10050]
+    assert calls[0][2].inner.value == 1
+    assert calls[1][2].mode_id == 2
+    assert calls[2][2].action == 1
+
+
+@pytest.mark.asyncio
+async def test_v3_capture_rejects_failed_deep_sky_mode_confirmation(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+
+    async def fake_send_request(_module_id, _command_id, _request, _response_cls, **_kwargs):
+        response = V3ResModeSwitch()
+        response.code = protocol_pb2.OK
+        response.mode = 1
+        return response
+
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
+
+    with pytest.raises(CaptureConfigurationError, match="did not enter astronomy mode"):
+        await session._enter_v3_astro_mode()
 
 
 @pytest.mark.asyncio
@@ -224,6 +277,7 @@ async def test_abort_during_configuration_prevents_late_capture_start(monkeypatc
         return protocol_pb2.OK
 
     monkeypatch.setattr(session, "_ensure_ws", noop)
+    monkeypatch.setattr(session, "_enter_v3_astro_mode", noop)
     monkeypatch.setattr(session, "_ensure_exposure_settings", noop)
     monkeypatch.setattr(session, "_ensure_gain_settings", noop)
     monkeypatch.setattr(session, "_ensure_selected_filter", noop)
@@ -467,6 +521,7 @@ async def test_camera_start_exposure_accepts_nonfatal_need_goto_warning(monkeypa
         fetch_state.last_end_time = time.time()
 
     monkeypatch.setattr(session, "_ensure_ws", noop)
+    monkeypatch.setattr(session, "_enter_v3_astro_mode", noop)
     monkeypatch.setattr(session, "_ensure_exposure_settings", noop)
     monkeypatch.setattr(session, "_ensure_gain_settings", noop)
     monkeypatch.setattr(session, "_ensure_selected_filter", noop)
@@ -516,6 +571,7 @@ async def test_camera_start_exposure_mini_rejects_unverified_photo_capture(monke
         fetch_state.last_end_time = time.time()
 
     monkeypatch.setattr(session, "_ensure_ws", noop)
+    monkeypatch.setattr(session, "_enter_v3_astro_mode", noop)
     monkeypatch.setattr(session, "_ensure_exposure_settings", noop)
     monkeypatch.setattr(session, "_ensure_gain_settings", noop)
     monkeypatch.setattr(session, "_ensure_selected_filter", noop)
@@ -627,6 +683,7 @@ async def test_camera_go_live_after_capture(monkeypatch):
         go_live_calls.append(True)
 
     monkeypatch.setattr(session, "_ensure_ws", noop)
+    monkeypatch.setattr(session, "_enter_v3_astro_mode", noop)
     monkeypatch.setattr(session, "_ensure_exposure_settings", noop)
     monkeypatch.setattr(session, "_ensure_gain_settings", noop)
     monkeypatch.setattr(session, "_ensure_selected_filter", noop)
