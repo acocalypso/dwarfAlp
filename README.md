@@ -246,6 +246,7 @@ Settings may be supplied via env vars (`DWARF_ALPACA_*`), `.env`, or a YAML prof
 | `temperature_refresh_interval_seconds` | `5.0` | How often to poll DWARF temperature notifications. |
 | `ble_adapter` / `ble_password` | `None` | Defaults for provisioning workflows. |
 | `force_simulation` | `False` | Bypass hardware access and return simulated data. |
+| `auto_calibrate_on_slew` | `True` | Calibrate DWARF 3/mini before the first requested slew and retry one failed GOTO after recalibration. May move the telescope. |
 | `calibrate_after_server_start` | `False` | Opt-in post-start mount calibration for DWARF 3 and DWARF mini. May move the telescope. |
 
 See `config/profiles.yaml` for sample overlays.

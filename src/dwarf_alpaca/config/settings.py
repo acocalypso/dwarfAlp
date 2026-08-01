@@ -61,8 +61,8 @@ class Settings(BaseSettings):
     goto_valid_seconds: float = 300.0
     calibration_valid_seconds: float = 900.0
     calibration_timeout_seconds: float = 60.0
-    calibration_wait_for_slew_seconds: float = 10.0
-    auto_calibrate_on_slew: bool = False
+    calibration_wait_for_slew_seconds: float = 60.0
+    auto_calibrate_on_slew: bool = True
     calibrate_after_server_start: bool = False
     focuser_target_tolerance_steps: int = 5
 

@@ -1846,22 +1846,32 @@ class DwarfSession:
 
         await self._ensure_ws()
         await self._halt_manual_motion()
-        await self._wait_for_calibration_ready()
+        if self.settings.auto_calibrate_on_slew:
+            await self.ensure_calibration()
         try:
             await self._start_goto_command(ra_hours, dec_degrees, target_name)
         except DwarfCommandError as exc:
-            if exc.code != -11501:  # CODE_ASTRO_FUNCTION_BUSY
+            retryable_codes = {
+                protocol_pb2.CODE_ASTRO_FUNCTION_BUSY,
+                protocol_pb2.CODE_ASTRO_GOTO_FAILED,
+            }
+            if exc.code not in retryable_codes:
                 raise
-            logger.info(
-                "dwarf.telescope.goto.busy",
+            retry_after_calibration = exc.code == protocol_pb2.CODE_ASTRO_GOTO_FAILED
+            logger.warning(
+                "dwarf.telescope.goto.retrying",
                 ra_hours=ra_hours,
                 dec_degrees=dec_degrees,
                 code=exc.code,
+                recalibrate=retry_after_calibration,
             )
             await self.telescope_abort_slew()
             await asyncio.sleep(0.2)
             await self._halt_manual_motion()
-            await self._wait_for_calibration_ready()
+            if retry_after_calibration and self.profile.model_id != "dwarf2":
+                self._last_calibration_time = None
+                self._last_calibration_ip = None
+                await self.ensure_calibration()
             await self._start_goto_command(ra_hours, dec_degrees, target_name)
         return ra_hours, dec_degrees
 
