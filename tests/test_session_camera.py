@@ -40,7 +40,7 @@ async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch
         if command_id == protocol_pb2.DwarfCMD.CMD_V3_DEVICE_CONFIG_MODE_SWITCH:
             response = V3ResModeSwitch()
             response.code = protocol_pb2.OK
-            response.mode = 2
+            response.mode = 8
             return response
         if command_id == protocol_pb2.DwarfCMD.CMD_V3_DEVICE_CONFIG_SHOOTING_MODE:
             response = V3ResShootingModeSwitch()
@@ -61,6 +61,31 @@ async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch
     assert calls[0][2].inner.value == 1
     assert calls[1][2].mode_id == 2
     assert calls[2][2].action == 1
+
+
+@pytest.mark.asyncio
+async def test_v3_capture_accepts_legacy_mode_two_confirmation(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+
+    async def fake_send_request(_module_id, command_id, _request, _response_cls, **_kwargs):
+        if command_id == protocol_pb2.DwarfCMD.CMD_V3_DEVICE_CONFIG_MODE_SWITCH:
+            response = V3ResModeSwitch()
+            response.code = protocol_pb2.OK
+            response.mode = 2
+            return response
+        response = V3ResShootingModeSwitch()
+        response.code = protocol_pb2.OK
+        response.mode_id = 2
+        return response
+
+    async def fake_send_and_check(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    await session._enter_v3_astro_mode()
 
 
 @pytest.mark.asyncio

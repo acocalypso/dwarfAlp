@@ -910,7 +910,10 @@ class DwarfSession:
         )
         mode_code = int(getattr(mode_response, "code", protocol_pb2.OK))
         mode = int(getattr(mode_response, "mode", 0))
-        if mode_code != protocol_pb2.OK or mode != 2:
+        # Current DWARF 3 firmware reports the documented astronomy mode as 8.
+        # Earlier V3 captures reported 2 for the same 16404 transition, so both
+        # confirmations are accepted while other modes still fail closed.
+        if mode_code != protocol_pb2.OK or mode not in {2, 8}:
             raise CaptureConfigurationError(
                 f"{self.profile.display_name} did not enter astronomy mode "
                 f"(code {mode_code}, mode {mode})"
