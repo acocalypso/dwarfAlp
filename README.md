@@ -249,6 +249,11 @@ Settings may be supplied via env vars (`DWARF_ALPACA_*`), `.env`, or a YAML prof
 | `auto_calibrate_on_slew` | `True` | Calibrate DWARF 3/mini before the first requested slew and retry one failed GOTO after recalibration. May move the telescope. |
 | `calibrate_after_server_start` | `False` | Opt-in post-start mount calibration for DWARF 3 and DWARF mini. May move the telescope. |
 
+The Control Center reports calibration progress received on notification `15210` and
+only reports a firmware-confirmed Mini success after notification `15256` supplies the
+solved azimuth and altitude. Missing completion evidence is displayed and logged as
+`not confirmed`, while an explicit firmware error is displayed as `failed`.
+
 See `config/profiles.yaml` for sample overlays.
 
 ---

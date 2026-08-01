@@ -468,8 +468,11 @@ class ServerControlWidget(QGroupBox):
         self.master_lock_hint_label = QLabel()
         self.master_lock_hint_label.setWordWrap(True)
         self.battery_label = QLabel("Battery status: unknown")
+        self.calibration_label = QLabel("Calibration status: unknown")
+        self.calibration_label.setWordWrap(True)
         layout.addWidget(self.master_lock_label)
         layout.addWidget(self.battery_label)
+        layout.addWidget(self.calibration_label)
         layout.addWidget(self.master_lock_hint_label)
 
         self.setLayout(layout)
@@ -508,6 +511,15 @@ class ServerControlWidget(QGroupBox):
         else:
             text = f"Battery status: {battery_percent}%"
         self.battery_label.setText(text)
+
+    def set_calibration_status(
+        self, status: Optional[str], detail: Optional[str] = None
+    ) -> None:
+        status_text = status or "unknown"
+        text = f"Calibration status: {status_text}"
+        if detail:
+            text += f" ({detail})"
+        self.calibration_label.setText(text)
 
 
 def _load_app_icon() -> QIcon:
@@ -1051,9 +1063,13 @@ class MainWindow(QMainWindow):
         if status.running:
             self.server_widget.set_master_lock_status(status.has_master_lock)
             self.server_widget.set_battery_status(status.battery_percent)
+            self.server_widget.set_calibration_status(
+                status.calibration_status, status.calibration_detail
+            )
         else:
             self.server_widget.set_master_lock_status(None)
             self.server_widget.set_battery_status(None)
+            self.server_widget.set_calibration_status(None)
             self._refresh_state()
         self._update_help(self._tabs.currentIndex())
 

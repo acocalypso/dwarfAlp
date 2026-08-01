@@ -238,3 +238,17 @@ def test_post_start_calibration_option_is_disabled_for_dwarf2(qapp):
         assert settings.calibrate_after_server_start is False
     finally:
         window.close()
+
+
+def test_server_widget_displays_calibration_outcome(qapp):
+    window = MainWindow()
+    try:
+        window.server_widget.set_calibration_status(
+            "successful", "Azimuth 183.25°, altitude 47.50°"
+        )
+
+        text = window.server_widget.calibration_label.text()
+        assert "successful" in text
+        assert "183.25" in text
+    finally:
+        window.close()

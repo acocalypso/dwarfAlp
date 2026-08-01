@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+// Mount-calibration progress notification: CMD 15210.
+enum AstroState {
+    ASTRO_STATE_IDLE = 0;
+    ASTRO_STATE_RUNNING = 1;
+    ASTRO_STATE_STOPPING = 2;
+    ASTRO_STATE_STOPPED = 3;
+    ASTRO_STATE_PLATE_SOLVING = 4;
+}
+
+message AstroCalibrationState {
+    AstroState state = 1;
+    int32 plate_solving_times = 2;
+}
+
+// Successful mount-calibration result: CMD 15256.
+// Recovered from the DWARFLAB 3.4.1 embedded notify.proto descriptor.
+message CalibrationResult {
+    double azi = 1;
+    double alt = 2;
+}

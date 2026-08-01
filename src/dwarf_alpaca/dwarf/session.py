@@ -80,6 +80,7 @@ from ..proto.dwarf_messages import (
     V3ResNotifyTemperature2,
     V3ResShootingModeSwitch,
 )
+from ..proto.notify_pb2 import AstroCalibrationState, CalibrationResult
 from ..proto.v3_astro_pb2 import (
     V3ReqGetAstroParams,
     V3ReqSetAstroParams,
@@ -502,6 +503,10 @@ class DwarfSession:
         self._last_calibration_time: float | None = None
         self._last_calibration_ip: str | None = None
         self._calibration_task = None  # type: asyncio.Task[None] | None
+        self._calibration_status = "unknown"
+        self._calibration_detail: str | None = None
+        self._calibration_azimuth: float | None = None
+        self._calibration_altitude: float | None = None
 
     @property
     def is_simulated(self) -> bool:
@@ -550,6 +555,16 @@ class DwarfSession:
             if self._v3_exposure_progress
             else None,
             "device_config_bytes": self._v3_device_config_bytes,
+        }
+
+    def get_calibration_status(self) -> dict[str, Any]:
+        """Return the latest firmware-confirmed mount calibration outcome."""
+        return {
+            "status": self._calibration_status,
+            "detail": self._calibration_detail,
+            "azimuth": self._calibration_azimuth,
+            "altitude": self._calibration_altitude,
+            "calibrated_at": self._last_calibration_time,
         }
 
     def _capture_evidence_snapshot(self) -> tuple[object, ...]:
@@ -960,8 +975,12 @@ class DwarfSession:
             self._handle_focus_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_TEMPERATURE:
             self._handle_temperature_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_CALIBRATION:
+            self._handle_calibration_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_GOTO:
             self._handle_goto_state_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_CALIBRATION_RESULT:
+            self._handle_calibration_result_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_TRACKING:
             self._handle_tracking_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_SET_FEATURE_PARAM:
@@ -980,6 +999,76 @@ class DwarfSession:
             self._handle_v3_observation_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_ELE:
             self._handle_battery_notification(packet)
+
+    def _handle_calibration_state_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            logger.warning("dwarf.telescope.calibration.notification.empty", command_id=15210)
+            return
+        message = AstroCalibrationState()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.warning(
+                "dwarf.telescope.calibration.notification.decode_failed",
+                command_id=15210,
+                payload_hex=raw_data.hex(),
+                error=str(exc),
+            )
+            return
+        state_value = int(message.state)
+        state_name = {
+            0: "idle",
+            1: "running",
+            2: "stopping",
+            3: "stopped",
+            4: "plate solving",
+        }.get(state_value, "unknown")
+        plate_solving_times = int(message.plate_solving_times)
+        self._calibration_status = state_name
+        self._calibration_detail = (
+            f"Plate solving attempt {plate_solving_times}"
+            if state_name == "plate solving" and plate_solving_times > 0
+            else None
+        )
+        logger.info(
+            "dwarf.telescope.calibration.notification.state",
+            state=state_name.replace(" ", "_"),
+            state_value=state_value,
+            plate_solving_times=plate_solving_times,
+            payload_hex=raw_data.hex(),
+        )
+
+    def _handle_calibration_result_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            logger.warning("dwarf.telescope.calibration.result.empty", command_id=15256)
+            return
+        message = CalibrationResult()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.warning(
+                "dwarf.telescope.calibration.result.decode_failed",
+                command_id=15256,
+                payload_hex=raw_data.hex(),
+                error=str(exc),
+            )
+            return
+        self._calibration_azimuth = float(message.azi)
+        self._calibration_altitude = float(message.alt)
+        self._calibration_status = "successful"
+        self._calibration_detail = (
+            f"Azimuth {self._calibration_azimuth:.2f}\N{DEGREE SIGN}, "
+            f"altitude {self._calibration_altitude:.2f}\N{DEGREE SIGN}"
+        )
+        logger.info(
+            "dwarf.telescope.calibration.notification.result",
+            outcome="successful",
+            azimuth=self._calibration_azimuth,
+            altitude=self._calibration_altitude,
+            payload_hex=raw_data.hex(),
+        )
 
     def _handle_battery_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -2162,16 +2251,54 @@ class DwarfSession:
             if self._has_recent_calibration():
                 return
             request = astro_pb2.ReqStartCalibration()
+            self._calibration_status = "starting"
+            self._calibration_detail = None
+            self._calibration_azimuth = None
+            self._calibration_altitude = None
             logger.info("dwarf.telescope.calibration.starting")
-            await self._send_and_check(
-                protocol_pb2.ModuleId.MODULE_ASTRO,
-                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
-                request,
-                timeout=max(1.0, float(self.settings.calibration_timeout_seconds)),
-            )
+            try:
+                await self._send_and_check(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
+                    request,
+                    timeout=max(1.0, float(self.settings.calibration_timeout_seconds)),
+                    expected_responses={
+                        (
+                            protocol_pb2.ModuleId.MODULE_NOTIFY,
+                            protocol_pb2.DwarfCMD.CMD_NOTIFY_CALIBRATION_RESULT,
+                        ): CalibrationResult,
+                    },
+                )
+            except asyncio.TimeoutError:
+                self._calibration_status = "not confirmed"
+                self._calibration_detail = "No completion notification before timeout"
+                logger.warning(
+                    "dwarf.telescope.calibration.outcome",
+                    outcome="not_confirmed",
+                    reason="completion_notification_timeout",
+                )
+                raise
+            except Exception as exc:
+                self._calibration_status = "failed"
+                self._calibration_detail = str(exc) or type(exc).__name__
+                logger.warning(
+                    "dwarf.telescope.calibration.outcome",
+                    outcome="failed",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+                raise
             self._last_calibration_time = time.time()
             self._last_calibration_ip = self.settings.dwarf_ap_ip
-            logger.info("dwarf.telescope.calibration.completed")
+            if self._calibration_status != "successful":
+                self._calibration_status = "successful"
+                self._calibration_detail = "Calibration command completed"
+            logger.info(
+                "dwarf.telescope.calibration.completed",
+                outcome="successful",
+                azimuth=self._calibration_azimuth,
+                altitude=self._calibration_altitude,
+            )
 
     async def _start_goto_command(
         self,

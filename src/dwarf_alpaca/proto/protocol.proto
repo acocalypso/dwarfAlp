@@ -255,6 +255,7 @@ enum DwarfCMD {
     CMD_NOTIFY_WIDE_MULTI_TRACK_RESULT = 15251; // Wide-angle multi-target box result notification
     CMD_NOTIFY_WIDE_TRACK_RESULT = 15252; // Wide-angle single target box result notification
 
+    CMD_NOTIFY_CALIBRATION_RESULT = 15256; // Successful astronomical calibration result
     CMD_NOTIFY_FOCUS = 15257; // Focus Position
 
     CMD_V3_NOTIFY_EXPOSURE_PROGRESS = 15255; // V3: Per-frame exposure countdown

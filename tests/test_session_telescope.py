@@ -10,6 +10,8 @@ from dwarf_alpaca.dwarf import session as session_module
 from dwarf_alpaca.dwarf.session import DwarfSession
 from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
 from dwarf_alpaca.proto import protocol_pb2
+from dwarf_alpaca.proto.dwarf_messages import TYPE_NOTIFICATION, WsPacket
+from dwarf_alpaca.proto.notify_pb2 import AstroCalibrationState, CalibrationResult
 
 
 @pytest.mark.asyncio
@@ -17,11 +19,14 @@ async def test_explicit_mini_calibration_uses_shared_v3_command() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
     calls: list[tuple[int, int]] = []
+    captured_expected_responses = None
 
     async def fake_send_and_check(
         self, module_id, command_id, request, *, timeout=10.0, expected_responses=None
     ):
+        nonlocal captured_expected_responses
         calls.append((module_id, command_id))
+        captured_expected_responses = expected_responses
 
     session._send_and_check = types.MethodType(fake_send_and_check, session)
 
@@ -33,6 +38,65 @@ async def test_explicit_mini_calibration_uses_shared_v3_command() -> None:
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
         )
     ]
+    assert captured_expected_responses == {
+        (
+            protocol_pb2.ModuleId.MODULE_NOTIFY,
+            protocol_pb2.DwarfCMD.CMD_NOTIFY_CALIBRATION_RESULT,
+        ): CalibrationResult,
+    }
+    assert session.get_calibration_status()["status"] == "successful"
+
+
+@pytest.mark.asyncio
+async def test_calibration_notifications_record_progress_and_success() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    state = AstroCalibrationState(state=4, plate_solving_times=2)
+    state_packet = WsPacket(
+        module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
+        cmd=protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_CALIBRATION,
+        type=TYPE_NOTIFICATION,
+        data=state.SerializeToString(),
+    )
+    await session._handle_notification(state_packet)
+
+    progress = session.get_calibration_status()
+    assert progress["status"] == "plate solving"
+    assert progress["detail"] == "Plate solving attempt 2"
+
+    result = CalibrationResult(azi=183.25, alt=47.5)
+    result_packet = WsPacket(
+        module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
+        cmd=protocol_pb2.DwarfCMD.CMD_NOTIFY_CALIBRATION_RESULT,
+        type=TYPE_NOTIFICATION,
+        data=result.SerializeToString(),
+    )
+    await session._handle_notification(result_packet)
+
+    completed = session.get_calibration_status()
+    assert completed["status"] == "successful"
+    assert completed["azimuth"] == pytest.approx(183.25)
+    assert completed["altitude"] == pytest.approx(47.5)
+    assert "183.25" in completed["detail"]
+
+
+@pytest.mark.asyncio
+async def test_calibration_timeout_is_not_reported_as_successful() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    async def timeout(self, *args, **kwargs):
+        raise TimeoutError
+
+    session._send_and_check = types.MethodType(timeout, session)
+
+    with pytest.raises(TimeoutError):
+        await session.ensure_calibration()
+
+    outcome = session.get_calibration_status()
+    assert outcome["status"] == "not confirmed"
+    assert "timeout" in outcome["detail"].lower()
 
 
 def test_auto_calibration_is_enabled_for_requested_slews_by_default() -> None:

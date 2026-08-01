@@ -25,6 +25,8 @@ class ServerStatus:
     message: str
     has_master_lock: Optional[bool] = None
     battery_percent: Optional[int] = None
+    calibration_status: Optional[str] = None
+    calibration_detail: Optional[str] = None
 
 
 class ServerService(QObject):
@@ -137,11 +139,18 @@ class ServerService(QObject):
                 self.status_changed.emit(ServerStatus(running=False, message="Stopped"))
 
     async def _master_lock_monitor(self) -> None:
-        last_value: tuple[Optional[bool], Optional[int]] = (None, None)
+        last_value: tuple[Optional[bool], Optional[int], Optional[str], Optional[str]] = (
+            None,
+            None,
+            None,
+            None,
+        )
         try:
             while True:
                 has_lock: Optional[bool] = None
                 battery_percent: Optional[int] = None
+                calibration_status: Optional[str] = None
+                calibration_detail: Optional[str] = None
                 session = None
                 try:
                     session = await get_session()
@@ -178,14 +187,33 @@ class ServerService(QObject):
                                 raw_battery = getattr(camera_state, "battery_percent", None)
                                 if raw_battery is not None:
                                     battery_percent = int(raw_battery)
+                            get_calibration_status = getattr(
+                                session, "get_calibration_status", None
+                            )
+                            if get_calibration_status:
+                                calibration = get_calibration_status()
+                                calibration_status = str(
+                                    calibration.get("status") or "unknown"
+                                )
+                                raw_detail = calibration.get("detail")
+                                calibration_detail = (
+                                    str(raw_detail) if raw_detail is not None else None
+                                )
                         except Exception:  # pragma: no cover - defensive monitor
                             logger.debug("GUI master lock read failed", exc_info=True)
                             has_lock = None
                     else:
                         has_lock = None
                         battery_percent = None
+                        calibration_status = None
+                        calibration_detail = None
 
-                current_value = (has_lock, battery_percent)
+                current_value = (
+                    has_lock,
+                    battery_percent,
+                    calibration_status,
+                    calibration_detail,
+                )
                 if current_value != last_value:
                     last_value = current_value
                     self.status_changed.emit(
@@ -194,6 +222,8 @@ class ServerService(QObject):
                             message="Running" if self._running else "Stopped",
                             has_master_lock=has_lock,
                             battery_percent=battery_percent,
+                            calibration_status=calibration_status,
+                            calibration_detail=calibration_detail,
                         )
                     )
 
