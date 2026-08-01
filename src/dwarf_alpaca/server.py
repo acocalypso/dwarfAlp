@@ -36,9 +36,13 @@ async def _calibrate_after_start(settings: Settings) -> None:
         session = await get_session()
         await session.acquire("telescope")
         acquired = True
-        logger.info("server.calibration_after_start.begin", model=model)
-        await session.ensure_calibration()
-        logger.info("server.calibration_after_start.completed", model=model)
+        logger.info("server.calibration_after_start.prepare", model=model)
+        await session.prepare_calibration_for_first_slew()
+        logger.info(
+            "server.calibration_after_start.awaiting_target",
+            model=model,
+            detail="Calibration will run with the first GoTo target",
+        )
     except asyncio.CancelledError:
         raise
     except Exception as exc:  # pragma: no cover - hardware dependent

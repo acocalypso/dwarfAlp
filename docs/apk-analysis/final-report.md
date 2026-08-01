@@ -111,6 +111,7 @@ packaging.
 | Mount calibration state | 15210; state and plate-solving-attempt count | DWARF 2/3/mini shared V3 API | APK descriptor + hardware logs |
 | Mount calibration result | 15256; `double azi`, `double alt` | DWARF 2/3/mini shared V3 API | confirmed in APK 3.4.1 descriptor |
 | Mount calibration request | 11000; `double lon=1`, `double lat=2`; app rejects missing/(0,0) phone location | DWARF 2/3/mini shared V3 API | confirmed in APK 3.4.1 descriptor and capture call path |
+| One-click calibration + DSO GoTo | 11013; RA hours=1, dec=2, target=3, lon=4, lat=5, shooting mode=6, goto-only=7, optional rotation=8; state 15233 | DWARF 2/3/mini shared V3 API | APK request class and Atlas call path; official-app Mini workflow observed successful |
 | Capture filter | 11005 field 1, Astro=1, Duo-Band=2 | Mini verified | app code and hardware traffic |
 | Dark filter | filter_type=3 in 11045 | calibration only | confirmed in app code; output unknown |
 

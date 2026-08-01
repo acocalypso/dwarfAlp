@@ -1,5 +1,12 @@
 syntax = "proto3";
 
+enum OperationState {
+    OPERATION_STATE_IDLE = 0;
+    OPERATION_STATE_RUNNING = 1;
+    OPERATION_STATE_STOPPING = 2;
+    OPERATION_STATE_STOPPED = 3;
+}
+
 // Mount-calibration progress notification: CMD 15210.
 enum AstroState {
     ASTRO_STATE_IDLE = 0;
@@ -19,4 +26,9 @@ message AstroCalibrationState {
 message CalibrationResult {
     double azi = 1;
     double alt = 2;
+}
+
+// V3 one-click calibration + GoTo state: CMD 15233.
+message ResNotifyOneClickGotoState {
+    OperationState state = 1;
 }

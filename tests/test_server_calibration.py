@@ -21,6 +21,9 @@ class DummySession:
     async def ensure_calibration(self) -> None:
         self.calibration_calls += 1
 
+    async def prepare_calibration_for_first_slew(self) -> None:
+        self.calibration_calls += 1
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])

@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0b\x61stro.proto\"/\n\x13ReqStartCalibration\x12\x0b\n\x03lon\x18\x01 \x01(\x01\x12\x0b\n\x03lat\x18\x02 \x01(\x01\"\x14\n\x12ReqStopCalibration\":\n\nReqGotoDSO\x12\n\n\x02ra\x18\x01 \x01(\x01\x12\x0b\n\x03\x64\x65\x63\x18\x02 \x01(\x01\x12\x13\n\x0btarget_name\x18\x03 \x01(\t\"R\n\x12ReqGotoSolarSystem\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\x12\x13\n\x0btarget_name\x18\x04 \x01(\t\"\r\n\x0bReqStopGoto\"B\n\x19ReqCaptureRawLiveStacking\x12\x10\n\x08ir_index\x18\x01 \x01(\x05\x12\x13\n\x0b\x66orce_start\x18\x02 \x01(\x08\"\x1f\n\x1dReqStopCaptureRawLiveStacking\"\x13\n\x11ReqCheckDarkFrame\"3\n\x11ResCheckDarkFrame\x12\x10\n\x08progress\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"&\n\x13ReqCaptureDarkFrame\x12\x0f\n\x07reshoot\x18\x01 \x01(\x05\"\x19\n\x17ReqStopCaptureDarkFrame\"j\n\x1cReqCaptureDarkFrameWithParam\x12\x11\n\texp_index\x18\x01 \x01(\x05\x12\x12\n\ngain_index\x18\x02 \x01(\x05\x12\x11\n\tbin_index\x18\x03 \x01(\x05\x12\x10\n\x08\x63\x61p_size\x18\x04 \x01(\x05\"\"\n ReqStopCaptureDarkFrameWithParam\"\x15\n\x13ReqGetDarkFrameList\"\x9b\x01\n\x13ResGetDarkFrameInfo\x12\x11\n\texp_index\x18\x01 \x01(\x05\x12\x12\n\ngain_index\x18\x02 \x01(\x05\x12\x11\n\tbin_index\x18\x03 \x01(\x05\x12\x10\n\x08\x65xp_name\x18\x04 \x01(\t\x12\x11\n\tgain_name\x18\x05 \x01(\t\x12\x10\n\x08\x62in_name\x18\x06 \x01(\t\x12\x13\n\x0btemperature\x18\x07 \x01(\x05\"N\n\x17ResGetDarkFrameInfoList\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12%\n\x07results\x18\x02 \x03(\x0b\x32\x14.ResGetDarkFrameInfo\"K\n\x0fReqDelDarkFrame\x12\x11\n\texp_index\x18\x01 \x01(\x05\x12\x12\n\ngain_index\x18\x02 \x01(\x05\x12\x11\n\tbin_index\x18\x03 \x01(\x05\":\n\x13ReqDelDarkFrameList\x12#\n\tdark_list\x18\x01 \x03(\x0b\x32\x10.ReqDelDarkFrame\"#\n\x13ResDelDarkFrameList\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\"\x0b\n\tReqGoLive\"@\n\x15ReqTrackSpecialTarget\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\"\x1b\n\x19ReqStopTrackSpecialTarget\"B\n\x12ReqOneClickGotoDSO\x12\n\n\x02ra\x18\x01 \x01(\x01\x12\x0b\n\x03\x64\x65\x63\x18\x02 \x01(\x01\x12\x13\n\x0btarget_name\x18\x03 \x01(\t\"Z\n\x1aReqOneClickGotoSolarSystem\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\x12\x13\n\x0btarget_name\x18\x04 \x01(\t\">\n\x0fResOneClickGoto\x12\x0c\n\x04step\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\x12\x0f\n\x07\x61ll_end\x18\x03 \x01(\x08\"\x15\n\x13ReqStopOneClickGoto\"\x1f\n\x1dReqCaptureWideRawLiveStacking\"#\n!ReqStopCaptureWideRawLiveStacking\"-\n\x11ReqStartEqSolving\x12\x0b\n\x03lon\x18\x01 \x01(\x01\x12\x0b\n\x03lat\x18\x02 \x01(\x01\"C\n\x11ResStartEqSolving\x12\x0f\n\x07\x61zi_err\x18\x01 \x01(\x01\x12\x0f\n\x07\x61lt_err\x18\x02 \x01(\x01\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\"\x12\n\x10ReqStopEqSolvingb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0b\x61stro.proto\"/\n\x13ReqStartCalibration\x12\x0b\n\x03lon\x18\x01 \x01(\x01\x12\x0b\n\x03lat\x18\x02 \x01(\x01\"\x14\n\x12ReqStopCalibration\":\n\nReqGotoDSO\x12\n\n\x02ra\x18\x01 \x01(\x01\x12\x0b\n\x03\x64\x65\x63\x18\x02 \x01(\x01\x12\x13\n\x0btarget_name\x18\x03 \x01(\t\"R\n\x12ReqGotoSolarSystem\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\x12\x13\n\x0btarget_name\x18\x04 \x01(\t\"\r\n\x0bReqStopGoto\"B\n\x19ReqCaptureRawLiveStacking\x12\x10\n\x08ir_index\x18\x01 \x01(\x05\x12\x13\n\x0b\x66orce_start\x18\x02 \x01(\x08\"\x1f\n\x1dReqStopCaptureRawLiveStacking\"\x13\n\x11ReqCheckDarkFrame\"3\n\x11ResCheckDarkFrame\x12\x10\n\x08progress\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"&\n\x13ReqCaptureDarkFrame\x12\x0f\n\x07reshoot\x18\x01 \x01(\x05\"\x19\n\x17ReqStopCaptureDarkFrame\"j\n\x1cReqCaptureDarkFrameWithParam\x12\x11\n\texp_index\x18\x01 \x01(\x05\x12\x12\n\ngain_index\x18\x02 \x01(\x05\x12\x11\n\tbin_index\x18\x03 \x01(\x05\x12\x10\n\x08\x63\x61p_size\x18\x04 \x01(\x05\"\"\n ReqStopCaptureDarkFrameWithParam\"\x15\n\x13ReqGetDarkFrameList\"\x9b\x01\n\x13ResGetDarkFrameInfo\x12\x11\n\texp_index\x18\x01 \x01(\x05\x12\x12\n\ngain_index\x18\x02 \x01(\x05\x12\x11\n\tbin_index\x18\x03 \x01(\x05\x12\x10\n\x08\x65xp_name\x18\x04 \x01(\t\x12\x11\n\tgain_name\x18\x05 \x01(\t\x12\x10\n\x08\x62in_name\x18\x06 \x01(\t\x12\x13\n\x0btemperature\x18\x07 \x01(\x05\"N\n\x17ResGetDarkFrameInfoList\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12%\n\x07results\x18\x02 \x03(\x0b\x32\x14.ResGetDarkFrameInfo\"K\n\x0fReqDelDarkFrame\x12\x11\n\texp_index\x18\x01 \x01(\x05\x12\x12\n\ngain_index\x18\x02 \x01(\x05\x12\x11\n\tbin_index\x18\x03 \x01(\x05\":\n\x13ReqDelDarkFrameList\x12#\n\tdark_list\x18\x01 \x03(\x0b\x32\x10.ReqDelDarkFrame\"#\n\x13ResDelDarkFrameList\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\"\x0b\n\tReqGoLive\"@\n\x15ReqTrackSpecialTarget\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\"\x1b\n\x19ReqStopTrackSpecialTarget\"\xaa\x01\n\x12ReqOneClickGotoDSO\x12\n\n\x02ra\x18\x01 \x01(\x01\x12\x0b\n\x03\x64\x65\x63\x18\x02 \x01(\x01\x12\x13\n\x0btarget_name\x18\x03 \x01(\t\x12\x0b\n\x03lon\x18\x04 \x01(\x01\x12\x0b\n\x03lat\x18\x05 \x01(\x01\x12\x15\n\rshooting_mode\x18\x06 \x01(\x05\x12\x11\n\tgoto_only\x18\x07 \x01(\x08\x12\x15\n\x08rotation\x18\x08 \x01(\x05H\x00\x88\x01\x01\x42\x0b\n\t_rotation\"\x86\x01\n\x1aReqOneClickGotoSolarSystem\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\x12\x13\n\x0btarget_name\x18\x04 \x01(\t\x12\x15\n\rshooting_mode\x18\x05 \x01(\x05\x12\x13\n\x0b\x66orce_start\x18\x06 \x01(\x08\">\n\x0fResOneClickGoto\x12\x0c\n\x04step\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\x12\x0f\n\x07\x61ll_end\x18\x03 \x01(\x08\"\x15\n\x13ReqStopOneClickGoto\"\x1f\n\x1dReqCaptureWideRawLiveStacking\"#\n!ReqStopCaptureWideRawLiveStacking\"-\n\x11ReqStartEqSolving\x12\x0b\n\x03lon\x18\x01 \x01(\x01\x12\x0b\n\x03lat\x18\x02 \x01(\x01\"C\n\x11ResStartEqSolving\x12\x0f\n\x07\x61zi_err\x18\x01 \x01(\x01\x12\x0f\n\x07\x61lt_err\x18\x02 \x01(\x01\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\"\x12\n\x10ReqStopEqSolvingb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -75,22 +75,22 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_REQTRACKSPECIALTARGET']._serialized_end=1143
   _globals['_REQSTOPTRACKSPECIALTARGET']._serialized_start=1145
   _globals['_REQSTOPTRACKSPECIALTARGET']._serialized_end=1172
-  _globals['_REQONECLICKGOTODSO']._serialized_start=1174
-  _globals['_REQONECLICKGOTODSO']._serialized_end=1240
-  _globals['_REQONECLICKGOTOSOLARSYSTEM']._serialized_start=1242
-  _globals['_REQONECLICKGOTOSOLARSYSTEM']._serialized_end=1332
-  _globals['_RESONECLICKGOTO']._serialized_start=1334
-  _globals['_RESONECLICKGOTO']._serialized_end=1396
-  _globals['_REQSTOPONECLICKGOTO']._serialized_start=1398
-  _globals['_REQSTOPONECLICKGOTO']._serialized_end=1419
-  _globals['_REQCAPTUREWIDERAWLIVESTACKING']._serialized_start=1421
-  _globals['_REQCAPTUREWIDERAWLIVESTACKING']._serialized_end=1452
-  _globals['_REQSTOPCAPTUREWIDERAWLIVESTACKING']._serialized_start=1454
-  _globals['_REQSTOPCAPTUREWIDERAWLIVESTACKING']._serialized_end=1489
-  _globals['_REQSTARTEQSOLVING']._serialized_start=1491
-  _globals['_REQSTARTEQSOLVING']._serialized_end=1536
-  _globals['_RESSTARTEQSOLVING']._serialized_start=1538
-  _globals['_RESSTARTEQSOLVING']._serialized_end=1605
-  _globals['_REQSTOPEQSOLVING']._serialized_start=1607
-  _globals['_REQSTOPEQSOLVING']._serialized_end=1625
+  _globals['_REQONECLICKGOTODSO']._serialized_start=1175
+  _globals['_REQONECLICKGOTODSO']._serialized_end=1345
+  _globals['_REQONECLICKGOTOSOLARSYSTEM']._serialized_start=1348
+  _globals['_REQONECLICKGOTOSOLARSYSTEM']._serialized_end=1482
+  _globals['_RESONECLICKGOTO']._serialized_start=1484
+  _globals['_RESONECLICKGOTO']._serialized_end=1546
+  _globals['_REQSTOPONECLICKGOTO']._serialized_start=1548
+  _globals['_REQSTOPONECLICKGOTO']._serialized_end=1569
+  _globals['_REQCAPTUREWIDERAWLIVESTACKING']._serialized_start=1571
+  _globals['_REQCAPTUREWIDERAWLIVESTACKING']._serialized_end=1602
+  _globals['_REQSTOPCAPTUREWIDERAWLIVESTACKING']._serialized_start=1604
+  _globals['_REQSTOPCAPTUREWIDERAWLIVESTACKING']._serialized_end=1639
+  _globals['_REQSTARTEQSOLVING']._serialized_start=1641
+  _globals['_REQSTARTEQSOLVING']._serialized_end=1686
+  _globals['_RESSTARTEQSOLVING']._serialized_start=1688
+  _globals['_RESSTARTEQSOLVING']._serialized_end=1755
+  _globals['_REQSTOPEQSOLVING']._serialized_start=1757
+  _globals['_REQSTOPEQSOLVING']._serialized_end=1775
 # @@protoc_insertion_point(module_scope)

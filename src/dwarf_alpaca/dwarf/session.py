@@ -81,7 +81,11 @@ from ..proto.dwarf_messages import (
     V3ResShootingModeSwitch,
 )
 from ..proto.focus_pb2 import ReqAstroAutoFocus
-from ..proto.notify_pb2 import AstroCalibrationState, CalibrationResult
+from ..proto.notify_pb2 import (
+    AstroCalibrationState,
+    CalibrationResult,
+    ResNotifyOneClickGotoState,
+)
 from ..proto.v3_astro_pb2 import (
     V3ReqGetAstroParams,
     V3ReqSetAstroParams,
@@ -480,6 +484,7 @@ class DwarfSession:
         self._goto_waiting_for_tracking = False
         self._goto_target_name: str | None = None
         self._goto_start_time: float | None = None
+        self._one_click_goto_active = False
         self._time_synced = self.simulation
         self._last_time_sync_offset: float | None = None
         self._last_time_sync_timezone: str | None = None
@@ -509,6 +514,8 @@ class DwarfSession:
         self._calibration_task = None  # type: asyncio.Task[None] | None
         self._calibration_result_event = asyncio.Event()
         self._autofocus_completion_event = asyncio.Event()
+        self._calibration_autofocus_time: float | None = None
+        self._calibration_autofocus_ip: str | None = None
         self._calibration_status = "unknown"
         self._calibration_detail: str | None = None
         self._calibration_azimuth: float | None = None
@@ -1035,6 +1042,8 @@ class DwarfSession:
             self._handle_calibration_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_GOTO:
             self._handle_goto_state_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_ONE_CLICK_GOTO:
+            self._handle_one_click_goto_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_CALIBRATION_RESULT:
             self._handle_calibration_result_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_TRACKING:
@@ -1192,6 +1201,8 @@ class DwarfSession:
             f"altitude {self._calibration_altitude:.2f}\N{DEGREE SIGN}"
         )
         self._calibration_result_event.set()
+        self._last_calibration_time = time.time()
+        self._last_calibration_ip = self.settings.dwarf_ap_ip
         logger.info(
             "dwarf.telescope.calibration.notification.result",
             outcome="successful",
@@ -1199,6 +1210,7 @@ class DwarfSession:
             altitude=self._calibration_altitude,
             payload_hex=raw_data.hex(),
         )
+        self._finish_calibration_trace(outcome="successful")
 
     def _handle_battery_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -1454,6 +1466,39 @@ class DwarfSession:
             self._goto_waiting_for_tracking = True
         elif state == _AstroState.IDLE and self._goto_waiting_for_tracking:
             self._resolve_goto("failed", reason="goto_idle", keep_record=False)
+
+    def _handle_one_click_goto_state_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            logger.warning("dwarf.goto.one_click.notification.empty", command_id=15233)
+            return
+        message = ResNotifyOneClickGotoState()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.warning(
+                "dwarf.goto.one_click.notification.decode_failed",
+                command_id=15233,
+                payload_hex=raw_data.hex(),
+                error=str(exc),
+            )
+            return
+        state_value = int(message.state)
+        state_name = {
+            0: "idle",
+            1: "running",
+            2: "stopping",
+            3: "stopped",
+        }.get(state_value, "unknown")
+        logger.info(
+            "dwarf.goto.one_click.notification.state",
+            state=state_name,
+            state_value=state_value,
+            target_name=self._goto_target_name,
+            payload_hex=raw_data.hex(),
+        )
+        if self._goto_pending and self._one_click_goto_active and state_value in {1, 2}:
+            self._goto_waiting_for_tracking = True
 
     def _handle_tracking_state_notification(self, packet: Message) -> None:
         if self.simulation:
@@ -2099,10 +2144,18 @@ class DwarfSession:
 
         await self._ensure_ws()
         await self._halt_manual_motion()
-        if self.settings.auto_calibrate_on_slew:
-            await self.ensure_calibration()
+        use_one_click_goto = (
+            self.settings.auto_calibrate_on_slew and not self._has_recent_calibration()
+        )
+        if use_one_click_goto:
+            await self._prepare_calibration_autofocus()
         try:
-            await self._start_goto_command(ra_hours, dec_degrees, target_name)
+            if use_one_click_goto:
+                await self._start_one_click_goto_command(
+                    ra_hours, dec_degrees, target_name
+                )
+            else:
+                await self._start_goto_command(ra_hours, dec_degrees, target_name)
         except DwarfCommandError as exc:
             retryable_codes = {
                 protocol_pb2.CODE_ASTRO_FUNCTION_BUSY,
@@ -2110,22 +2163,22 @@ class DwarfSession:
             }
             if exc.code not in retryable_codes:
                 raise
-            retry_after_calibration = exc.code == protocol_pb2.CODE_ASTRO_GOTO_FAILED
             logger.warning(
                 "dwarf.telescope.goto.retrying",
                 ra_hours=ra_hours,
                 dec_degrees=dec_degrees,
                 code=exc.code,
-                recalibrate=retry_after_calibration,
+                one_click=use_one_click_goto,
             )
             await self.telescope_abort_slew()
             await asyncio.sleep(0.2)
             await self._halt_manual_motion()
-            if retry_after_calibration:
-                self._last_calibration_time = None
-                self._last_calibration_ip = None
-                await self.ensure_calibration()
-            await self._start_goto_command(ra_hours, dec_degrees, target_name)
+            if use_one_click_goto:
+                await self._start_one_click_goto_command(
+                    ra_hours, dec_degrees, target_name
+                )
+            else:
+                await self._start_goto_command(ra_hours, dec_degrees, target_name)
         return ra_hours, dec_degrees
 
     async def telescope_move_axis(self, axis: int, rate: float) -> None:
@@ -2287,6 +2340,7 @@ class DwarfSession:
             duration = time.time() - self._goto_start_time
         self._goto_pending = False
         self._goto_waiting_for_tracking = False
+        self._one_click_goto_active = False
         self._goto_result = result
         self._goto_reason = reason
         self._goto_start_time = None
@@ -2444,6 +2498,33 @@ class DwarfSession:
         self._calibration_detail = "Starting mount calibration"
         logger.info("dwarf.focus.autofocus.before_calibration.completed")
 
+    def _has_recent_calibration_autofocus(self) -> bool:
+        if self._calibration_autofocus_time is None:
+            return False
+        if self._calibration_autofocus_ip != self.settings.dwarf_ap_ip:
+            return False
+        return (time.time() - self._calibration_autofocus_time) <= 300.0
+
+    async def _prepare_calibration_autofocus(self) -> tuple[float, float]:
+        latitude, longitude = self._require_observer_location()
+        if not self._has_recent_calibration_autofocus():
+            await self._autofocus_before_calibration()
+            self._calibration_autofocus_time = time.time()
+            self._calibration_autofocus_ip = self.settings.dwarf_ap_ip
+        self._calibration_status = "awaiting target"
+        self._calibration_detail = "Calibration will run with the next GoTo target"
+        return latitude, longitude
+
+    async def prepare_calibration_for_first_slew(self) -> None:
+        """Autofocus now; defer target-based V3 calibration to the first slew."""
+
+        if self.simulation or self._has_recent_calibration():
+            return
+        await self._ensure_ws()
+        async with self._calibration_lock:
+            if not self._has_recent_calibration():
+                await self._prepare_calibration_autofocus()
+
     async def ensure_calibration(self) -> None:
         if self.simulation:
             return
@@ -2575,7 +2656,66 @@ class DwarfSession:
             )
             raise
         self._record_goto(ra_hours, dec_degrees, kind=_GOTO_KIND_DSO)
+        self._one_click_goto_active = False
         self._mark_goto_pending(kind=_GOTO_KIND_DSO, target_name=target_name)
+
+    async def _start_one_click_goto_command(
+        self,
+        ra_hours: float,
+        dec_degrees: float,
+        target_name: str,
+    ) -> None:
+        latitude, longitude = self._require_observer_location()
+        request = astro_pb2.ReqOneClickGotoDSO(
+            ra=ra_hours,
+            dec=dec_degrees,
+            target_name=target_name,
+            lon=longitude,
+            lat=latitude,
+            shooting_mode=2,
+            goto_only=False,
+        )
+        self._calibration_status = "starting with target"
+        self._calibration_detail = f"Calibrating before GoTo {target_name}"
+        self._calibration_azimuth = None
+        self._calibration_altitude = None
+        self._calibration_result_event.clear()
+        self._begin_calibration_trace(latitude=latitude, longitude=longitude)
+        self._one_click_goto_active = True
+        timeout_value = max(float(self.settings.goto_command_timeout_seconds), 1.0)
+        logger.info(
+            "dwarf.telescope.goto.one_click.starting",
+            ra_hours=ra_hours,
+            dec_degrees=dec_degrees,
+            target_name=target_name,
+            longitude=longitude,
+            latitude=latitude,
+            shooting_mode=2,
+            goto_only=False,
+        )
+        try:
+            response = await self._send_request(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+                request,
+                astro_pb2.ResOneClickGoto,
+                timeout=timeout_value,
+            )
+            code = int(getattr(response, "code", protocol_pb2.OK))
+            if code != protocol_pb2.OK:
+                raise DwarfCommandError(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+                    code,
+                )
+        except Exception as exc:
+            self._calibration_status = "failed"
+            self._calibration_detail = str(exc) or type(exc).__name__
+            self._finish_calibration_trace(outcome="failed", error=exc)
+            raise
+        self._record_goto(ra_hours, dec_degrees, kind=_GOTO_KIND_DSO)
+        self._mark_goto_pending(kind=_GOTO_KIND_DSO, target_name=target_name)
+        self._one_click_goto_active = True
 
     async def wait_for_goto_completion(
         self, *, timeout: float | None = None
@@ -2599,14 +2739,21 @@ class DwarfSession:
         return self._goto_result or "unknown", self._goto_reason
 
     async def telescope_abort_slew(self) -> None:
+        one_click = self._one_click_goto_active
         self._cancel_goto("aborted", reason="slew_aborted")
         if self.simulation:
             return
         await self._ensure_ws()
-        request = ReqStopGoto()
+        request = (
+            astro_pb2.ReqStopOneClickGoto() if one_click else ReqStopGoto()
+        )
         await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_ASTRO,
-            protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO,
+            (
+                protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO
+                if one_click
+                else protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO
+            ),
             request,
         )
         for axis in (0, 1):

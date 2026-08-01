@@ -172,7 +172,9 @@ class SettingsOverridesWidget(QGroupBox):
         self.ws_client_id_combo.setInsertPolicy(QComboBox.NoInsert)
         self.force_sim_checkbox = QCheckBox("Force simulation mode")
         self.skip_preflight_checkbox = QCheckBox("Skip connectivity preflight")
-        self.calibrate_after_start_checkbox = QCheckBox("Calibrate after server start")
+        self.calibrate_after_start_checkbox = QCheckBox(
+            "Prepare calibration after server start"
+        )
         self.site_latitude_edit = QLineEdit()
         self.site_latitude_edit.setPlaceholderText("e.g. 48.1372")
         self.site_longitude_edit = QLineEdit()
@@ -336,7 +338,8 @@ class SettingsOverridesWidget(QGroupBox):
     def _sync_calibration_availability(self) -> None:
         self.calibrate_after_start_checkbox.setEnabled(True)
         self.calibrate_after_start_checkbox.setToolTip(
-            "Run V3 mount calibration after the server starts. This may move the telescope."
+            "Run autofocus after server start. Target-based V3 calibration and movement "
+            "begin with the first NINA GoTo."
         )
 
     def set_timezone_name(self, name: Optional[str]) -> None:

@@ -9,9 +9,13 @@ from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.dwarf import session as session_module
 from dwarf_alpaca.dwarf.session import DwarfSession
 from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
-from dwarf_alpaca.proto import protocol_pb2
+from dwarf_alpaca.proto import astro_pb2, protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import TYPE_NOTIFICATION, WsPacket
-from dwarf_alpaca.proto.notify_pb2 import AstroCalibrationState, CalibrationResult
+from dwarf_alpaca.proto.notify_pb2 import (
+    AstroCalibrationState,
+    CalibrationResult,
+    ResNotifyOneClickGotoState,
+)
 from dwarf_alpaca.proto.v3_notify_pb2 import V3ResNotifyAutoFocusState
 
 
@@ -94,6 +98,71 @@ async def test_calibration_notifications_record_progress_and_success() -> None:
     assert completed["azimuth"] == pytest.approx(183.25)
     assert completed["altitude"] == pytest.approx(47.5)
     assert "183.25" in completed["detail"]
+
+
+@pytest.mark.asyncio
+async def test_one_click_goto_notification_is_decoded() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+    session._one_click_goto_active = True
+    session._record_goto(5.5, 22.0)
+    session._mark_goto_pending(kind="dso", target_name="M42")
+    packet = WsPacket(
+        module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
+        cmd=protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_ONE_CLICK_GOTO,
+        type=TYPE_NOTIFICATION,
+        data=ResNotifyOneClickGotoState(state=1).SerializeToString(),
+    )
+
+    await session._handle_notification(packet)
+
+    assert session._goto_waiting_for_tracking is True
+
+
+@pytest.mark.asyncio
+async def test_first_slew_matches_app_one_click_goto_payload() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    async def noop(self, *args, **kwargs):
+        return None
+
+    session._ensure_ws = types.MethodType(noop, session)
+    captured: dict[str, Any] = {}
+
+    async def fake_send_and_check(self, *args, **kwargs):
+        return None
+
+    async def fake_send_request(
+        self, module_id, command_id, request, response_cls, **kwargs
+    ):
+        captured.update(
+            module_id=module_id,
+            command_id=command_id,
+            request=request,
+            response_cls=response_cls,
+        )
+        return response_cls()
+
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+    session._send_request = types.MethodType(fake_send_request, session)
+
+    await session.telescope_slew_to_coordinates(
+        5.5881, -5.3911, target_name="M42"
+    )
+
+    request = captured["request"]
+    assert captured["module_id"] == protocol_pb2.ModuleId.MODULE_ASTRO
+    assert captured["command_id"] == 11013
+    assert captured["response_cls"] is astro_pb2.ResOneClickGoto
+    assert request.ra == pytest.approx(5.5881)  # App sends Atlas RA in hours.
+    assert request.dec == pytest.approx(-5.3911)
+    assert request.target_name == "M42"
+    assert request.lon == pytest.approx(11.5756)
+    assert request.lat == pytest.approx(48.1372)
+    assert request.shooting_mode == 2
+    assert request.goto_only is False
+    assert request.HasField("rotation") is False
 
 
 @pytest.mark.asyncio
@@ -185,7 +254,7 @@ def test_auto_calibration_is_enabled_for_requested_slews_by_default() -> None:
 
 
 @pytest.mark.asyncio
-async def test_telescope_slew_recalibrates_and_retries_after_goto_failure(monkeypatch):
+async def test_telescope_slew_retries_one_click_goto_after_failure(monkeypatch):
     session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
     session.simulation = False
 
@@ -201,12 +270,18 @@ async def test_telescope_slew_recalibrates_and_retries_after_goto_failure(monkey
     ):
         nonlocal goto_attempts
         actions.append(command_id)
-        if command_id == protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO:
+        if command_id == protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO:
             goto_attempts += 1
             if goto_attempts == 1:
                 raise DwarfCommandError(module_id, command_id, protocol_pb2.CODE_ASTRO_GOTO_FAILED)
 
     session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    async def fake_send_request(self, module_id, command_id, request, response_cls, **kwargs):
+        await fake_send_and_check(self, module_id, command_id, request, **kwargs)
+        return response_cls()
+
+    session._send_request = types.MethodType(fake_send_request, session)
 
     async def instant_sleep(_duration):
         return None
@@ -216,9 +291,9 @@ async def test_telescope_slew_recalibrates_and_retries_after_goto_failure(monkey
     result = await session.telescope_slew_to_coordinates(14.6817, 69.5667)
 
     assert result == (14.6817, 69.5667)
-    assert actions.count(protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION) == 2
-    assert actions.count(protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO) == 2
-    assert protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO in actions
+    assert actions.count(protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION) == 0
+    assert actions.count(protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO) == 2
+    assert protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO in actions
 
 
 @pytest.mark.asyncio
@@ -249,13 +324,19 @@ async def test_telescope_slew_retries_after_busy(monkeypatch):
         self, module_id, command_id, request, *, timeout=10.0, expected_responses=None
     ):
         actions.append((module_id, command_id))
-        if command_id == protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO:
+        if command_id == protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO:
             if busy_state["value"]:
                 busy_state["value"] = False
                 raise DwarfCommandError(module_id, command_id, -11501)
         return None
 
     session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    async def fake_send_request(self, module_id, command_id, request, response_cls, **kwargs):
+        await fake_send_and_check(self, module_id, command_id, request, **kwargs)
+        return response_cls()
+
+    session._send_request = types.MethodType(fake_send_request, session)
 
     sleep_calls: list[float] = []
 
@@ -271,20 +352,18 @@ async def test_telescope_slew_retries_after_busy(monkeypatch):
     assert sleep_calls == [0.2]
 
     goto_calls = [
-        cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO
+        cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO
     ]
     assert len(goto_calls) == 2
     assert (
         protocol_pb2.ModuleId.MODULE_ASTRO,
-        protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO,
+        protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO,
     ) in actions
 
     calibration_calls = [
         cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION
     ]
-    assert calibration_calls == [
-        (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION)
-    ]
+    assert calibration_calls == []
 
     assert len(stop_calls) >= 4
     assert {axis for axis, _ in stop_calls} == {0, 1}
@@ -308,11 +387,17 @@ async def test_telescope_slew_raises_after_repeated_busy(monkeypatch):
         self, module_id, command_id, request, *, timeout=10.0, expected_responses=None
     ):
         actions.append((module_id, command_id))
-        if command_id == protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO:
+        if command_id == protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO:
             raise DwarfCommandError(module_id, command_id, -11501)
         return None
 
     session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    async def fake_send_request(self, module_id, command_id, request, response_cls, **kwargs):
+        await fake_send_and_check(self, module_id, command_id, request, **kwargs)
+        return response_cls()
+
+    session._send_request = types.MethodType(fake_send_request, session)
 
     async def instant_sleep(duration):
         return None
@@ -325,20 +410,18 @@ async def test_telescope_slew_raises_after_repeated_busy(monkeypatch):
     assert exc.value.code == -11501
 
     goto_calls = [
-        cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO
+        cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO
     ]
     assert len(goto_calls) == 2
     assert (
         protocol_pb2.ModuleId.MODULE_ASTRO,
-        protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO,
+        protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO,
     ) in actions
 
     calibration_calls = [
         cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION
     ]
-    assert calibration_calls == [
-        (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION)
-    ]
+    assert calibration_calls == []
 
 
 @pytest.mark.asyncio
@@ -364,16 +447,21 @@ async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
 
     session._send_and_check = types.MethodType(fake_send_and_check, session)
 
+    async def fake_send_request(self, module_id, command_id, request, response_cls, **kwargs):
+        actions.append((module_id, command_id))
+        return response_cls()
+
+    session._send_request = types.MethodType(fake_send_request, session)
+
     await session.telescope_slew_to_coordinates(1.2, -3.4)
 
     assert (
         protocol_pb2.ModuleId.MODULE_ASTRO,
-        protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
+        protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
     ) in actions
-    assert (
-        protocol_pb2.ModuleId.MODULE_ASTRO,
-        protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
-    ) in actions
+
+    session._last_calibration_time = time.time()
+    session._last_calibration_ip = settings.dwarf_ap_ip
 
     actions.clear()
 
@@ -394,15 +482,9 @@ async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
 
     await session.telescope_slew_to_coordinates(-4.0, 0.5)
 
-    calibration_calls = [
-        cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION
-    ]
-    assert calibration_calls == [
-        (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION)
-    ]
     assert (
         protocol_pb2.ModuleId.MODULE_ASTRO,
-        protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO,
+        protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
     ) in actions
 
 
@@ -427,6 +509,12 @@ async def test_telescope_slew_uses_configured_timeout(monkeypatch):
         return None
 
     session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    async def fake_send_request(self, module_id, command_id, request, response_cls, **kwargs):
+        captured_timeout["value"] = kwargs["timeout"]
+        return response_cls()
+
+    session._send_request = types.MethodType(fake_send_request, session)
 
     await session.telescope_slew_to_coordinates(1.2, 3.4)
 

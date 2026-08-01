@@ -28,7 +28,8 @@ human-oriented subset relevant to dwarfAlp and the current Mini investigation.
 | Calibration-frame list | newer profile | WS | 11043 | request wrapper | unresolved payload | calibration UI | EV-CAP-02 | app code; response meaning unresolved |
 | Start calibration frame | Mini/newer | WS | 11045 | exp, gain, resolution, count, camera, type, optional filter, scene | 15290/15291 | dark/calibration UI | EV-CAP-03 | confirmed in app code |
 | Stop calibration frame | Mini/newer | WS | 11046 | camera type | state notification | stop calibration | EV-CAP-03 | confirmed in app code |
-| GOTO DSO | D2/D3/Mini profile | WS | 11002 | target/location/force fields | GOTO notifications | target selected | APK wrapper + captures/history | app code |
+| GOTO DSO | D2/D3/Mini profile | WS | 11002 | RA degrees, declination, target | GOTO notifications | already calibrated target selected | APK wrapper + captures/history | app code |
+| One-click calibration + GOTO DSO | D2/D3/Mini V3 | WS | 11013 | RA hours, declination, target, lon, lat, shooting mode, goto-only, optional rotation | 15210, 15233, 15256, tracking | Atlas target selected | `WsOneClickGotoDsoReq`, `CaptureViewModel.S6` | app code + official-app hardware observation |
 | GOTO stop | all profiles | WS | 11004 | empty | common response/state | stop slew | APK registry | confirmed in app code |
 | Focus step/continuous/stop | profile-specific | WS | focus command family | direction/step or speed | focus position/state | focus UI | APK focus wrappers | confirmed in app code |
 | Battery/storage/temperature | all, capability-dependent | WS | notify family | unsolicited | state payload | device updates | APK response handlers | confirmed in app code |

@@ -246,26 +246,34 @@ Settings may be supplied via env vars (`DWARF_ALPACA_*`), `.env`, or a YAML prof
 | `temperature_refresh_interval_seconds` | `5.0` | How often to poll DWARF temperature notifications. |
 | `ble_adapter` / `ble_password` | `None` | Defaults for provisioning workflows. |
 | `force_simulation` | `False` | Bypass hardware access and return simulated data. |
-| `auto_calibrate_on_slew` | `True` | Calibrate any V3 DWARF before the first requested slew and retry one failed GOTO after recalibration. May move the telescope. |
-| `calibrate_after_server_start` | `False` | Opt-in post-start V3 mount calibration for DWARF 2, DWARF 3, and DWARF mini. May move the telescope. |
+| `auto_calibrate_on_slew` | `True` | Use the app-equivalent target-based one-click calibration + GoTo for the first uncalibrated slew on any V3 DWARF. May move the telescope. |
+| `calibrate_after_server_start` | `False` | Opt in to autofocus after startup; calibration waits for the first NINA GoTo because the firmware workflow needs a target. |
 | `calibration_autofocus_timeout_seconds` | `120` | Maximum time to wait for the mandatory astronomical autofocus before calibration. |
 | `calibration_timeout_seconds` | `300` | Allows firmware calibration to make multiple plate-solving attempts in poor sky conditions. |
 | `site_latitude` / `site_longitude` | `None` | Observer coordinates in decimal degrees. Required for V3 mount calibration. |
 | `geolocation_lookup_url` | `https://ipwho.is/` | User-triggered public-IP location estimate used by the Control Center. |
 
+The first uncalibrated DSO slew follows the official Atlas workflow with command
+`11013`: RA (hours), declination, target name, observer longitude/latitude, Deep Sky
+shooting mode `2`, and `goto_only=false`. This lets the firmware calibrate against the
+selected target and then continue directly to it. Command `15233` reports the combined
+workflow state. Once calibration has been confirmed, later slews use regular GoTo
+command `11002` until the configured calibration validity period expires.
+
 The Control Center reports calibration progress received on notification `15210` and
 only reports firmware-confirmed success after notification `15256` supplies the
 solved azimuth and altitude. Missing completion evidence is displayed and logged as
 `not confirmed`, while an explicit firmware error is displayed as `failed`.
-While command `11000` is active, the driver also writes a chronological calibration
+While calibration is active, the driver also writes a chronological calibration
 trace for every incoming notification. Trace entries include elapsed time, sequence,
 module/command names and IDs, packet type, payload length, and bounded payload hex;
 the final entry records total duration, notification count, status, and error.
 Every calibration first runs astronomical autofocus (`15004`) and waits for the shared
 V3 autofocus-complete notification (`15278` or `15280`, state `3`). The GUI displays
 the autofocus phase and the firmware's current plate-solving attempt count.
-The APK 3.4.1 workflow sends observer longitude and latitude as fields 1 and 2 of
-`ReqStartCalibration`; an empty request can eventually fail with firmware code `-11504`.
+The standalone command `11000` accepts observer longitude and latitude, but hardware
+testing showed that it can keep searching until firmware code `-11504` when no target
+is supplied. Automatic operation therefore uses target-based command `11013`.
 Enter exact decimal coordinates in Settings or use **Fetch current position** before
 starting the server. The web lookup is deliberately user-triggered, sends the public IP
 to the configured provider, and is only an estimate; verify it before calibration.
@@ -294,9 +302,9 @@ For a deeper exploration see [`docs/architecture.md`](docs/architecture.md).
 
 ## Observing Workflow
 
-1. **Provision / connect** – Use `dwarf-alpaca start` to provision (if necessary) and acquire the DWARF master lock. Startup preflight does not calibrate or move the telescope.
+1. **Provision / connect** – Use `dwarf-alpaca start` to provision (if necessary) and acquire the DWARF master lock. When startup calibration preparation is enabled, it autofocuses but waits for a target before calibrating or slewing.
 2. **Discover** – Clients broadcast Alpaca discovery; this server replies with Telescope/0, Camera/0, and Focuser/0 entries, plus FilterWheel/0 only on models that contain filters.
-3. **Slew & track** – Telescope slews translate to DWARF astro GOTO commands; recent slews are cached for exposure validation.
+3. **Slew & track** – The first uncalibrated slew uses the V3 one-click calibration + GoTo workflow; subsequent slews use the regular DWARF astro GoTo command.
 4. **Focus** – Manual and continuous focus moves map to DWARF focus commands with live position updates from notifications.
 5. **Filter selection** – On DWARF 3 and DWARF mini, Alpaca positions map to model-specific V3 `ir_index` values that are applied by the next astronomy-start command. DWARF 2 does not expose a filter wheel.
 6. **Capture** – Exposure requests ensure gain/exposure indices, start astro capture, watch dark library state, and fetch the resulting image via FTP.

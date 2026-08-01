@@ -138,6 +138,11 @@ message ReqOneClickGotoDSO {
     double ra = 1;
     double dec = 2;
     string target_name = 3;
+    double lon = 4;
+    double lat = 5;
+    int32 shooting_mode = 6;
+    bool goto_only = 7;
+    optional int32 rotation = 8;
 }
 
 // 一键Goto太阳系
@@ -146,6 +151,8 @@ message ReqOneClickGotoSolarSystem {
     double lon = 2;
     double lat = 3;
     string target_name = 4;
+    int32 shooting_mode = 5;
+    bool force_start = 6;
 }
 
 message ResOneClickGoto {
