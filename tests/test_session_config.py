@@ -82,16 +82,28 @@ async def test_mini_filter_labels_are_mapped_from_firmware_aliases() -> None:
 @pytest.mark.asyncio
 async def test_ensure_default_filter_uses_dwarf3_v3_capture_index(
     params_config: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
     session.simulation = False
     session._params_config = params_config
     session.camera_state.filter_name = ""
+    calls: list[tuple[int, int]] = []
+
+    async def noop(*_args, **_kwargs):
+        return None
+
+    async def fake_send_and_check(_module_id, command_id, request, **_kwargs):
+        calls.append((command_id, int(request.value)))
+
+    monkeypatch.setattr(session, "_ensure_ws", noop)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
 
     await session._ensure_default_filter("VIS")
 
     assert session.camera_state.filter_name == "VIS Filter"
     assert session.camera_state.filter_index == 0
+    assert calls == [(16703, 0)]
 
 
 @pytest.mark.asyncio
@@ -125,6 +137,30 @@ async def test_dwarf3_filter_options_use_model_specific_v3_indices() -> None:
     ]
     assert [entry.index for entry in options] == [0, 1, 2]
     assert all(entry.controllable for entry in options)
+    assert all(entry.parameter["__control"] == "v3_camera_param" for entry in options)
+
+
+@pytest.mark.asyncio
+async def test_dwarf3_filter_selection_uses_v3_adjust_command() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+    calls: list[tuple[int, int, int]] = []
+
+    async def fake_ensure_ws(self) -> None:  # type: ignore[override]
+        return None
+
+    async def fake_send_and_check(self, module_id, command_id, request, **_kwargs):  # type: ignore[override]
+        calls.append((command_id, int(request.param_id), int(request.value)))
+
+    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    options = await session._get_filter_options()
+    await session._apply_filter_option(1, options[1])
+
+    assert calls == [(16703, 0x20100000000000D, 1)]
+    assert session.camera_state.filter_name == "Astro Filter"
+    assert session.camera_state.applied_filter_name == "Astro Filter"
 
 
 @pytest.mark.asyncio

@@ -30,6 +30,7 @@ from ..proto import astro_pb2, protocol_pb2
 from ..proto.dwarf_messages import (
     CommonParam,
     ComResponse,
+    ReqAstroStartCaptureRawLiveStacking,
     ReqCloseCamera,
     ReqGetAllFeatureParams,
     ReqGetSystemWorkingState,
@@ -3041,6 +3042,29 @@ class DwarfSession:
                 )
             ]
             return self._filter_options
+        if self.profile.filters.control_path == "v3-camera-param":
+            param_id = int(self._ws_v3_filter_param_id or _MINI_DEFAULT_FILTER_PARAM_ID)
+            self._filter_options = [
+                FilterOption(
+                    parameter={
+                        "id": param_id,
+                        "name": "v3_filter_param",
+                        "__control": "v3_camera_param",
+                        "__v3_param_id": param_id,
+                        "flag": 0,
+                    },
+                    mode_index=0,
+                    index=firmware_index,
+                    label=label,
+                    controllable=True,
+                )
+                for firmware_index, label in zip(
+                    self.profile.filters.firmware_indices,
+                    fallback_labels,
+                    strict=True,
+                )
+            ]
+            return self._filter_options
         if self.simulation:
             self._filter_options = [
                 FilterOption(
@@ -3336,8 +3360,8 @@ class DwarfSession:
             ): ResNotifyParam,
         }
 
-        is_mini_filter_write = self._is_dwarf_mini() and self._is_likely_filter_param_id(param_id)
-        if is_mini_filter_write:
+        is_v3_filter_write = self._is_likely_filter_param_id(param_id)
+        if is_v3_filter_write:
             candidate_ids: list[int] = []
             preferred_id = self._ws_v3_filter_param_id
             for candidate in (
@@ -3359,7 +3383,7 @@ class DwarfSession:
             await self._ensure_ws()
             last_error: Exception | None = None
             selected_candidate = int(candidate_ids[0]) if candidate_ids else int(param_id)
-            mini_timeout_s = 1.0
+            filter_timeout_s = 1.0
             for candidate in candidate_ids:
                 adjust_request = V3ReqAdjustParam()
                 adjust_request.param_id = int(candidate)
@@ -3369,7 +3393,7 @@ class DwarfSession:
                         _MODULE_CAMERA_PARAMS,
                         _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM,
                         adjust_request,
-                        timeout=mini_timeout_s,
+                        timeout=filter_timeout_s,
                         expected_responses=expected,
                         suppress_timeout_warning=True,
                         close_ws_on_timeout=False,
@@ -3551,7 +3575,11 @@ class DwarfSession:
 
         current_label = (state.filter_name or "").strip().lower()
         desired_label = option.label.strip().lower()
-        if current_label == desired_label and state.filter_name:
+        if (
+            current_label == desired_label
+            and state.filter_name
+            and self.profile.filters.control_path != "v3-camera-param"
+        ):
             state.applied_filter_name = state.filter_name
             return
 
@@ -3768,7 +3796,19 @@ class DwarfSession:
     async def _start_astro_capture(self, *, timeout: float) -> int:
         if self.simulation:
             return protocol_pb2.OK
-        request = astro_pb2.ReqCaptureRawLiveStacking()
+        uses_v3_sentinel = self._uses_v3_protocol() and (
+            self.profile.filters.control_path != "astro-start-ir-index"
+        )
+        if uses_v3_sentinel:
+            request = ReqAstroStartCaptureRawLiveStacking()
+            request.sentinel = -1
+            logger.info(
+                "dwarf.camera.astro_capture_start_options",
+                sentinel=request.sentinel,
+                protocol="v3",
+            )
+        else:
+            request = astro_pb2.ReqCaptureRawLiveStacking()
         if self.profile.filters.control_path == "astro-start-ir-index":
             options = await self._get_filter_options()
             position = self.camera_state.filter_index

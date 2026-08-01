@@ -119,7 +119,7 @@ _DWARF3 = DeviceProfile(
     filters=FilterCapabilities(
         labels=("VIS Filter", "Astro Filter", "Duo-Band Filter"),
         firmware_indices=(0, 1, 2),
-        control_path="astro-start-ir-index",
+        control_path="v3-camera-param",
         runtime_discovery=False,
     ),
 )

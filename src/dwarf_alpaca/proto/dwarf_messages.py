@@ -1080,7 +1080,14 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
         ),
         MessageSpec(
             name="ReqAstroStartCaptureRawLiveStacking",
-            fields=(),
+            fields=(
+                (
+                    "sentinel",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT64,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
         ),
         MessageSpec(
             name="ReqAstroStopCaptureRawLiveStacking",

@@ -18,6 +18,7 @@ from dwarf_alpaca.proto import astro_pb2, protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import (
     TYPE_NOTIFICATION,
     ComResponse,
+    ReqAstroStartCaptureRawLiveStacking,
     ResNotifyTemperature,
     V3ResModeSwitch,
     V3ResNotifyDeviceState,
@@ -213,7 +214,7 @@ async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_dwarf3_astro_start_embeds_selected_duoband_filter(monkeypatch):
+async def test_dwarf3_astro_start_uses_v3_sentinel_payload(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
     session.simulation = False
     await session._get_filter_options()
@@ -222,7 +223,7 @@ async def test_dwarf3_astro_start_embeds_selected_duoband_filter(monkeypatch):
     captured: dict[str, object] = {}
 
     async def fake_send_command(_module_id, _command_id, request, **_kwargs):
-        captured["request"] = astro_pb2.ReqCaptureRawLiveStacking.FromString(
+        captured["request"] = ReqAstroStartCaptureRawLiveStacking.FromString(
             request.SerializeToString()
         )
         response = ComResponse()
@@ -234,9 +235,9 @@ async def test_dwarf3_astro_start_embeds_selected_duoband_filter(monkeypatch):
     await session._start_astro_capture(timeout=5.0)
 
     request = captured["request"]
-    assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
-    assert request.ir_index == 2
-    assert session.camera_state.applied_filter_name == "Duo-Band Filter"
+    assert isinstance(request, ReqAstroStartCaptureRawLiveStacking)
+    assert request.sentinel == -1
+    assert request.SerializeToString() == b"\x08\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01"
 
 
 @pytest.mark.asyncio
