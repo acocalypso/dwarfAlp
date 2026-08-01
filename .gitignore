@@ -17,3 +17,4 @@ DwarfAlpacaGUI.spec
 logs/
 dwarfii_api/
 apk/DWARFLAB_3.4.1_apkcube.apks
+.vscode/settings.json
