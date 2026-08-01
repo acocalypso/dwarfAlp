@@ -269,7 +269,7 @@ For a deeper exploration see [`docs/architecture.md`](docs/architecture.md).
 
 ## Observing Workflow
 
-1. **Provision / connect** – Use `dwarf-alpaca start` to provision (if necessary) and acquire the DWARF master lock.
+1. **Provision / connect** – Use `dwarf-alpaca start` to provision (if necessary) and acquire the DWARF master lock. Startup preflight does not calibrate or move the telescope.
 2. **Discover** – Clients broadcast Alpaca discovery; this server replies with Telescope/0, Camera/0, and Focuser/0 entries, plus FilterWheel/0 only on models that contain filters.
 3. **Slew & track** – Telescope slews translate to DWARF astro GOTO commands; recent slews are cached for exposure validation.
 4. **Focus** – Manual and continuous focus moves map to DWARF focus commands with live position updates from notifications.

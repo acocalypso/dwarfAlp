@@ -101,7 +101,7 @@ async def test_start_command_skips_guide_when_provision_disabled(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_preflight_runs_calibration(monkeypatch):
+async def test_preflight_connects_without_calibration(monkeypatch):
     class DummySession:
         def __init__(self) -> None:
             self.acquire_calls = 0
@@ -139,5 +139,5 @@ async def test_preflight_runs_calibration(monkeypatch):
 
     assert dummy_session.acquire_calls == 1
     assert dummy_session.release_calls == 1
-    assert dummy_session.calibration_calls == 1
-    assert dummy_session.wait_calls == 1
+    assert dummy_session.calibration_calls == 0
+    assert dummy_session.wait_calls == 0
