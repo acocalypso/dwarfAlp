@@ -67,7 +67,22 @@ jobs:
         run: uv run pytest -q -p no:cacheprovider
 
       - name: Build executable
-        run: uv run pyinstaller --noconfirm --clean DwarfAlpacaGUI.spec
+        shell: pwsh
+        run: |
+          # The runtime state directory and PyInstaller spec are intentionally
+          # gitignored, so create/package from source on a clean checkout.
+          New-Item -ItemType Directory -Path "var" -Force | Out-Null
+          uv run pyinstaller `
+            --noconfirm `
+            --clean `
+            --onefile `
+            --windowed `
+            --name DwarfAlpacaGUI `
+            --icon "images\dwarfalplogo.ico" `
+            --add-data "images;images" `
+            --add-data "var;var" `
+            --paths "src" `
+            "run_gui.py"
 
       - name: Prepare release assets
         id: assets
