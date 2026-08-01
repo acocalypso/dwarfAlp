@@ -59,8 +59,9 @@ async def test_focuser_move_fallback_without_notifications(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_focuser_connect_mini_initializes_position_from_v3_init() -> None:
-    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+@pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
+async def test_focuser_connect_initializes_position_from_v3_for_all_models(model) -> None:
+    session = DwarfSession(Settings(dwarf_device_model=model))
     session.simulation = False
 
     async def _noop(self, *args, **kwargs):

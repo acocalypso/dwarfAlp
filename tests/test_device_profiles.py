@@ -3,17 +3,18 @@ from dwarf_alpaca.device_profile import get_device_profile
 from dwarf_alpaca.dwarf.session import DwarfSession, resolve_ws_client_id
 
 
-def test_device_protocol_profiles_are_model_specific():
+def test_all_device_profiles_use_v3_protocol_with_model_specific_client_ids():
     dwarf2 = get_device_profile("DWARF 2")
     dwarf3 = get_device_profile("DWARF 3")
     mini = get_device_profile("DWARF mini")
 
-    assert (dwarf2.protocol.ws_minor_version, dwarf2.protocol.ws_device_id) == (2, 1)
-    assert (dwarf3.protocol.ws_minor_version, dwarf3.protocol.ws_device_id) == (2, 1)
-    assert (mini.protocol.ws_minor_version, mini.protocol.ws_device_id) == (20, 4)
-    assert dwarf3.protocol.camera_commands == "v2"
-    assert mini.protocol.camera_commands == "v3"
-    assert dwarf3.ws_client_id != mini.ws_client_id
+    for profile in (dwarf2, dwarf3, mini):
+        assert profile.protocol.family == "v3"
+        assert (profile.protocol.ws_minor_version, profile.protocol.ws_device_id) == (20, 4)
+        assert profile.protocol.camera_commands == "v3"
+        assert profile.protocol.focus_commands == "v3"
+
+    assert len({dwarf2.ws_client_id, dwarf3.ws_client_id, mini.ws_client_id}) == 3
 
 
 def test_mini_uses_profile_client_id_unless_explicitly_overridden():
@@ -25,13 +26,22 @@ def test_mini_uses_profile_client_id_unless_explicitly_overridden():
     assert resolve_ws_client_id(explicit) == "custom-client"
 
 
-def test_dwarf3_session_does_not_select_mini_v3_commands():
+def test_dwarf3_session_selects_shared_v3_commands_without_becoming_mini():
     session = DwarfSession(Settings(dwarf_device_model="dwarf3", force_simulation=True))
 
     assert session.profile.model_id == "dwarf3"
     assert session._is_dwarf_mini() is False
-    assert session._ws_client.minor_version == 2
-    assert session._ws_client.device_id == 1
+    assert session._uses_v3_protocol() is True
+    assert session._ws_client.minor_version == 20
+    assert session._ws_client.device_id == 4
+
+
+def test_dwarf2_keeps_filterwheel_disabled_on_shared_v3_protocol():
+    profile = get_device_profile("dwarf2")
+
+    assert profile.protocol.family == "v3"
+    assert profile.has_filterwheel is False
+    assert profile.filters.labels == ()
 
 
 def test_capture_capabilities_report_distinct_stop_and_abort():

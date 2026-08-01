@@ -507,6 +507,9 @@ class DwarfSession:
     def _is_dwarf_mini(self) -> bool:
         return self.profile.model_id == "dwarfmini"
 
+    def _uses_v3_protocol(self) -> bool:
+        return self.profile.protocol.family == "v3"
+
     def _resolve_mini_capture_mode(self) -> str:
         mode = (
             str(getattr(self.settings, "dwarf_mini_capture_mode", "astro") or "astro")
@@ -735,8 +738,8 @@ class DwarfSession:
         if self.simulation or self._ws_bootstrapped or not self._ws_client.connected:
             return
 
-        # DWARF mini does not reliably answer V2 bootstrap probes.
-        if self._is_dwarf_mini():
+        # V3 devices use the device-config bootstrap below, not V2 camera probes.
+        if self._uses_v3_protocol():
             self._ws_bootstrapped = True
             return
 
@@ -809,8 +812,8 @@ class DwarfSession:
 
         self._ws_bootstrapped = True
 
-    async def _bootstrap_mini_v3_state(self) -> None:
-        if self.simulation or not self._is_dwarf_mini() or not self._ws_client.connected:
+    async def _bootstrap_v3_state(self) -> None:
+        if self.simulation or not self._uses_v3_protocol() or not self._ws_client.connected:
             return
 
         mode_expected_responses = {
@@ -1236,7 +1239,7 @@ class DwarfSession:
             raise
 
     async def _request_temperature_update(self) -> None:
-        if self._is_dwarf_mini():
+        if self._uses_v3_protocol():
             return
         await self._ensure_ws()
         request = ReqGetSystemWorkingState()
@@ -1461,8 +1464,8 @@ class DwarfSession:
                         type(response).__name__,
                     )
 
-                if self._master_lock_acquired and self._is_dwarf_mini():
-                    await self._bootstrap_mini_v3_state()
+                if self._master_lock_acquired and self._uses_v3_protocol():
+                    await self._bootstrap_v3_state()
             except DwarfCommandError as exc:  # pragma: no cover - hardware dependent
                 logger.warning(
                     "dwarf.system.master_lock_failed ip=%s code=%s",
@@ -2169,7 +2172,7 @@ class DwarfSession:
             self.camera_state.connected = True
             return
         await self._ensure_ws()
-        if self._is_dwarf_mini():
+        if self._uses_v3_protocol():
             request = V3ReqOpenTeleCamera()
             request.action = 1
             await self._send_and_check(
@@ -2202,7 +2205,7 @@ class DwarfSession:
         if self.simulation:
             return
         await self._ensure_ws()
-        if self._is_dwarf_mini():
+        if self._uses_v3_protocol():
             request = V3ReqOpenTeleCamera()
             timeout_value = max(float(self.settings.camera_disconnect_timeout_seconds), 0.5)
             try:
@@ -2524,7 +2527,7 @@ class DwarfSession:
         code = int(getattr(response, "code", protocol_pb2.OK))
         if code != protocol_pb2.OK:
             raise CaptureConfigurationError(
-                f"DWARF mini astro-parameter discovery failed with code {code}"
+                f"{self.profile.display_name} V3 astro-parameter discovery failed with code {code}"
             )
 
         presets: list[V3AstroPreset] = []
@@ -2550,7 +2553,7 @@ class DwarfSession:
             )
         if not presets:
             raise CaptureConfigurationError(
-                "DWARF mini returned no usable astronomy exposure presets"
+                f"{self.profile.display_name} returned no usable V3 astronomy exposure presets"
             )
         self._v3_astro_presets = presets
         logger.info(
@@ -2564,7 +2567,7 @@ class DwarfSession:
         camera = self.profile.camera
         if duration < camera.min_exposure_s or duration > camera.max_exposure_s:
             raise CaptureConfigurationError(
-                f"Requested exposure {duration:g}s is outside the verified mini range "
+                f"Requested exposure {duration:g}s is outside the {self.profile.display_name} range "
                 f"{camera.min_exposure_s:g}s to {camera.max_exposure_s:g}s"
             )
         requested_gain = self.camera_state.requested_gain
@@ -2573,7 +2576,7 @@ class DwarfSession:
         requested_gain = int(requested_gain)
         if requested_gain < camera.min_gain_db or requested_gain > camera.max_gain_db:
             raise CaptureConfigurationError(
-                f"Requested gain {requested_gain} is outside the verified mini range "
+                f"Requested gain {requested_gain} is outside the {self.profile.display_name} range "
                 f"{camera.min_gain_db:g} to {camera.max_gain_db:g}"
             )
         template = min(
@@ -2600,7 +2603,7 @@ class DwarfSession:
         if self.simulation:
             return
         state = self.camera_state
-        if self._is_dwarf_mini():
+        if self._uses_v3_protocol():
             await self._select_v3_astro_preset(duration)
             return
         resolver = await self._get_exposure_resolver()
@@ -3555,7 +3558,7 @@ class DwarfSession:
     ) -> None:
         if self.simulation:
             return
-        is_mini = self._is_dwarf_mini()
+        uses_v3 = self._uses_v3_protocol()
         config = await self._ensure_params_config()
         if config is None:
             raise CaptureConfigurationError(
@@ -3568,10 +3571,11 @@ class DwarfSession:
         except (TypeError, ValueError):
             bin_x, bin_y = (1, 1)
 
-        if is_mini:
+        if uses_v3:
             if (bin_x, bin_y) != (1, 1):
                 raise CaptureConfigurationError(
-                    "DWARF mini V3 astronomy capture is verified only for 1x1 binning"
+                    f"{self.profile.display_name} V3 astronomy capture currently supports only "
+                    "1x1 binning"
                 )
             selected = self._v3_selected_astro_preset
             if selected is None:
@@ -3593,7 +3597,8 @@ class DwarfSession:
             echoed_pipe = str(getattr(response, "pipe_params", ""))
             if code != protocol_pb2.OK or echoed_pipe != requested_pipe:
                 raise CaptureConfigurationError(
-                    "DWARF mini did not confirm the requested astronomy parameters"
+                    f"{self.profile.display_name} did not confirm the requested V3 astronomy "
+                    "parameters"
                 )
             self.camera_state.applied_duration = selected.exposure_s
             self.camera_state.applied_gain_value = selected.gain
@@ -3611,7 +3616,7 @@ class DwarfSession:
         async def _set_feature_by_label(feature_name: str, label_tokens: tuple[str, ...]) -> None:
             feature = self._find_feature_param(feature_name)
             if feature is None:
-                if is_mini:
+                if uses_v3:
                     logger.debug(
                         "dwarf.camera.feature_param_missing_optional",
                         name=feature_name,
@@ -3650,7 +3655,7 @@ class DwarfSession:
         for name, mode_index, index, continue_value in desired_fixed:
             feature = self._find_feature_param(name)
             if feature is None:
-                if is_mini:
+                if uses_v3:
                     logger.debug(
                         "dwarf.camera.feature_param_missing_optional", name=name, device="dwarfmini"
                     )
@@ -3679,7 +3684,7 @@ class DwarfSession:
                 strict=True,
             )
         else:
-            if is_mini:
+            if uses_v3:
                 logger.debug(
                     "dwarf.camera.feature_param_missing_optional",
                     name="Astro img_to_take",
@@ -4071,7 +4076,7 @@ class DwarfSession:
         gain_value = state.requested_gain
         if gain_value is None:
             return
-        if self._is_dwarf_mini():
+        if self._uses_v3_protocol():
             selected = self._v3_selected_astro_preset
             if selected is None:
                 selected = await self._select_v3_astro_preset(state.duration)
@@ -4579,7 +4584,7 @@ class DwarfSession:
         if self.simulation:
             return
         await self._ensure_ws()
-        if self._is_dwarf_mini():
+        if self._uses_v3_protocol():
             request = V3ReqFocusInit()
             try:
                 response = await self._send_request(
@@ -4597,7 +4602,7 @@ class DwarfSession:
                     state.last_update = time.time()
             except Exception as exc:  # pragma: no cover - hardware dependent
                 logger.debug(
-                    "dwarf.focus.mini_init_failed",
+                    "dwarf.focus.v3_init_failed",
                     error=str(exc),
                     error_type=type(exc).__name__,
                 )

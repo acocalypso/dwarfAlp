@@ -658,8 +658,9 @@ def test_decode_v3_device_config_payload_extracts_known_fields():
 
 
 @pytest.mark.asyncio
-async def test_camera_connect_uses_v3_open_for_mini(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+@pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
+async def test_camera_connect_uses_v3_open_for_all_models(monkeypatch, model):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model=model))
     session.simulation = False
 
     captured: dict[str, object] = {}
@@ -730,6 +731,7 @@ async def test_gain_commands_disable_after_timeout(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True))
     session.simulation = False
     session.camera_state.requested_gain = 42
+    monkeypatch.setattr(session, "_uses_v3_protocol", lambda: False)
 
     calls = {"mode": 0, "index": 0}
 
@@ -772,6 +774,7 @@ async def test_gain_commands_applied_successfully(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True))
     session.simulation = False
     session.camera_state.requested_gain = 17
+    monkeypatch.setattr(session, "_uses_v3_protocol", lambda: False)
 
     calls = {"mode": 0, "index": 0}
 

@@ -40,16 +40,11 @@ def test_format_timezone_label_handles_offsets() -> None:
     assert session._format_timezone_label(5.75) == "UTC+05:45"
 
 
-def test_dwarf_mini_uses_v3_ws_profile() -> None:
-    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+@pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
+def test_all_models_use_v3_ws_profile(model: str) -> None:
+    session = DwarfSession(Settings(dwarf_device_model=model))
     assert session._ws_client.minor_version == 20
     assert session._ws_client.device_id == 4
-
-
-def test_non_mini_uses_v2_ws_profile() -> None:
-    session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
-    assert session._ws_client.minor_version == 2
-    assert session._ws_client.device_id == 1
 
 
 @pytest.mark.asyncio
@@ -286,7 +281,7 @@ async def test_mini_filter_options_ignore_unverified_http_aliases() -> None:
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_mini_v3_state_queries_mode_and_config() -> None:
+async def test_bootstrap_v3_state_queries_mode_and_config() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
     session._ws_client._conn = types.SimpleNamespace(closed=False, close_code=None)
@@ -309,7 +304,7 @@ async def test_bootstrap_mini_v3_state_queries_mode_and_config() -> None:
 
     session._send_request = types.MethodType(fake_send_request, session)
 
-    await session._bootstrap_mini_v3_state()
+    await session._bootstrap_v3_state()
 
     assert calls == [(14, 16402), (14, 16405)]
     assert session._v3_device_state_mode == 8
@@ -317,7 +312,7 @@ async def test_bootstrap_mini_v3_state_queries_mode_and_config() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ensure_master_lock_triggers_mini_v3_bootstrap() -> None:
+async def test_ensure_master_lock_triggers_v3_bootstrap() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
     session._ws_client._conn = types.SimpleNamespace(closed=False, close_code=None)
@@ -335,7 +330,7 @@ async def test_ensure_master_lock_triggers_mini_v3_bootstrap() -> None:
         called["bootstrap"] = True
 
     session._ws_client.send_request = types.MethodType(fake_ws_send_request, session._ws_client)
-    session._bootstrap_mini_v3_state = types.MethodType(fake_bootstrap, session)
+    session._bootstrap_v3_state = types.MethodType(fake_bootstrap, session)
 
     await session._ensure_master_lock()
 

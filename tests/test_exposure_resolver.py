@@ -71,6 +71,7 @@ async def test_session_ensure_exposure_settings_uses_resolver():
     settings = Settings(force_simulation=True)
     session = DwarfSession(settings)
     session.simulation = False
+    session._uses_v3_protocol = types.MethodType(lambda self: False, session)
     session._exposure_resolver = ExposureResolver(
         [
             ExposureOption(index=10, seconds=1.0),
