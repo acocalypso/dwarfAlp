@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import httpx
 import structlog
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QIcon
@@ -150,6 +151,8 @@ class LogConsole(QTextEdit):
 
 
 class SettingsOverridesWidget(QGroupBox):
+    location_fetch_requested = Signal()
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__("Server Overrides", parent)
         form = QFormLayout()
@@ -170,6 +173,17 @@ class SettingsOverridesWidget(QGroupBox):
         self.force_sim_checkbox = QCheckBox("Force simulation mode")
         self.skip_preflight_checkbox = QCheckBox("Skip connectivity preflight")
         self.calibrate_after_start_checkbox = QCheckBox("Calibrate after server start")
+        self.site_latitude_edit = QLineEdit()
+        self.site_latitude_edit.setPlaceholderText("e.g. 48.1372")
+        self.site_longitude_edit = QLineEdit()
+        self.site_longitude_edit.setPlaceholderText("e.g. 11.5756")
+        self.fetch_location_button = QPushButton("Fetch current position")
+        self.fetch_location_button.setToolTip(
+            "Estimate coordinates from your public IP using the configured web service."
+        )
+        self.fetch_location_button.clicked.connect(self.location_fetch_requested.emit)
+        self.location_status_label = QLabel()
+        self.location_status_label.setWordWrap(True)
         self.preflight_timeout_spin = QSpinBox()
         self.preflight_timeout_spin.setRange(5, 1800)
         self.preflight_timeout_spin.setSuffix(" s")
@@ -200,6 +214,10 @@ class SettingsOverridesWidget(QGroupBox):
         form.addRow(self.force_sim_checkbox)
         form.addRow(self.skip_preflight_checkbox)
         form.addRow(self.calibrate_after_start_checkbox)
+        form.addRow("Site latitude", self.site_latitude_edit)
+        form.addRow("Site longitude", self.site_longitude_edit)
+        form.addRow(self.fetch_location_button)
+        form.addRow("Location status", self.location_status_label)
         form.addRow("Preflight timeout", self.preflight_timeout_spin)
         form.addRow("Preflight interval", self.preflight_interval_spin)
         form.addRow("Timezone", self.timezone_combo)
@@ -221,6 +239,7 @@ class SettingsOverridesWidget(QGroupBox):
         self.force_sim_checkbox.setChecked(settings.force_simulation)
         self.skip_preflight_checkbox.setChecked(False)
         self.calibrate_after_start_checkbox.setChecked(settings.calibrate_after_server_start)
+        self.set_site_location(settings.site_latitude, settings.site_longitude)
         self._sync_calibration_availability()
         self.preflight_timeout_spin.setValue(180)
         self.preflight_interval_spin.setValue(5)
@@ -253,10 +272,39 @@ class SettingsOverridesWidget(QGroupBox):
                 "calibrate_after_server_start": (
                     self.calibrate_after_start_checkbox.isChecked()
                 ),
+                "site_latitude": self._parse_optional_coordinate(
+                    self.site_latitude_edit.text(), "Latitude", -90.0, 90.0
+                ),
+                "site_longitude": self._parse_optional_coordinate(
+                    self.site_longitude_edit.text(), "Longitude", -180.0, 180.0
+                ),
                 "timezone_name": timezone_name,
             }
         )
         return settings.model_validate(data)
+
+    @staticmethod
+    def _parse_optional_coordinate(
+        text: str, label: str, minimum: float, maximum: float
+    ) -> float | None:
+        normalized = text.strip().replace(",", ".")
+        if not normalized:
+            return None
+        try:
+            value = float(normalized)
+        except ValueError as exc:
+            raise ValueError(f"{label} must be a decimal number") from exc
+        if not minimum <= value <= maximum:
+            raise ValueError(f"{label} must be between {minimum:g} and {maximum:g}")
+        return value
+
+    def set_site_location(self, latitude: float | None, longitude: float | None) -> None:
+        self.site_latitude_edit.setText("" if latitude is None else f"{latitude:.6f}")
+        self.site_longitude_edit.setText("" if longitude is None else f"{longitude:.6f}")
+
+    def set_location_lookup_busy(self, busy: bool, message: str = "") -> None:
+        self.fetch_location_button.setEnabled(not busy)
+        self.location_status_label.setText(message)
 
     def set_device_model(self, model: str) -> None:
         normalized = normalize_dwarf_device_model(model)
@@ -572,6 +620,7 @@ class MainWindow(QMainWindow):
         self.provisioning_widget.device_selected.connect(self._on_device_selected)
         self.server_widget.start_requested.connect(self._handle_start_server)
         self.server_widget.stop_requested.connect(self._handle_stop_server)
+        self.settings_widget.location_fetch_requested.connect(self._handle_location_fetch)
 
         content = QWidget()
         content_layout = QVBoxLayout(content)
@@ -617,8 +666,7 @@ class MainWindow(QMainWindow):
                 "Settings",
                 "<b>Settings tab</b><br/>Override server host/port, DWARF IP, and websocket client ID."
                 " Choose the correct DWARF model (DWARF 3, DWARF 2, or DWARF mini)"
-                " and adjust simulation, preflight, and optional post-start calibration controls"
-                " before launch.",
+                " and enter or fetch observer coordinates before optional post-start calibration.",
             ),
         }
         self._refresh_state()
@@ -700,6 +748,21 @@ class MainWindow(QMainWindow):
             updated_settings = updated_settings.with_timezone_name(tz_name)
         self.settings_widget.set_timezone_name(tz_name)
 
+        if state.site_latitude is not None and state.site_longitude is not None:
+            if (
+                updated_settings.site_latitude != state.site_latitude
+                or updated_settings.site_longitude != state.site_longitude
+            ):
+                updated_settings = updated_settings.model_copy(
+                    update={
+                        "site_latitude": state.site_latitude,
+                        "site_longitude": state.site_longitude,
+                    }
+                )
+            self.settings_widget.set_site_location(
+                state.site_latitude, state.site_longitude
+            )
+
         if state.device_model:
             model = normalize_dwarf_device_model(state.device_model)
             client_id = _MODEL_DEFAULT_CLIENT_ID[model]
@@ -748,6 +811,10 @@ class MainWindow(QMainWindow):
             parts.append(f"Saved networks: {networks}")
         if state.timezone_name:
             parts.append(f"Timezone name: {state.timezone_name}")
+        if state.site_latitude is not None and state.site_longitude is not None:
+            parts.append(
+                f"Site: {state.site_latitude:.6f}, {state.site_longitude:.6f}"
+            )
         return "<br/>".join(parts)
 
     def _get_last_saved_credentials(self) -> tuple[Optional[str], Optional[str]]:
@@ -982,12 +1049,81 @@ class MainWindow(QMainWindow):
 
     # endregion
 
+    # region observer location
+    def _handle_location_fetch(self) -> None:
+        worker = AsyncWorker(self._fetch_current_location)
+        worker.finished_success.connect(self._on_location_fetch_success)
+        worker.finished_error.connect(self._on_location_fetch_error)
+        self.settings_widget.set_location_lookup_busy(
+            True, "Estimating position from public IP..."
+        )
+        self._start_worker(worker)
+
+    async def _fetch_current_location(self) -> tuple[float, float, str]:
+        settings = self._current_settings()
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            response = await client.get(settings.geolocation_lookup_url)
+            response.raise_for_status()
+            payload = response.json()
+        if not isinstance(payload, dict):
+            raise RuntimeError("Location service returned an invalid response")
+        if payload.get("success") is False:
+            reason = payload.get("message") or payload.get("reason") or "lookup failed"
+            raise RuntimeError(f"Location service: {reason}")
+        try:
+            latitude = float(payload["latitude"])
+            longitude = float(payload["longitude"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RuntimeError("Location service did not return coordinates") from exc
+        if not -90.0 <= latitude <= 90.0 or not -180.0 <= longitude <= 180.0:
+            raise RuntimeError("Location service returned coordinates outside the valid range")
+        description_parts = [
+            str(value).strip()
+            for value in (payload.get("city"), payload.get("region"), payload.get("country"))
+            if value
+        ]
+        return (latitude, longitude, ", ".join(description_parts))
+
+    def _on_location_fetch_success(self, result: object) -> None:
+        if not isinstance(result, tuple) or len(result) != 3:
+            self._on_location_fetch_error(RuntimeError("Unexpected location result"))
+            return
+        latitude, longitude, description = result
+        self.settings_widget.set_site_location(float(latitude), float(longitude))
+        suffix = f" ({description})" if description else ""
+        self.settings_widget.set_location_lookup_busy(
+            False,
+            f"Estimated {float(latitude):.6f}, {float(longitude):.6f}{suffix}. Verify before use.",
+        )
+
+    def _on_location_fetch_error(self, exc: Exception) -> None:
+        self.settings_widget.set_location_lookup_busy(False, f"Lookup failed: {exc}")
+        self._handle_worker_error(exc, "Current-position lookup failed")
+
+    # endregion
+
     # region server control
     def _handle_start_server(self) -> None:
         if self.server_service.is_running():
             QMessageBox.information(self, "Server", "Server is already running")
             return
-        settings = self._build_settings_for_server()
+        try:
+            settings = self._build_settings_for_server()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Observer location", str(exc))
+            return
+        if settings.calibrate_after_server_start and (
+            settings.site_latitude is None
+            or settings.site_longitude is None
+            or (settings.site_latitude == 0.0 and settings.site_longitude == 0.0)
+        ):
+            QMessageBox.warning(
+                self,
+                "Observer location required",
+                "Enter site latitude and longitude or fetch the current position before "
+                "starting the server with calibration enabled.",
+            )
+            return
         skip_preflight = self.settings_widget.skip_preflight_checkbox.isChecked()
         self._pending_start = (settings, skip_preflight)
         # Starting against an already reachable STA/AP address must not trigger
@@ -1024,6 +1160,13 @@ class MainWindow(QMainWindow):
             )
             if normalized_name != state.timezone_name:
                 state.timezone_name = normalized_name
+                needs_save = True
+            if (
+                override.site_latitude != state.site_latitude
+                or override.site_longitude != state.site_longitude
+            ):
+                state.site_latitude = override.site_latitude
+                state.site_longitude = override.site_longitude
                 needs_save = True
             if needs_save:
                 store.save(state)

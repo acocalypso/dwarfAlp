@@ -39,3 +39,13 @@ def test_state_store_save_ignores_empty_wifi_passwords(tmp_path):
 
     reloaded = store.load()
     assert reloaded.wifi_credentials == {"Valid": "secret"}
+
+
+def test_state_store_persists_observer_location(tmp_path):
+    store = StateStore(path=tmp_path / "connectivity.json")
+    store.save(ConnectivityState(site_latitude=48.1372, site_longitude=11.5756))
+
+    reloaded = store.load()
+
+    assert reloaded.site_latitude == 48.1372
+    assert reloaded.site_longitude == 11.5756

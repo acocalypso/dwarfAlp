@@ -15,6 +15,8 @@ class ConnectivityState:
     last_device_address: Optional[str] = None
     device_model: Optional[str] = None
     timezone_name: Optional[str] = None
+    site_latitude: Optional[float] = None
+    site_longitude: Optional[float] = None
 
 
 @dataclass
@@ -41,6 +43,8 @@ class StateStore:
         data.setdefault("last_device_address", None)
         data.setdefault("device_model", None)
         data.setdefault("timezone_name", None)
+        data.setdefault("site_latitude", None)
+        data.setdefault("site_longitude", None)
         # drop legacy timezone offset if present
         data.pop("timezone_offset_hours", None)
         raw_credentials = data.get("wifi_credentials", {})
@@ -65,6 +69,16 @@ class StateStore:
         if not isinstance(data.get("device_model"), str):
             data["device_model"] = None
 
+        for key, minimum, maximum in (
+            ("site_latitude", -90.0, 90.0),
+            ("site_longitude", -180.0, 180.0),
+        ):
+            raw_value = data.get(key)
+            if isinstance(raw_value, (int, float)) and minimum <= float(raw_value) <= maximum:
+                data[key] = float(raw_value)
+            else:
+                data[key] = None
+
         self.state = ConnectivityState(**data)
         return self.state
 
@@ -86,6 +100,18 @@ class StateStore:
             timezone_name=(
                 state.timezone_name.strip()
                 if isinstance(state.timezone_name, str) and state.timezone_name.strip()
+                else None
+            ),
+            site_latitude=(
+                float(state.site_latitude)
+                if isinstance(state.site_latitude, (int, float))
+                and -90.0 <= float(state.site_latitude) <= 90.0
+                else None
+            ),
+            site_longitude=(
+                float(state.site_longitude)
+                if isinstance(state.site_longitude, (int, float))
+                and -180.0 <= float(state.site_longitude) <= 180.0
                 else None
             ),
         )

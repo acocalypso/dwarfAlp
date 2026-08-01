@@ -15,12 +15,17 @@ from dwarf_alpaca.proto.notify_pb2 import AstroCalibrationState, CalibrationResu
 from dwarf_alpaca.proto.v3_notify_pb2 import V3ResNotifyAutoFocusState
 
 
+def _settings(**overrides: Any) -> Settings:
+    return Settings(site_latitude=48.1372, site_longitude=11.5756, **overrides)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
 async def test_explicit_calibration_uses_shared_v3_command(model: str) -> None:
-    session = DwarfSession(Settings(dwarf_device_model=model))
+    session = DwarfSession(_settings(dwarf_device_model=model))
     session.simulation = False
     calls: list[tuple[int, int]] = []
+    requests: list[Any] = []
     captured_expected_responses = None
 
     async def fake_send_and_check(
@@ -28,6 +33,7 @@ async def test_explicit_calibration_uses_shared_v3_command(model: str) -> None:
     ):
         nonlocal captured_expected_responses
         calls.append((module_id, command_id))
+        requests.append(request)
         captured_expected_responses = expected_responses
 
     session._send_and_check = types.MethodType(fake_send_and_check, session)
@@ -44,6 +50,9 @@ async def test_explicit_calibration_uses_shared_v3_command(model: str) -> None:
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
         ),
     ]
+    calibration_request = requests[1]
+    assert calibration_request.lon == pytest.approx(11.5756)
+    assert calibration_request.lat == pytest.approx(48.1372)
     assert captured_expected_responses == {
         (
             protocol_pb2.ModuleId.MODULE_NOTIFY,
@@ -55,7 +64,7 @@ async def test_explicit_calibration_uses_shared_v3_command(model: str) -> None:
 
 @pytest.mark.asyncio
 async def test_calibration_notifications_record_progress_and_success() -> None:
-    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session = DwarfSession(_settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
 
     state = AstroCalibrationState(state=4, plate_solving_times=2)
@@ -96,7 +105,7 @@ async def test_calibration_notifications_record_progress_and_success() -> None:
     ],
 )
 async def test_autofocus_completion_notifications_are_shared_v3(command_id: int) -> None:
-    session = DwarfSession(Settings(dwarf_device_model="dwarf2"))
+    session = DwarfSession(_settings(dwarf_device_model="dwarf2"))
     session.simulation = False
     notification = V3ResNotifyAutoFocusState(state=3)
     packet = WsPacket(
@@ -114,7 +123,7 @@ async def test_autofocus_completion_notifications_are_shared_v3(command_id: int)
 
 @pytest.mark.asyncio
 async def test_calibration_timeout_is_not_reported_as_successful() -> None:
-    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session = DwarfSession(_settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
 
     async def timeout(self, module_id, command_id, *args, **kwargs):
@@ -132,8 +141,20 @@ async def test_calibration_timeout_is_not_reported_as_successful() -> None:
     assert "timeout" in outcome["detail"].lower()
 
 
+@pytest.mark.asyncio
+async def test_calibration_requires_observer_location_before_autofocus() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+
+    with pytest.raises(RuntimeError, match="latitude and longitude"):
+        await session.ensure_calibration()
+
+    outcome = session.get_calibration_status()
+    assert outcome["status"] == "location required"
+
+
 def test_auto_calibration_is_enabled_for_requested_slews_by_default() -> None:
-    settings = Settings()
+    settings = _settings()
 
     assert settings.auto_calibrate_on_slew is True
     assert settings.calibration_timeout_seconds >= 300.0
@@ -145,7 +166,7 @@ def test_auto_calibration_is_enabled_for_requested_slews_by_default() -> None:
 
 @pytest.mark.asyncio
 async def test_telescope_slew_recalibrates_and_retries_after_goto_failure(monkeypatch):
-    session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
     session.simulation = False
 
     async def noop(self, *args, **kwargs):
@@ -182,7 +203,7 @@ async def test_telescope_slew_recalibrates_and_retries_after_goto_failure(monkey
 
 @pytest.mark.asyncio
 async def test_telescope_slew_retries_after_busy(monkeypatch):
-    settings = Settings()
+    settings = _settings()
     settings.auto_calibrate_on_slew = True
     session = DwarfSession(settings)
     session.simulation = False
@@ -251,7 +272,7 @@ async def test_telescope_slew_retries_after_busy(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_telescope_slew_raises_after_repeated_busy(monkeypatch):
-    settings = Settings()
+    settings = _settings()
     settings.auto_calibrate_on_slew = True
     session = DwarfSession(settings)
     session.simulation = False
@@ -302,7 +323,7 @@ async def test_telescope_slew_raises_after_repeated_busy(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
-    settings = Settings()
+    settings = _settings()
     settings.auto_calibrate_on_slew = True
     settings.calibration_valid_seconds = 60.0
     session = DwarfSession(settings)
@@ -367,7 +388,7 @@ async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_telescope_slew_uses_configured_timeout(monkeypatch):
-    settings = Settings()
+    settings = _settings()
     settings.goto_command_timeout_seconds = 42.5
     session = DwarfSession(settings)
     session.simulation = False
@@ -395,7 +416,7 @@ async def test_telescope_slew_uses_configured_timeout(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_acquire_telescope_does_not_schedule_calibration(monkeypatch):
-    session = DwarfSession(Settings())
+    session = DwarfSession(_settings())
     session.simulation = False
 
     async def fake_ensure_ws(self, *args, **kwargs):
@@ -418,7 +439,7 @@ async def test_acquire_telescope_does_not_schedule_calibration(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_acquire_telescope_does_not_schedule_even_without_recent_cal(monkeypatch):
-    session = DwarfSession(Settings())
+    session = DwarfSession(_settings())
     session.simulation = False
     session._last_calibration_time = None
     session._last_calibration_ip = None
@@ -443,7 +464,7 @@ async def test_acquire_telescope_does_not_schedule_even_without_recent_cal(monke
 
 @pytest.mark.asyncio
 async def test_acquire_focuser_does_not_schedule_calibration(monkeypatch):
-    session = DwarfSession(Settings())
+    session = DwarfSession(_settings())
     session.simulation = False
 
     async def fake_ensure_ws(self, *args, **kwargs):
@@ -466,7 +487,7 @@ async def test_acquire_focuser_does_not_schedule_calibration(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_release_keeps_recent_calibration(monkeypatch):
-    settings = Settings()
+    settings = _settings()
     session = DwarfSession(settings)
     session.simulation = False
 
@@ -497,7 +518,7 @@ async def test_release_keeps_recent_calibration(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_telescope_move_axis_sends_joystick_command(monkeypatch):
-    session = DwarfSession(Settings())
+    session = DwarfSession(_settings())
     session.simulation = False
 
     async def noop(self, *args, **kwargs):
@@ -538,7 +559,7 @@ async def test_telescope_move_axis_sends_joystick_command(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_telescope_move_axis_clamps_speed(monkeypatch):
-    session = DwarfSession(Settings())
+    session = DwarfSession(_settings())
     session.simulation = False
 
     async def noop(self, *args, **kwargs):
@@ -574,7 +595,7 @@ async def test_telescope_move_axis_clamps_speed(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_telescope_move_axis_combines_axes(monkeypatch):
-    session = DwarfSession(Settings())
+    session = DwarfSession(_settings())
     session.simulation = False
 
     async def noop(self, *args, **kwargs):
@@ -612,7 +633,7 @@ async def test_telescope_move_axis_combines_axes(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_telescope_stop_axis_sends_stop_when_idle(monkeypatch):
-    session = DwarfSession(Settings())
+    session = DwarfSession(_settings())
     session.simulation = False
 
     async def noop(self, *args, **kwargs):
@@ -650,7 +671,7 @@ async def test_telescope_stop_axis_sends_stop_when_idle(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_telescope_stop_axis_noop_when_not_active(monkeypatch):
-    session = DwarfSession(Settings())
+    session = DwarfSession(_settings())
     session.simulation = False
 
     async def noop(self, *args, **kwargs):

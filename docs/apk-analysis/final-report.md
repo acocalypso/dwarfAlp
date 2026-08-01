@@ -110,6 +110,7 @@ packaging.
 | Calibration start/stop | 11045/11046 | app/newer profile | confirmed in app code |
 | Mount calibration state | 15210; state and plate-solving-attempt count | DWARF 2/3/mini shared V3 API | APK descriptor + hardware logs |
 | Mount calibration result | 15256; `double azi`, `double alt` | DWARF 2/3/mini shared V3 API | confirmed in APK 3.4.1 descriptor |
+| Mount calibration request | 11000; `double lon=1`, `double lat=2`; app rejects missing/(0,0) phone location | DWARF 2/3/mini shared V3 API | confirmed in APK 3.4.1 descriptor and capture call path |
 | Capture filter | 11005 field 1, Astro=1, Duo-Band=2 | Mini verified | app code and hardware traffic |
 | Dark filter | filter_type=3 in 11045 | calibration only | confirmed in app code; output unknown |
 

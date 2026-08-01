@@ -16,6 +16,7 @@ method bodies are copied here.
 | EV-CAP-01 | `WsStartCaptureRawLiveStackingReq.java:57`; Mini capture | `ir_index` and `force_start`; Astro=1, Duo=2 | Mini 1.1.3 build 2 | app code and hardware traffic |
 | EV-CAP-02 | `WsCmd.java:130-136`; raw Mini survey | 11040/11041 params; 11043 calibration-list ambiguity | Mini 1.1.3 build 2 | mixed; individual claims labelled |
 | EV-CAP-03 | `WsStartCaptureCaliFrameReq.java:73`; `WsCmd.java:135-136,347-348` | 11045/11046 and 15290/15291 calibration workflow | newer/Mini | confirmed in app code |
+| EV-CAL-01 | `WsStartCalibrationReq.java:21-48`; `CaptureActivity.java:2597-2623,4629-4652`; `CaptureViewModel.java:8385-8391`; `AstroProto.java:38` | 11000 requires current longitude field 1 and latitude field 2; app blocks missing/(0,0) location | shared V3 workflow | confirmed in app code |
 | EV-HW-01 | authorized Mini probes and user-observed app UI | Deep Sky offers Astro/Duo-Band and accepts 1 second | Mini 1.1.3 build 2 | confirmed on hardware |
 
 PCAP frame-level references are maintained with sanitized decode outputs in

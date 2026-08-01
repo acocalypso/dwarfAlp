@@ -17,6 +17,7 @@ from .devices.camera import router as camera_router
 from .devices.filterwheel import preload_filters
 from .devices.filterwheel import router as filterwheel_router
 from .devices.focuser import router as focuser_router
+from .devices.telescope import configure_site_location
 from .devices.telescope import router as telescope_router
 from .discovery import DiscoveryService
 from .dwarf.session import configure_session, get_session, shutdown_session
@@ -97,6 +98,7 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
 def build_app(settings: Settings) -> FastAPI:
     """Create the FastAPI application with Alpaca management endpoints mounted."""
     configure_device_profile(settings)
+    configure_site_location(settings.site_latitude, settings.site_longitude)
     profile = get_device_profile(settings.dwarf_device_model)
 
     @asynccontextmanager

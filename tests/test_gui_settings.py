@@ -67,6 +67,32 @@ def test_start_allows_direct_ip_without_device_address(qapp):
         window.close()
 
 
+def test_manual_observer_coordinates_are_applied(qapp):
+    window = MainWindow()
+    try:
+        window.settings_widget.site_latitude_edit.setText("48,1372")
+        window.settings_widget.site_longitude_edit.setText("11.5756")
+
+        settings = window._build_settings_for_server()
+
+        assert settings.site_latitude == pytest.approx(48.1372)
+        assert settings.site_longitude == pytest.approx(11.5756)
+    finally:
+        window.close()
+
+
+def test_location_lookup_result_populates_coordinate_fields(qapp):
+    window = MainWindow()
+    try:
+        window._on_location_fetch_success((48.1372, 11.5756, "Munich, Germany"))
+
+        assert window.settings_widget.site_latitude_edit.text() == "48.137200"
+        assert window.settings_widget.site_longitude_edit.text() == "11.575600"
+        assert "Verify before use" in window.settings_widget.location_status_label.text()
+    finally:
+        window.close()
+
+
 def test_build_settings_replaces_untouched_default_with_sta_ip(qapp, tmp_path):
     window = MainWindow()
     try:

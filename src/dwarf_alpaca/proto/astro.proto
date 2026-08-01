@@ -2,7 +2,9 @@ syntax = "proto3";
 
 // 开始校准
 message ReqStartCalibration {
-    
+    // APK 3.4.1 V3 workflow: current observer longitude and latitude in degrees.
+    double lon = 1;
+    double lat = 2;
 }
 
 // 停止校准

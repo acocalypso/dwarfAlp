@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     profiles_path: Optional[Path] = None
 
     timezone_name: Optional[str] = None
+    site_latitude: Optional[float] = None
+    site_longitude: Optional[float] = None
+    geolocation_lookup_url: str = "https://ipwho.is/"
 
     dwarf_ap_ip: str = "192.168.88.1"
     dwarf_http_port: int = 8082

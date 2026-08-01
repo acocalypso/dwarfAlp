@@ -53,6 +53,14 @@ state = TelescopeState()
 logger = structlog.get_logger(__name__)
 
 
+def configure_site_location(latitude: float | None, longitude: float | None) -> None:
+    """Initialize the Alpaca site state from server settings."""
+
+    state.site_latitude = float(latitude) if latitude is not None else 0.0
+    state.site_longitude = float(longitude) if longitude is not None else 0.0
+    _update_alt_az()
+
+
 def _parse_float(value: str | float) -> float:
     if isinstance(value, float):
         return value
@@ -666,6 +674,8 @@ async def set_site_latitude(
     if not -90.0 <= value <= 90.0:
         raise HTTPException(status_code=400, detail="Latitude out of range")
     state.site_latitude = value
+    session = await get_session()
+    session.set_observer_location(latitude=value)
     _update_alt_az()
     return alpaca_response()
 
@@ -691,6 +701,8 @@ async def set_site_longitude(
     if not -180.0 <= value <= 180.0:
         raise HTTPException(status_code=400, detail="Longitude out of range")
     state.site_longitude = value
+    session = await get_session()
+    session.set_observer_location(longitude=value)
     _update_alt_az()
     return alpaca_response()
 

@@ -250,6 +250,8 @@ Settings may be supplied via env vars (`DWARF_ALPACA_*`), `.env`, or a YAML prof
 | `calibrate_after_server_start` | `False` | Opt-in post-start V3 mount calibration for DWARF 2, DWARF 3, and DWARF mini. May move the telescope. |
 | `calibration_autofocus_timeout_seconds` | `120` | Maximum time to wait for the mandatory astronomical autofocus before calibration. |
 | `calibration_timeout_seconds` | `300` | Allows firmware calibration to make multiple plate-solving attempts in poor sky conditions. |
+| `site_latitude` / `site_longitude` | `None` | Observer coordinates in decimal degrees. Required for V3 mount calibration. |
+| `geolocation_lookup_url` | `https://ipwho.is/` | User-triggered public-IP location estimate used by the Control Center. |
 
 The Control Center reports calibration progress received on notification `15210` and
 only reports firmware-confirmed success after notification `15256` supplies the
@@ -258,6 +260,13 @@ solved azimuth and altitude. Missing completion evidence is displayed and logged
 Every calibration first runs astronomical autofocus (`15004`) and waits for the shared
 V3 autofocus-complete notification (`15278` or `15280`, state `3`). The GUI displays
 the autofocus phase and the firmware's current plate-solving attempt count.
+The APK 3.4.1 workflow sends observer longitude and latitude as fields 1 and 2 of
+`ReqStartCalibration`; an empty request can eventually fail with firmware code `-11504`.
+Enter exact decimal coordinates in Settings or use **Fetch current position** before
+starting the server. The web lookup is deliberately user-triggered, sends the public IP
+to the configured provider, and is only an estimate; verify it before calibration.
+Coordinates supplied later through Alpaca `SiteLatitude` and `SiteLongitude` are used
+for subsequent automatic calibration and saved by the Control Center.
 
 See `config/profiles.yaml` for sample overlays.
 

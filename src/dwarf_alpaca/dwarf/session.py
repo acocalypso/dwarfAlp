@@ -422,6 +422,8 @@ class DwarfSession:
         self.settings = settings
         self.profile: DeviceProfile = get_device_profile(settings.dwarf_device_model)
         self.simulation = settings.force_simulation
+        self._observer_latitude = settings.site_latitude
+        self._observer_longitude = settings.site_longitude
         ws_minor_version, ws_device_id = _resolve_ws_protocol_profile(settings)
         self._ws_client = DwarfWsClient(
             settings.dwarf_ap_ip,
@@ -522,6 +524,52 @@ class DwarfSession:
 
     def _is_dwarf_mini(self) -> bool:
         return self.profile.model_id == "dwarfmini"
+
+    def set_observer_location(
+        self,
+        *,
+        latitude: float | None = None,
+        longitude: float | None = None,
+    ) -> None:
+        """Update the observer coordinates used by V3 calibration commands."""
+
+        if latitude is not None and not -90.0 <= latitude <= 90.0:
+            raise ValueError("Latitude must be between -90 and 90 degrees")
+        if longitude is not None and not -180.0 <= longitude <= 180.0:
+            raise ValueError("Longitude must be between -180 and 180 degrees")
+        changed = False
+        if latitude is not None and latitude != self._observer_latitude:
+            self._observer_latitude = latitude
+            changed = True
+        if longitude is not None and longitude != self._observer_longitude:
+            self._observer_longitude = longitude
+            changed = True
+        if not changed:
+            return
+        self.settings = self.settings.model_copy(
+            update={
+                "site_latitude": self._observer_latitude,
+                "site_longitude": self._observer_longitude,
+            }
+        )
+        self._last_calibration_time = None
+        self._last_calibration_ip = None
+        logger.info(
+            "dwarf.telescope.observer_location.updated",
+            latitude=self._observer_latitude,
+            longitude=self._observer_longitude,
+        )
+
+    def _require_observer_location(self) -> tuple[float, float]:
+        latitude = self._observer_latitude
+        longitude = self._observer_longitude
+        if latitude is None or longitude is None or (latitude == 0.0 and longitude == 0.0):
+            raise RuntimeError(
+                "Observer latitude and longitude are required for V3 mount calibration"
+            )
+        if not -90.0 <= latitude <= 90.0 or not -180.0 <= longitude <= 180.0:
+            raise RuntimeError("Observer coordinates are outside the supported range")
+        return (latitude, longitude)
 
     def _uses_v3_protocol(self) -> bool:
         return self.profile.protocol.family == "v3"
@@ -2333,6 +2381,16 @@ class DwarfSession:
             if self._has_recent_calibration():
                 return
             try:
+                latitude, longitude = self._require_observer_location()
+            except Exception as exc:
+                self._calibration_status = "location required"
+                self._calibration_detail = str(exc)
+                logger.warning(
+                    "dwarf.telescope.calibration.location_missing",
+                    error=str(exc),
+                )
+                raise
+            try:
                 await self._autofocus_before_calibration()
             except asyncio.CancelledError:
                 raise
@@ -2345,13 +2403,17 @@ class DwarfSession:
                     error_type=type(exc).__name__,
                 )
                 raise
-            request = astro_pb2.ReqStartCalibration()
+            request = astro_pb2.ReqStartCalibration(lon=longitude, lat=latitude)
             self._calibration_status = "starting"
             self._calibration_detail = None
             self._calibration_azimuth = None
             self._calibration_altitude = None
             self._calibration_result_event.clear()
-            logger.info("dwarf.telescope.calibration.starting")
+            logger.info(
+                "dwarf.telescope.calibration.starting",
+                longitude=longitude,
+                latitude=latitude,
+            )
             timeout = max(1.0, float(self.settings.calibration_timeout_seconds))
             deadline = time.monotonic() + timeout
             try:
@@ -5217,6 +5279,8 @@ def configure_session(settings: Settings) -> None:
         _session.settings = settings
         _session.profile = get_device_profile(settings.dwarf_device_model)
         _session.simulation = settings.force_simulation
+        _session._observer_latitude = settings.site_latitude
+        _session._observer_longitude = settings.site_longitude
         _session._ws_client.set_client_id(resolve_ws_client_id(settings))
         _session._ws_client.minor_version = ws_minor_version
         _session._ws_client.device_id = ws_device_id
