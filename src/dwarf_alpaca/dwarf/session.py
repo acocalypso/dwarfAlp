@@ -2538,10 +2538,12 @@ class DwarfSession:
             try:
                 exposure_s = float(parts[2])
                 gain = int(parts[3])
-                frame_count = int(parts[4])
+                # DWARF 3 reports 0 here as a firmware/default placeholder.
+                # The requested count is written explicitly by 11041 before capture.
+                frame_count = max(1, int(parts[4]))
             except (TypeError, ValueError):
                 continue
-            if exposure_s <= 0 or frame_count < 1:
+            if exposure_s <= 0:
                 continue
             presets.append(
                 V3AstroPreset(
@@ -2957,12 +2959,9 @@ class DwarfSession:
         if self._filter_options is not None:
             return self._filter_options
         fallback_labels = self._fallback_filter_labels()
-        if self._is_dwarf_mini():
-            # App 3.4.1 encodes the two Deep Sky filters in
-            # ReqCaptureRawLiveStacking.ir_index. There is no independent
-            # filter-move request: 1 is Astro and 2 is Duo-Band. Dark (3) is
-            # reserved for the calibration-frame workflow and must not be
-            # advertised as a normal FilterWheel position.
+        if self.profile.filters.control_path == "astro-start-ir-index":
+            # V3 applies the physical filter as part of the astronomy-start request,
+            # rather than through a standalone filter-wheel movement command.
             self._filter_options = [
                 FilterOption(
                     parameter={"__control": "astro_capture_ir_index"},
@@ -2971,7 +2970,11 @@ class DwarfSession:
                     label=label,
                     controllable=True,
                 )
-                for firmware_index, label in enumerate(fallback_labels, start=1)
+                for firmware_index, label in zip(
+                    self.profile.filters.firmware_indices,
+                    fallback_labels,
+                    strict=True,
+                )
             ]
             return self._filter_options
         if self.simulation:
@@ -3702,7 +3705,7 @@ class DwarfSession:
         if self.simulation:
             return protocol_pb2.OK
         request = astro_pb2.ReqCaptureRawLiveStacking()
-        if self._is_dwarf_mini():
+        if self.profile.filters.control_path == "astro-start-ir-index":
             options = await self._get_filter_options()
             position = self.camera_state.filter_index
             if position is None and options:
@@ -3710,7 +3713,9 @@ class DwarfSession:
                 self.camera_state.filter_index = 0
                 self.camera_state.filter_name = options[0].label
             if position is None or position < 0 or position >= len(options):
-                raise CaptureConfigurationError("No valid DWARF mini imaging filter is selected")
+                raise CaptureConfigurationError(
+                    f"No valid {self.profile.display_name} imaging filter is selected"
+                )
             option = options[position]
             request.ir_index = int(option.index)
             request.force_start = not self._has_recent_goto()
@@ -3734,7 +3739,7 @@ class DwarfSession:
                 "dwarf.camera.astro_capture_timeout",
                 timeout=timeout,
             )
-            if self._is_dwarf_mini():
+            if self.profile.filters.control_path == "astro-start-ir-index":
                 evidence_timeout = max(
                     float(self.settings.capture_start_evidence_timeout_seconds),
                     0.1,
@@ -3759,7 +3764,7 @@ class DwarfSession:
             raise
         code = getattr(response, "code", protocol_pb2.OK)
         if code == protocol_pb2.OK:
-            if self._is_dwarf_mini():
+            if self.profile.filters.control_path == "astro-start-ir-index":
                 self.camera_state.applied_filter_name = option.label
             return code
 
@@ -3771,7 +3776,7 @@ class DwarfSession:
                 code=code,
                 non_fatal=True,
             )
-            if self._is_dwarf_mini():
+            if self.profile.filters.control_path == "astro-start-ir-index":
                 self.camera_state.applied_filter_name = option.label
             return code
 

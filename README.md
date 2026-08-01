@@ -13,7 +13,7 @@ Camera/0, Focuser/0, and model-dependent FilterWheel/0 devices.
 | Model | Implemented profile | Automated | Physical verification in this audit |
 | --- | --- | --- | --- |
 | DWARF 2 | V3 1.20/device-4 path; no FilterWheel device | Yes | No |
-| DWARF 3 | V3 1.20/device-4 path with model-specific filters | Yes | No DWARF 3 available |
+| DWARF 3 | V3 1.20/device-4 path with model-specific filters | Yes | Yes; camera, focuser, filters, and 1 s NINA capture tested |
 | DWARF mini | V3 1.20/device-4 path | Yes | Yes; camera and filter capture tested |
 
 “Automated” means protocol mocks and simulation, not current-firmware hardware
@@ -273,7 +273,7 @@ For a deeper exploration see [`docs/architecture.md`](docs/architecture.md).
 2. **Discover** – Clients broadcast Alpaca discovery; this server replies with Telescope/0, Camera/0, and Focuser/0 entries, plus FilterWheel/0 only on models that contain filters.
 3. **Slew & track** – Telescope slews translate to DWARF astro GOTO commands; recent slews are cached for exposure validation.
 4. **Focus** – Manual and continuous focus moves map to DWARF focus commands with live position updates from notifications.
-5. **Filter selection** – On DWARF 3 and DWARF mini, filter positions are mapped to the model-specific controls. DWARF 2 does not expose a filter wheel.
+5. **Filter selection** – On DWARF 3 and DWARF mini, Alpaca positions map to model-specific V3 `ir_index` values that are applied by the next astronomy-start command. DWARF 2 does not expose a filter wheel.
 6. **Capture** – Exposure requests ensure gain/exposure indices, start astro capture, watch dark library state, and fetch the resulting image via FTP.
 7. **Telemetry** – Temperature and camera metadata stream back into Alpaca GET endpoints for real-time monitoring.
 

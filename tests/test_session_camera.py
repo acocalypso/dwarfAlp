@@ -79,6 +79,31 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_dwarf3_v3_astro_preset_accepts_firmware_zero_placeholder(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+
+    async def fake_send_request(_module, command, _request, _response_cls, **_kwargs):
+        assert command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_GET_PARAMS
+        response = V3ResGetAstroParams()
+        entry = response.params.add()
+        entry.exposure = "1"
+        entry.gain = 120
+        entry.total = 120
+        entry.pipe_params = "0|0|1|120|0|null"
+        return response
+
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
+
+    presets = await session._get_v3_astro_presets()
+
+    assert len(presets) == 1
+    assert presets[0].exposure_s == 1.0
+    assert presets[0].gain == 120
+    assert presets[0].frame_count == 1
+
+
+@pytest.mark.asyncio
 async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
     session.simulation = False
@@ -107,6 +132,33 @@ async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
     assert request.ir_index == 2
     assert request.force_start is True
     assert session.camera_state.applied_filter_name == "Duo-Band"
+
+
+@pytest.mark.asyncio
+async def test_dwarf3_astro_start_embeds_selected_duoband_filter(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    await session._get_filter_options()
+    session.camera_state.filter_index = 2
+    session.camera_state.filter_name = "Duo-Band Filter"
+    captured: dict[str, object] = {}
+
+    async def fake_send_command(_module_id, _command_id, request, **_kwargs):
+        captured["request"] = astro_pb2.ReqCaptureRawLiveStacking.FromString(
+            request.SerializeToString()
+        )
+        response = ComResponse()
+        response.code = protocol_pb2.OK
+        return response
+
+    monkeypatch.setattr(session, "_send_command", fake_send_command)
+
+    await session._start_astro_capture(timeout=5.0)
+
+    request = captured["request"]
+    assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
+    assert request.ir_index == 2
+    assert session.camera_state.applied_filter_name == "Duo-Band Filter"
 
 
 @pytest.mark.asyncio

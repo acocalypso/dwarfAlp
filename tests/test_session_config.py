@@ -80,7 +80,7 @@ async def test_mini_filter_labels_are_mapped_from_firmware_aliases() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ensure_default_filter_prefers_support_params(
+async def test_ensure_default_filter_uses_dwarf3_v3_capture_index(
     params_config: dict[str, object],
 ) -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
@@ -88,25 +88,10 @@ async def test_ensure_default_filter_prefers_support_params(
     session._params_config = params_config
     session.camera_state.filter_name = ""
 
-    taken: dict[str, object] = {}
-
-    async def fake_set_ir_cut(self, *, value: int) -> None:  # type: ignore[override]
-        taken["ircut_value"] = value
-
-    async def fake_set_feature_param(self, *args, **kwargs) -> None:  # type: ignore[override]
-        raise AssertionError("_set_feature_param should not be called for IR Cut filters")
-
-    async def fake_ensure_ws(self) -> None:  # type: ignore[override]
-        return None
-
-    session._set_ir_cut = types.MethodType(fake_set_ir_cut, session)
-    session._set_feature_param = types.MethodType(fake_set_feature_param, session)
-    session._ensure_ws = types.MethodType(fake_ensure_ws, session)
-
     await session._ensure_default_filter("VIS")
 
-    assert taken["ircut_value"] == 0
     assert session.camera_state.filter_name == "VIS Filter"
+    assert session.camera_state.filter_index == 0
 
 
 @pytest.mark.asyncio
@@ -125,6 +110,21 @@ async def test_mini_filter_options_use_astro_start_ir_index() -> None:
         opt.parameter and opt.parameter.get("__control") == "astro_capture_ir_index"
         for opt in options
     )
+
+
+@pytest.mark.asyncio
+async def test_dwarf3_filter_options_use_model_specific_v3_indices() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
+
+    options = await session._get_filter_options()
+
+    assert [entry.label for entry in options] == [
+        "VIS Filter",
+        "Astro Filter",
+        "Duo-Band Filter",
+    ]
+    assert [entry.index for entry in options] == [0, 1, 2]
+    assert all(entry.controllable for entry in options)
 
 
 @pytest.mark.asyncio

@@ -56,6 +56,7 @@ class CaptureCapabilities:
 @dataclass(frozen=True)
 class FilterCapabilities:
     labels: tuple[str, ...]
+    firmware_indices: tuple[int, ...]
     control_path: str
     runtime_discovery: bool
 
@@ -117,8 +118,9 @@ _DWARF3 = DeviceProfile(
     ),
     filters=FilterCapabilities(
         labels=("VIS Filter", "Astro Filter", "Duo-Band Filter"),
-        control_path="v2-feature-param",
-        runtime_discovery=True,
+        firmware_indices=(0, 1, 2),
+        control_path="astro-start-ir-index",
+        runtime_discovery=False,
     ),
 )
 
@@ -168,6 +170,7 @@ _DWARFMINI = DeviceProfile(
     ),
     filters=FilterCapabilities(
         labels=("Astro", "Duo-Band"),
+        firmware_indices=(1, 2),
         control_path="astro-start-ir-index",
         runtime_discovery=False,
     ),
@@ -218,6 +221,7 @@ _DWARF2 = DeviceProfile(
     ),
     filters=FilterCapabilities(
         labels=(),
+        firmware_indices=(),
         control_path="none",
         runtime_discovery=False,
     ),

@@ -42,6 +42,16 @@ def test_dwarf2_keeps_filterwheel_disabled_on_shared_v3_protocol():
     assert profile.protocol.family == "v3"
     assert profile.has_filterwheel is False
     assert profile.filters.labels == ()
+    assert profile.filters.firmware_indices == ()
+
+
+def test_v3_filter_indices_remain_model_specific():
+    dwarf3 = get_device_profile("dwarf3")
+    mini = get_device_profile("dwarfmini")
+
+    assert dwarf3.filters.firmware_indices == (0, 1, 2)
+    assert mini.filters.firmware_indices == (1, 2)
+    assert dwarf3.filters.control_path == mini.filters.control_path == "astro-start-ir-index"
 
 
 def test_capture_capabilities_report_distinct_stop_and_abort():
