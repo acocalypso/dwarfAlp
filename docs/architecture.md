@@ -104,9 +104,11 @@ Configuration/transfer/decode error -> FAILED
    have not been proved.
 8. A start ACK proves start. A mini timeout is accepted only if an independent V3
    progress, observation, or device-state value changed.
-9. Completion waits for exposure × frame count plus device file output. FTP is
-   preferred; album is fallback. A result must be newer than the baseline and capture
-   start.
+9. Firmware notification `15209.stacked_count` and FTP FITS discovery are watched
+   concurrently. Reaching the requested stack count or finding the first new FITS sends
+   `11006` immediately; FTP retrieval then finishes with stacking stopped. FTP is
+   preferred and album is fallback. A result must be newer than the baseline and capture
+   start, and the selected device path is recorded in the capture log.
 10. FITS stays unsigned 16-bit after FITS scaling. JPEG stays genuine 8-bit RGB;
     its source format/bit depth is reported and never promoted to fake sensor depth.
 11. `ImageReady`, `CameraState`, `PercentCompleted`, `ImageArray`, and `ImageBytes`

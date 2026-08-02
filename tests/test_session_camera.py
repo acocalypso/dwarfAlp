@@ -27,6 +27,7 @@ from dwarf_alpaca.proto.dwarf_messages import (
     V3ResShootingModeSwitch,
     WsPacket,
 )
+from dwarf_alpaca.proto.notify_pb2 import ResNotifyProgressCaptureRawLiveStacking
 from dwarf_alpaca.proto.v3_astro_pb2 import V3ResGetAstroParams, V3ResSetAstroParams
 
 
@@ -430,6 +431,89 @@ async def test_v3_device_state_notification_updates_session_state() -> None:
     assert session._v3_device_state_mode == 8
     assert session._v3_device_state_detail == 2
     assert session._v3_device_state_path == "/data/stacked/result.fit"
+
+
+@pytest.mark.asyncio
+async def test_astro_progress_stops_at_requested_stacked_count() -> None:
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    state = session.camera_state
+    state.capture_id = "capture-1"
+    state.requested_frame_count = 2
+
+    def progress_packet(*, current: int, stacked: int) -> WsPacket:
+        message = ResNotifyProgressCaptureRawLiveStacking(
+            total_count=20,
+            update_count_type=1 if stacked else 0,
+            current_count=current,
+            stacked_count=stacked,
+            exp_index=42,
+            gain_index=3,
+            target_name="Sun",
+        )
+        packet = WsPacket()
+        packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
+        packet.cmd = protocol_pb2.DwarfCMD.CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING
+        packet.type = TYPE_NOTIFICATION
+        packet.data = message.SerializeToString()
+        return packet
+
+    await session._handle_notification(progress_packet(current=20, stacked=1))
+
+    assert state.progress_total_count == 20
+    assert state.progress_current_count == 20
+    assert state.progress_stacked_count == 1
+    assert state.progress_exposure_index == 42
+    assert state.progress_gain_index == 3
+    assert state.progress_target_name == "Sun"
+    assert not session._capture_frame_complete_event.is_set()
+
+    await session._handle_notification(progress_packet(current=20, stacked=2))
+
+    assert state.progress_stacked_count == 2
+    assert session._capture_frame_complete_event.is_set()
+
+
+@pytest.mark.asyncio
+async def test_astro_fetch_stops_on_progress_before_ftp_retrieval_finishes(monkeypatch) -> None:
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    state = session.camera_state
+    state.capture_id = "capture-1"
+    state.capture_mode = "astro"
+    state.requested_frame_count = 1
+    state.duration = 1.0
+    ftp_started = asyncio.Event()
+    allow_ftp_finish = asyncio.Event()
+    calls: list[str] = []
+
+    async def fake_attempt_ftp(fetch_state) -> bool:
+        calls.append("ftp_started")
+        ftp_started.set()
+        await allow_ftp_finish.wait()
+        fetch_state.image = object()
+        fetch_state.retrieved_file_path = "/Astronomy/test/frame-1.fit"
+        calls.append("ftp_finished")
+        return True
+
+    async def fake_stop(*_args, **_kwargs) -> None:
+        calls.append("stop")
+        allow_ftp_finish.set()
+
+    async def fake_go_live() -> None:
+        calls.append("go_live")
+
+    monkeypatch.setattr(session, "_attempt_ftp_capture", fake_attempt_ftp)
+    monkeypatch.setattr(session, "_stop_astro_capture", fake_stop)
+    monkeypatch.setattr(session, "_astro_go_live", fake_go_live)
+
+    fetch_task = asyncio.create_task(session._fetch_capture(state))
+    await ftp_started.wait()
+    session._capture_frame_complete_event.set()
+    await asyncio.wait_for(fetch_task, timeout=0.5)
+
+    assert calls == ["ftp_started", "stop", "ftp_finished", "go_live"]
+    assert state.retrieved_file_path == "/Astronomy/test/frame-1.fit"
+    assert state.capture_phase == CapturePhase.READY
 
 
 @pytest.mark.asyncio

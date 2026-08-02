@@ -86,6 +86,7 @@ from ..proto.notify_pb2 import (
     AstroCalibrationState,
     CalibrationResult,
     ResNotifyOneClickGotoState,
+    ResNotifyProgressCaptureRawLiveStacking,
 )
 from ..proto.v3_astro_pb2 import (
     V3ReqGetAstroParams,
@@ -400,6 +401,13 @@ class CameraState:
     capture_start_monotonic: float | None = None
     source_format: str | None = None
     source_bit_depth: int | None = None
+    progress_total_count: int | None = None
+    progress_current_count: int = 0
+    progress_stacked_count: int = 0
+    progress_exposure_index: int | None = None
+    progress_gain_index: int | None = None
+    progress_target_name: str | None = None
+    retrieved_file_path: str | None = None
 
 
 @dataclass
@@ -463,6 +471,7 @@ class DwarfSession:
         self._filter_change_lock: asyncio.Lock | None = None
         self._filter_change_lock_loop: asyncio.AbstractEventLoop | None = None
         self._capture_start_evidence_event = asyncio.Event()
+        self._capture_frame_complete_event = asyncio.Event()
         self._ws_bootstrapped = False
         self.camera_state = CameraState()
         self.focuser_state = FocuserState()
@@ -1052,6 +1061,8 @@ class DwarfSession:
             self._handle_tracking_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_SET_FEATURE_PARAM:
             self._handle_feature_param_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING:
+            self._handle_astro_capture_progress_notification(packet)
         elif command_id == _CMD_NOTIFY_V3_EXPOSURE_PROGRESS:
             self._handle_v3_exposure_progress_notification(packet)
         elif command_id == _CMD_NOTIFY_V3_DEVICE_STATE:
@@ -1237,6 +1248,62 @@ class DwarfSession:
         # Feature-param notifications are not Mini filter-wheel readback.
         # App 3.4.1 carries the Mini filter only in the astronomy start request.
         return
+
+    def _handle_astro_capture_progress_notification(self, packet: Message) -> None:
+        raw_data = getattr(packet, "data", b"") or b""
+        if not raw_data:
+            return
+        message = ResNotifyProgressCaptureRawLiveStacking()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.warning(
+                "dwarf.camera.astro_capture_progress_decode_failed",
+                payload_hex=raw_data.hex(),
+                error=str(exc),
+            )
+            return
+
+        state = self.camera_state
+        total_count = int(message.total_count)
+        current_count = int(message.current_count)
+        stacked_count = int(message.stacked_count)
+        update_count_type = int(message.update_count_type)
+        exp_index = int(message.exp_index)
+        gain_index = int(message.gain_index)
+        target_name = str(message.target_name).strip()
+
+        if total_count > 0:
+            state.progress_total_count = total_count
+        if current_count > 0:
+            state.progress_current_count = max(state.progress_current_count, current_count)
+        if stacked_count > 0:
+            state.progress_stacked_count = max(state.progress_stacked_count, stacked_count)
+        if exp_index > 0:
+            state.progress_exposure_index = exp_index
+        if gain_index > 0:
+            state.progress_gain_index = gain_index
+        if target_name:
+            state.progress_target_name = target_name
+
+        requested_frames = max(1, int(state.requested_frame_count or 1))
+        completed = state.progress_stacked_count >= requested_frames
+        logger.info(
+            "dwarf.camera.astro_capture_progress",
+            capture_id=state.capture_id,
+            total_count=state.progress_total_count,
+            current_count=state.progress_current_count,
+            stacked_count=state.progress_stacked_count,
+            update_count_type=update_count_type,
+            requested_frames=requested_frames,
+            exposure_index=state.progress_exposure_index,
+            gain_index=state.progress_gain_index,
+            target_name=state.progress_target_name,
+            completed=completed,
+        )
+        self._capture_start_evidence_event.set()
+        if completed and state.capture_id is not None:
+            self._capture_frame_complete_event.set()
 
     def _handle_v3_camera_param_state_notification(self, packet: Message) -> None:
         # Command 15264 reports general camera parameters. Treating parameter
@@ -3050,6 +3117,14 @@ class DwarfSession:
         state.applied_filter_name = None
         state.applied_bin = None
         state.applied_frame_count = None
+        state.progress_total_count = None
+        state.progress_current_count = 0
+        state.progress_stacked_count = 0
+        state.progress_exposure_index = None
+        state.progress_gain_index = None
+        state.progress_target_name = None
+        state.retrieved_file_path = None
+        self._capture_frame_complete_event.clear()
         self._v3_selected_astro_preset = None
         state.last_dark_check_code = None
         state.capture_mode = self._resolve_mini_capture_mode() if mini_profile else "astro"
@@ -5079,18 +5154,48 @@ class DwarfSession:
         state.start_time = None
 
     async def _fetch_capture(self, state: CameraState) -> None:
-        await asyncio.sleep(max(state.duration * max(1, state.requested_frame_count), 0.1))
         state.capture_phase = CapturePhase.PROCESSING
         astro_mode = state.capture_mode == "astro"
         image_captured = state.image is not None
         if not self.simulation:
             state.capture_phase = CapturePhase.TRANSFERRING
             ftp_success = False
-            try:
-                ftp_success = await self._attempt_ftp_capture(state)
-            finally:
-                if astro_mode:
+            if astro_mode:
+                ftp_task = asyncio.create_task(self._attempt_ftp_capture(state))
+                progress_task = asyncio.create_task(self._capture_frame_complete_event.wait())
+                trigger = "ftp"
+                try:
+                    done, _pending = await asyncio.wait(
+                        {ftp_task, progress_task},
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if progress_task in done and progress_task.result():
+                        trigger = "stacking_progress"
+                    elif ftp_task in done:
+                        trigger = "ftp" if ftp_task.result() else "ftp_timeout"
+                    logger.info(
+                        "dwarf.camera.astro_capture_stop_triggered",
+                        capture_id=state.capture_id,
+                        trigger=trigger,
+                        requested_frames=state.requested_frame_count,
+                        current_count=state.progress_current_count,
+                        stacked_count=state.progress_stacked_count,
+                        retrieved_file=state.retrieved_file_path,
+                    )
                     await self._stop_astro_capture()
+                    ftp_success = await ftp_task
+                finally:
+                    if not progress_task.done():
+                        progress_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await progress_task
+                    if not ftp_task.done():
+                        ftp_task.cancel()
+                        with contextlib.suppress(asyncio.CancelledError):
+                            await ftp_task
+            else:
+                await asyncio.sleep(max(state.duration * max(1, state.requested_frame_count), 0.1))
+                ftp_success = await self._attempt_ftp_capture(state)
             if ftp_success:
                 image_captured = True
             else:
@@ -5152,8 +5257,20 @@ class DwarfSession:
             return False
         timestamp = capture.entry.timestamp or time.time()
         self._store_frame(state, frame, timestamp)
+        state.retrieved_file_path = capture.entry.path
         state.last_ftp_entry = capture.entry
         state.pending_ftp_baseline = capture.entry
+        logger.info(
+            "dwarf.camera.ftp_capture_selected",
+            capture_id=state.capture_id,
+            path=capture.entry.path,
+            directory=capture.entry.directory,
+            filename=capture.entry.name,
+            timestamp=capture.entry.timestamp,
+            size_bytes=len(capture.content),
+            baseline=None if baseline is None else baseline.path,
+            exposure_started_at=state.last_start_time,
+        )
         return True
 
     async def _attempt_album_capture(self, state: CameraState) -> None:

@@ -32,3 +32,16 @@ message CalibrationResult {
 message ResNotifyOneClickGotoState {
     OperationState state = 1;
 }
+
+// Astronomy live-stacking progress: CMD 15209.
+// `stacked_count` is the number of completed, accepted stack frames and is the
+// safe boundary for stopping a finite Alpaca exposure sequence.
+message ResNotifyProgressCaptureRawLiveStacking {
+    int32 total_count = 1;
+    int32 update_count_type = 2;
+    int32 current_count = 3;
+    int32 stacked_count = 4;
+    int32 exp_index = 5;
+    int32 gain_index = 6;
+    string target_name = 7;
+}
