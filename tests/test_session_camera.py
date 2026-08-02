@@ -258,12 +258,39 @@ async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_dwarf3_astro_start_uses_v3_sentinel_payload(monkeypatch):
+async def test_dwarf3_astro_start_embeds_selected_filter(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
     session.simulation = False
     await session._get_filter_options()
     session.camera_state.filter_index = 2
     session.camera_state.filter_name = "Duo-Band Filter"
+    captured: dict[str, object] = {}
+
+    async def fake_begin_request(_module_id, _command_id, request, _response_cls):
+        captured["request"] = astro_pb2.ReqCaptureRawLiveStacking.FromString(
+            request.SerializeToString()
+        )
+        response = ComResponse()
+        response.code = protocol_pb2.OK
+        future = asyncio.get_running_loop().create_future()
+        future.set_result(response)
+        return future
+
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
+
+    await session._start_astro_capture(timeout=5.0)
+
+    request = captured["request"]
+    assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
+    assert request.ir_index == 2
+    assert request.force_start is True
+    assert session.camera_state.applied_filter_name == "Duo-Band Filter"
+
+
+@pytest.mark.asyncio
+async def test_dwarf2_astro_start_uses_v3_sentinel_payload(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf2"))
+    session.simulation = False
     captured: dict[str, object] = {}
 
     async def fake_begin_request(_module_id, _command_id, request, _response_cls):
@@ -287,8 +314,9 @@ async def test_dwarf3_astro_start_uses_v3_sentinel_payload(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_mini_astro_start_does_not_force_after_recent_goto(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+@pytest.mark.parametrize("model", ["dwarfmini", "dwarf3"])
+async def test_filtered_v3_start_does_not_force_after_recent_goto(monkeypatch, model):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model=model))
     session.simulation = False
     captured: dict[str, object] = {}
 

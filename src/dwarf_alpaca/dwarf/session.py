@@ -4633,9 +4633,10 @@ class DwarfSession:
     async def _start_astro_capture(self, *, timeout: float) -> int:
         if self.simulation:
             return protocol_pb2.OK
-        uses_v3_sentinel = self._uses_v3_protocol() and (
-            self.profile.filters.control_path != "astro-start-ir-index"
+        embeds_filter_in_start = self._uses_v3_protocol() and bool(
+            self.profile.filters.labels
         )
+        uses_v3_sentinel = self._uses_v3_protocol() and not embeds_filter_in_start
         if uses_v3_sentinel:
             request = ReqAstroStartCaptureRawLiveStacking()
             request.sentinel = -1
@@ -4646,7 +4647,7 @@ class DwarfSession:
             )
         else:
             request = astro_pb2.ReqCaptureRawLiveStacking()
-        if self.profile.filters.control_path == "astro-start-ir-index":
+        if embeds_filter_in_start:
             options = await self._get_filter_options()
             position = self.camera_state.filter_index
             if position is None and options:
@@ -4718,7 +4719,7 @@ class DwarfSession:
                 "dwarf.camera.astro_capture_timeout",
                 timeout=timeout,
             )
-            if self.profile.filters.control_path == "astro-start-ir-index":
+            if embeds_filter_in_start:
                 evidence_timeout = max(
                     float(self.settings.capture_start_evidence_timeout_seconds),
                     0.1,
