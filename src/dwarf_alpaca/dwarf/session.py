@@ -1552,22 +1552,46 @@ class DwarfSession:
                 error=str(exc),
             )
             return
+        phase = "legacy"
         state_value = int(message.state)
+        target_name = self._goto_target_name
+        if message.HasField("phase_2"):
+            phase = "phase_2"
+            state_value = int(message.phase_2.state)
+            target_name = str(message.phase_2.target_name).strip() or target_name
+        if message.HasField("goto_state"):
+            phase = "goto"
+            state_value = int(message.goto_state.state)
+            target_name = str(message.goto_state.target_name).strip() or target_name
+        if message.HasField("tracking_state"):
+            phase = "tracking"
+            state_value = int(message.tracking_state.state)
+            target_name = str(message.tracking_state.target_name).strip() or target_name
+
         state_name = {
             0: "idle",
             1: "running",
             2: "stopping",
             3: "stopped",
+            4: "plate_solving",
         }.get(state_value, "unknown")
         logger.info(
             "dwarf.goto.one_click.notification.state",
+            phase=phase,
             state=state_name,
             state_value=state_value,
-            target_name=self._goto_target_name,
+            target_name=target_name,
             payload_hex=raw_data.hex(),
         )
-        if self._goto_pending and self._one_click_goto_active and state_value in {1, 2}:
+        if not self._goto_pending or not self._one_click_goto_active:
+            return
+        if phase in {"phase_2", "goto", "legacy"} and state_value in {1, 2, 3, 4}:
             self._goto_waiting_for_tracking = True
+        if phase == "tracking" and state_value == 1:
+            reason = "one_click_tracking_running"
+            if target_name:
+                reason = f"one_click_tracking_running:{target_name}"
+            self._resolve_goto("success", reason=reason, keep_record=True)
 
     def _handle_tracking_state_notification(self, packet: Message) -> None:
         if self.simulation:

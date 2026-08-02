@@ -145,6 +145,48 @@ async def test_one_click_goto_notification_is_decoded() -> None:
 
 
 @pytest.mark.asyncio
+async def test_v3_one_click_tracking_envelope_completes_slew() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+    session._one_click_goto_active = True
+    session._record_goto(18.3133333338, -13.80666667)
+    session._mark_goto_pending(kind="dso", target_name="Custom")
+
+    # Exact CMD 15233 payloads captured from DWARF 3 firmware on 2026-08-02:
+    # field 3 is the GoTo phase (running -> plate solving -> stopped).
+    for payload_hex in (
+        "1a0a08011206437573746f6d",
+        "1a0a08041206437573746f6d",
+        "1a0a08031206437573746f6d",
+    ):
+        packet = WsPacket(
+            module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
+            cmd=protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_ONE_CLICK_GOTO,
+            type=TYPE_NOTIFICATION,
+            data=bytes.fromhex(payload_hex),
+        )
+        await session._handle_notification(packet)
+
+    assert session._goto_pending is True
+    assert session._goto_waiting_for_tracking is True
+
+    # Field 4 tracking state RUNNING is the terminal successful-slew signal.
+    tracking_packet = WsPacket(
+        module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
+        cmd=protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_ONE_CLICK_GOTO,
+        type=TYPE_NOTIFICATION,
+        data=bytes.fromhex("220a08011206437573746f6d"),
+    )
+    await session._handle_notification(tracking_packet)
+
+    assert session._goto_pending is False
+    assert session._goto_result == "success"
+    assert session._goto_reason == "one_click_tracking_running:Custom"
+    assert session._goto_completion_event.is_set()
+    assert session._one_click_goto_active is False
+
+
+@pytest.mark.asyncio
 async def test_first_slew_matches_app_one_click_goto_payload() -> None:
     session = DwarfSession(_settings(dwarf_device_model="dwarfmini"))
     session.simulation = False

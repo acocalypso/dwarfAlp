@@ -28,9 +28,20 @@ message CalibrationResult {
     double alt = 2;
 }
 
-// V3 one-click calibration + GoTo state: CMD 15233.
+// A phase embedded in the V3 one-click calibration + GoTo envelope.
+message OneClickGotoPhaseState {
+    int32 state = 1;
+    string target_name = 2;
+}
+
+// V3 one-click calibration + GoTo state: CMD 15233. Field 1 is retained for
+// legacy firmware. V3 firmware reports the slew in field 3 and tracking in
+// field 4; tracking state 1 is the terminal success condition for Alpaca slew.
 message ResNotifyOneClickGotoState {
     OperationState state = 1;
+    OneClickGotoPhaseState phase_2 = 2;
+    OneClickGotoPhaseState goto_state = 3;
+    OneClickGotoPhaseState tracking_state = 4;
 }
 
 // Astronomy live-stacking progress: CMD 15209.

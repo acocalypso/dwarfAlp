@@ -24,23 +24,25 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cnotify.proto\"P\n\x15\x41stroCalibrationState\x12\x1a\n\x05state\x18\x01 \x01(\x0e\x32\x0b.AstroState\x12\x1b\n\x13plate_solving_times\x18\x02 \x01(\x05\"-\n\x11\x43\x61librationResult\x12\x0b\n\x03\x61zi\x18\x01 \x01(\x01\x12\x0b\n\x03\x61lt\x18\x02 \x01(\x01\"<\n\x1aResNotifyOneClickGotoState\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\"\xc3\x01\n\'ResNotifyProgressCaptureRawLiveStacking\x12\x13\n\x0btotal_count\x18\x01 \x01(\x05\x12\x19\n\x11update_count_type\x18\x02 \x01(\x05\x12\x15\n\rcurrent_count\x18\x03 \x01(\x05\x12\x15\n\rstacked_count\x18\x04 \x01(\x05\x12\x11\n\texp_index\x18\x05 \x01(\x05\x12\x12\n\ngain_index\x18\x06 \x01(\x05\x12\x13\n\x0btarget_name\x18\x07 \x01(\t*\x82\x01\n\x0eOperationState\x12\x18\n\x14OPERATION_STATE_IDLE\x10\x00\x12\x1b\n\x17OPERATION_STATE_RUNNING\x10\x01\x12\x1c\n\x18OPERATION_STATE_STOPPING\x10\x02\x12\x1b\n\x17OPERATION_STATE_STOPPED\x10\x03*\x8d\x01\n\nAstroState\x12\x14\n\x10\x41STRO_STATE_IDLE\x10\x00\x12\x17\n\x13\x41STRO_STATE_RUNNING\x10\x01\x12\x18\n\x14\x41STRO_STATE_STOPPING\x10\x02\x12\x17\n\x13\x41STRO_STATE_STOPPED\x10\x03\x12\x1d\n\x19\x41STRO_STATE_PLATE_SOLVING\x10\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cnotify.proto\"P\n\x15\x41stroCalibrationState\x12\x1a\n\x05state\x18\x01 \x01(\x0e\x32\x0b.AstroState\x12\x1b\n\x13plate_solving_times\x18\x02 \x01(\x05\"-\n\x11\x43\x61librationResult\x12\x0b\n\x03\x61zi\x18\x01 \x01(\x01\x12\x0b\n\x03\x61lt\x18\x02 \x01(\x01\"<\n\x16OneClickGotoPhaseState\x12\r\n\x05state\x18\x01 \x01(\x05\x12\x13\n\x0btarget_name\x18\x02 \x01(\t\"\xc4\x01\n\x1aResNotifyOneClickGotoState\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\x12(\n\x07phase_2\x18\x02 \x01(\x0b\x32\x17.OneClickGotoPhaseState\x12+\n\ngoto_state\x18\x03 \x01(\x0b\x32\x17.OneClickGotoPhaseState\x12/\n\x0etracking_state\x18\x04 \x01(\x0b\x32\x17.OneClickGotoPhaseState\"\xc3\x01\n\'ResNotifyProgressCaptureRawLiveStacking\x12\x13\n\x0btotal_count\x18\x01 \x01(\x05\x12\x19\n\x11update_count_type\x18\x02 \x01(\x05\x12\x15\n\rcurrent_count\x18\x03 \x01(\x05\x12\x15\n\rstacked_count\x18\x04 \x01(\x05\x12\x11\n\texp_index\x18\x05 \x01(\x05\x12\x12\n\ngain_index\x18\x06 \x01(\x05\x12\x13\n\x0btarget_name\x18\x07 \x01(\t*\x82\x01\n\x0eOperationState\x12\x18\n\x14OPERATION_STATE_IDLE\x10\x00\x12\x1b\n\x17OPERATION_STATE_RUNNING\x10\x01\x12\x1c\n\x18OPERATION_STATE_STOPPING\x10\x02\x12\x1b\n\x17OPERATION_STATE_STOPPED\x10\x03*\x8d\x01\n\nAstroState\x12\x14\n\x10\x41STRO_STATE_IDLE\x10\x00\x12\x17\n\x13\x41STRO_STATE_RUNNING\x10\x01\x12\x18\n\x14\x41STRO_STATE_STOPPING\x10\x02\x12\x17\n\x13\x41STRO_STATE_STOPPED\x10\x03\x12\x1d\n\x19\x41STRO_STATE_PLATE_SOLVING\x10\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'notify_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_OPERATIONSTATE']._serialized_start=406
-  _globals['_OPERATIONSTATE']._serialized_end=536
-  _globals['_ASTROSTATE']._serialized_start=539
-  _globals['_ASTROSTATE']._serialized_end=680
+  _globals['_OPERATIONSTATE']._serialized_start=605
+  _globals['_OPERATIONSTATE']._serialized_end=735
+  _globals['_ASTROSTATE']._serialized_start=738
+  _globals['_ASTROSTATE']._serialized_end=879
   _globals['_ASTROCALIBRATIONSTATE']._serialized_start=16
   _globals['_ASTROCALIBRATIONSTATE']._serialized_end=96
   _globals['_CALIBRATIONRESULT']._serialized_start=98
   _globals['_CALIBRATIONRESULT']._serialized_end=143
-  _globals['_RESNOTIFYONECLICKGOTOSTATE']._serialized_start=145
-  _globals['_RESNOTIFYONECLICKGOTOSTATE']._serialized_end=205
-  _globals['_RESNOTIFYPROGRESSCAPTURERAWLIVESTACKING']._serialized_start=208
-  _globals['_RESNOTIFYPROGRESSCAPTURERAWLIVESTACKING']._serialized_end=403
+  _globals['_ONECLICKGOTOPHASESTATE']._serialized_start=145
+  _globals['_ONECLICKGOTOPHASESTATE']._serialized_end=205
+  _globals['_RESNOTIFYONECLICKGOTOSTATE']._serialized_start=208
+  _globals['_RESNOTIFYONECLICKGOTOSTATE']._serialized_end=404
+  _globals['_RESNOTIFYPROGRESSCAPTURERAWLIVESTACKING']._serialized_start=407
+  _globals['_RESNOTIFYPROGRESSCAPTURERAWLIVESTACKING']._serialized_end=602
 # @@protoc_insertion_point(module_scope)
