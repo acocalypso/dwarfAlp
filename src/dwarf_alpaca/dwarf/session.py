@@ -4506,8 +4506,7 @@ class DwarfSession:
                     f"{self.profile.display_name} did not confirm the requested V3 astronomy "
                     "parameters"
                 )
-            if not self._is_dwarf_mini():
-                await self._set_v3_astro_frame_count(frames)
+            await self._set_v3_astro_frame_count(frames)
             self.camera_state.applied_duration = selected.exposure_s
             self.camera_state.applied_gain_value = selected.gain
             self.camera_state.applied_bin = (1, 1)
@@ -4607,7 +4606,7 @@ class DwarfSession:
         self.camera_state.applied_frame_count = frames
 
     async def _set_v3_astro_frame_count(self, frames: int) -> None:
-        """Apply the separate V3 astronomy frame-count value used by DWARF 2/3."""
+        """Apply the authoritative frame count used by the shared V3 API."""
 
         request = V3ReqAdjustParam()
         request.param_id = _V3_ASTRO_FRAME_COUNT_PARAM_ID

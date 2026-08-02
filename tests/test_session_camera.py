@@ -131,6 +131,7 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
     session.camera_state.duration = 1.0
     session.camera_state.requested_gain = 60
     calls: list[tuple[int, str]] = []
+    adjusted: list[tuple[int, int, int, int]] = []
 
     async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
         if command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_GET_PARAMS:
@@ -145,7 +146,11 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
             return response
         raise AssertionError(f"unexpected command {command}")
 
+    async def fake_send_and_check(module, command, request, **_kwargs):
+        adjusted.append((module, command, request.param_id, request.value))
+
     monkeypatch.setattr(session, "_send_request", fake_send_request)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
 
     await session._ensure_exposure_settings(1.0)
     await session._ensure_gain_settings()
@@ -156,6 +161,7 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
     assert session.camera_state.applied_gain_value == 60
     assert session.camera_state.applied_bin == (1, 1)
     assert session.camera_state.applied_frame_count == 2
+    assert adjusted == [(15, 16703, 0x202000000000010, 2)]
 
 
 @pytest.mark.asyncio
