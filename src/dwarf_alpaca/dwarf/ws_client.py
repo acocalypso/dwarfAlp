@@ -142,6 +142,31 @@ class DwarfWsClient:
         timeout: float = 10.0,
         expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
     ) -> Message:
+        future = await self.begin_request(
+            module_id,
+            command_id,
+            request_message,
+            response_cls,
+            expected_responses=expected_responses,
+        )
+        key = (module_id, command_id)
+        try:
+            return await asyncio.wait_for(future, timeout=timeout)
+        except Exception:
+            self._pop_pending_request(key)
+            raise
+
+    async def begin_request(
+        self,
+        module_id: int,
+        command_id: int,
+        request_message: Message,
+        response_cls: Type[ResponseT],
+        *,
+        expected_responses: Optional[Dict[Tuple[int, int], Type[Message]]] = None,
+    ) -> asyncio.Future[Message]:
+        """Send a request and return its response future without awaiting completion."""
+
         await self.connect()
         if not self._conn:
             raise RuntimeError("DWARF websocket connection unavailable")
@@ -173,11 +198,10 @@ class DwarfWsClient:
 
         try:
             await self._conn.send(packet.SerializeToString())
-            message = await asyncio.wait_for(future, timeout=timeout)
         except Exception:
             self._pop_pending_request(key)
             raise
-        return message
+        return future
 
     async def send_command(
         self,

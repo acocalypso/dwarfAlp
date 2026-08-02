@@ -66,6 +66,7 @@ from ..proto.dwarf_messages import (
     V3ReqModeQuery,
     V3ReqModeSwitch,
     V3ReqOpenTeleCamera,
+    V3ReqOpenWideCamera,
     V3ReqSetCameraParam,
     V3ReqShootingModeSwitch,
     V3ResFocusInit,
@@ -485,6 +486,7 @@ class DwarfSession:
         self._goto_target_name: str | None = None
         self._goto_start_time: float | None = None
         self._one_click_goto_active = False
+        self._one_click_response_task: asyncio.Task[None] | None = None
         self._time_synced = self.simulation
         self._last_time_sync_offset: float | None = None
         self._last_time_sync_timezone: str | None = None
@@ -1736,6 +1738,32 @@ class DwarfSession:
             )
             return response
 
+    async def _begin_request(
+        self,
+        module_id: int,
+        command_id: int,
+        request: Message,
+        response_cls: Type[Message],
+    ) -> asyncio.Future[Message]:
+        """Send a long-running request without blocking on its final response."""
+
+        lock = self._get_ws_command_lock()
+        async with lock:
+            logger.info(
+                "dwarf.ws.command.begin",
+                module_id=module_id,
+                command_id=command_id,
+                request_type=request.__class__.__name__,
+                request_payload=_message_to_log(request),
+                expected_response_type=response_cls.__name__,
+            )
+            return await self._ws_client.begin_request(
+                module_id,
+                command_id,
+                request,
+                response_cls,
+            )
+
     async def _send_command(
         self,
         module_id: int,
@@ -2116,6 +2144,13 @@ class DwarfSession:
                 await task
         self._calibration_task = None
 
+        one_click_task = self._one_click_response_task
+        if one_click_task and not one_click_task.done():
+            one_click_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await one_click_task
+        self._one_click_response_task = None
+
         await self._release_master_lock()
 
         if not self.simulation:
@@ -2149,6 +2184,7 @@ class DwarfSession:
         )
         if use_one_click_goto:
             await self._prepare_calibration_autofocus()
+            await self._prepare_one_click_goto_mode()
         try:
             if use_one_click_goto:
                 await self._start_one_click_goto_command(
@@ -2525,6 +2561,42 @@ class DwarfSession:
             if not self._has_recent_calibration():
                 await self._prepare_calibration_autofocus()
 
+    async def _prepare_one_click_goto_mode(self) -> None:
+        """Mirror the app's V3 mode/camera setup immediately before command 11013."""
+
+        mode_switch = V3ReqModeSwitch()
+        mode_switch.inner.value = 1
+        response = await self._send_request(
+            _MODULE_DEVICE_CONFIG,
+            _CMD_V3_DEVICE_CONFIG_MODE_SWITCH,
+            mode_switch,
+            V3ResModeSwitch,
+            timeout=8.0,
+        )
+        code = int(getattr(response, "code", protocol_pb2.OK))
+        mode = int(getattr(response, "mode", 0))
+        if code != protocol_pb2.OK or mode not in {2, 8}:
+            raise CaptureConfigurationError(
+                f"{self.profile.display_name} did not enter astronomy mode "
+                f"(code {code}, mode {mode})"
+            )
+
+        open_tele = V3ReqOpenTeleCamera(action=1)
+        await self._send_and_check(
+            protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+            10050,
+            open_tele,
+            timeout=8.0,
+        )
+        open_wide = V3ReqOpenWideCamera(action=1)
+        await self._send_and_check(
+            protocol_pb2.ModuleId.MODULE_CAMERA_WIDE,
+            12036,
+            open_wide,
+            timeout=8.0,
+        )
+        logger.info("dwarf.telescope.goto.one_click.mode_ready", mode=mode)
+
     async def ensure_calibration(self) -> None:
         if self.simulation:
             return
@@ -2682,7 +2754,6 @@ class DwarfSession:
         self._calibration_result_event.clear()
         self._begin_calibration_trace(latitude=latitude, longitude=longitude)
         self._one_click_goto_active = True
-        timeout_value = max(float(self.settings.goto_command_timeout_seconds), 1.0)
         logger.info(
             "dwarf.telescope.goto.one_click.starting",
             ra_hours=ra_hours,
@@ -2694,28 +2765,86 @@ class DwarfSession:
             goto_only=False,
         )
         try:
-            response = await self._send_request(
+            response_future = await self._begin_request(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
                 request,
                 astro_pb2.ResOneClickGoto,
-                timeout=timeout_value,
             )
-            code = int(getattr(response, "code", protocol_pb2.OK))
-            if code != protocol_pb2.OK:
-                raise DwarfCommandError(
-                    protocol_pb2.ModuleId.MODULE_ASTRO,
-                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
-                    code,
-                )
         except Exception as exc:
             self._calibration_status = "failed"
             self._calibration_detail = str(exc) or type(exc).__name__
             self._finish_calibration_trace(outcome="failed", error=exc)
+            if not isinstance(exc, DwarfCommandError) or exc.code not in {
+                protocol_pb2.CODE_ASTRO_FUNCTION_BUSY,
+                protocol_pb2.CODE_ASTRO_GOTO_FAILED,
+            }:
+                self._one_click_goto_active = False
             raise
         self._record_goto(ra_hours, dec_degrees, kind=_GOTO_KIND_DSO)
         self._mark_goto_pending(kind=_GOTO_KIND_DSO, target_name=target_name)
         self._one_click_goto_active = True
+        old_task = self._one_click_response_task
+        if old_task and not old_task.done():
+            old_task.cancel()
+        self._one_click_response_task = asyncio.create_task(
+            self._monitor_one_click_goto_response(response_future)
+        )
+
+    async def _monitor_one_click_goto_response(
+        self, response_future: asyncio.Future[Message]
+    ) -> None:
+        timeout = max(
+            1.0,
+            float(self.settings.calibration_timeout_seconds)
+            + float(self.settings.goto_completion_timeout_seconds),
+        )
+        try:
+            response = await asyncio.wait_for(response_future, timeout=timeout)
+            code = int(getattr(response, "code", protocol_pb2.OK))
+            logger.info(
+                "dwarf.telescope.goto.one_click.response",
+                step=int(getattr(response, "step", 0)),
+                code=code,
+                all_end=bool(getattr(response, "all_end", False)),
+            )
+            if code != protocol_pb2.OK and self._one_click_goto_active:
+                error = DwarfCommandError(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+                    code,
+                )
+                self._calibration_status = "failed"
+                self._calibration_detail = str(error)
+                self._finish_calibration_trace(outcome="failed", error=error)
+                self._resolve_goto(
+                    "failed", reason=f"one_click_code_{code}", keep_record=False
+                )
+        except asyncio.CancelledError:
+            raise
+        except asyncio.TimeoutError as exc:
+            self._ws_client.cancel_pending(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+            )
+            if self._one_click_goto_active:
+                self._calibration_status = "not confirmed"
+                self._calibration_detail = "One-click calibration response timed out"
+                self._finish_calibration_trace(outcome="not_confirmed", error=exc)
+                self._resolve_goto(
+                    "timeout", reason="one_click_response_timeout", keep_record=False
+                )
+        except Exception as exc:  # pragma: no cover - connection dependent
+            if self._one_click_goto_active:
+                self._calibration_status = "failed"
+                self._calibration_detail = str(exc) or type(exc).__name__
+                self._finish_calibration_trace(outcome="failed", error=exc)
+                self._resolve_goto(
+                    "failed", reason="one_click_response_error", keep_record=False
+                )
+        finally:
+            if self._one_click_response_task is asyncio.current_task():
+                self._one_click_response_task = None
 
     async def wait_for_goto_completion(
         self, *, timeout: float | None = None
@@ -2728,6 +2857,8 @@ class DwarfSession:
         wait_timeout = (
             timeout if timeout is not None else float(self.settings.goto_completion_timeout_seconds)
         )
+        if wait_timeout is not None and self._one_click_goto_active:
+            wait_timeout += float(self.settings.calibration_timeout_seconds)
         if wait_timeout is not None and wait_timeout <= 0.0:
             wait_timeout = None
 
@@ -2740,6 +2871,15 @@ class DwarfSession:
 
     async def telescope_abort_slew(self) -> None:
         one_click = self._one_click_goto_active
+        if one_click:
+            task = self._one_click_response_task
+            if task and not task.done():
+                task.cancel()
+            self._one_click_response_task = None
+            self._ws_client.cancel_pending(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+            )
         self._cancel_goto("aborted", reason="slew_aborted")
         if self.simulation:
             return

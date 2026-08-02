@@ -1,3 +1,4 @@
+import asyncio
 import math
 import time
 import types
@@ -10,7 +11,11 @@ from dwarf_alpaca.dwarf import session as session_module
 from dwarf_alpaca.dwarf.session import DwarfSession
 from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
 from dwarf_alpaca.proto import astro_pb2, protocol_pb2
-from dwarf_alpaca.proto.dwarf_messages import TYPE_NOTIFICATION, WsPacket
+from dwarf_alpaca.proto.dwarf_messages import (
+    TYPE_NOTIFICATION,
+    V3ResModeSwitch,
+    WsPacket,
+)
 from dwarf_alpaca.proto.notify_pb2 import (
     AstroCalibrationState,
     CalibrationResult,
@@ -21,6 +26,26 @@ from dwarf_alpaca.proto.v3_notify_pb2 import V3ResNotifyAutoFocusState
 
 def _settings(**overrides: Any) -> Settings:
     return Settings(site_latitude=48.1372, site_longitude=11.5756, **overrides)
+
+
+async def _noop_method(self, *args, **kwargs):
+    return None
+
+
+async def _begin_via_send_request(
+    self, module_id, command_id, request, response_cls
+):
+    response = await self._send_request(
+        module_id, command_id, request, response_cls, timeout=10.0
+    )
+    future = asyncio.get_running_loop().create_future()
+    future.set_result(response)
+    return future
+
+
+def _stub_one_click_transport(session: DwarfSession) -> None:
+    session._prepare_one_click_goto_mode = types.MethodType(_noop_method, session)
+    session._begin_request = types.MethodType(_begin_via_send_request, session)
 
 
 @pytest.mark.asyncio
@@ -146,6 +171,7 @@ async def test_first_slew_matches_app_one_click_goto_payload() -> None:
 
     session._send_and_check = types.MethodType(fake_send_and_check, session)
     session._send_request = types.MethodType(fake_send_request, session)
+    _stub_one_click_transport(session)
 
     await session.telescope_slew_to_coordinates(
         5.5881, -5.3911, target_name="M42"
@@ -163,6 +189,63 @@ async def test_first_slew_matches_app_one_click_goto_payload() -> None:
     assert request.shooting_mode == 2
     assert request.goto_only is False
     assert request.HasField("rotation") is False
+
+
+@pytest.mark.asyncio
+async def test_one_click_goto_preparation_matches_captured_app_sequence() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    calls: list[tuple[int, int, Any]] = []
+
+    async def fake_send_request(
+        self, module_id, command_id, request, response_cls, **kwargs
+    ):
+        calls.append((module_id, command_id, request))
+        response = V3ResModeSwitch(code=protocol_pb2.OK, mode=8)
+        return response
+
+    async def fake_send_and_check(
+        self, module_id, command_id, request, **kwargs
+    ):
+        calls.append((module_id, command_id, request))
+        return None
+
+    session._send_request = types.MethodType(fake_send_request, session)
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    await session._prepare_one_click_goto_mode()
+
+    assert [command for _, command, _ in calls] == [16404, 10050, 12036]
+    assert calls[0][2].inner.value == 1
+    assert calls[1][2].action == 1
+    assert calls[2][2].action == 1
+
+
+@pytest.mark.asyncio
+async def test_one_click_goto_final_error_is_handled_asynchronously() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    loop = asyncio.get_running_loop()
+    response_future = loop.create_future()
+
+    async def fake_begin_request(self, *args, **kwargs):
+        return response_future
+
+    session._begin_request = types.MethodType(fake_begin_request, session)
+
+    await session._start_one_click_goto_command(22.724, -8.088, "Unknown")
+    assert session._goto_pending is True
+
+    response_future.set_result(
+        astro_pb2.ResOneClickGoto(step=30, code=-11504, all_end=True)
+    )
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    assert session._goto_pending is False
+    assert session._goto_result == "failed"
+    assert session._goto_reason == "one_click_code_-11504"
+    assert session.get_calibration_status()["status"] == "failed"
 
 
 @pytest.mark.asyncio
@@ -282,6 +365,7 @@ async def test_telescope_slew_retries_one_click_goto_after_failure(monkeypatch):
         return response_cls()
 
     session._send_request = types.MethodType(fake_send_request, session)
+    _stub_one_click_transport(session)
 
     async def instant_sleep(_duration):
         return None
@@ -337,6 +421,7 @@ async def test_telescope_slew_retries_after_busy(monkeypatch):
         return response_cls()
 
     session._send_request = types.MethodType(fake_send_request, session)
+    _stub_one_click_transport(session)
 
     sleep_calls: list[float] = []
 
@@ -398,6 +483,7 @@ async def test_telescope_slew_raises_after_repeated_busy(monkeypatch):
         return response_cls()
 
     session._send_request = types.MethodType(fake_send_request, session)
+    _stub_one_click_transport(session)
 
     async def instant_sleep(duration):
         return None
@@ -452,6 +538,7 @@ async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
         return response_cls()
 
     session._send_request = types.MethodType(fake_send_request, session)
+    _stub_one_click_transport(session)
 
     await session.telescope_slew_to_coordinates(1.2, -3.4)
 
@@ -494,6 +581,8 @@ async def test_telescope_slew_uses_configured_timeout(monkeypatch):
     settings.goto_command_timeout_seconds = 42.5
     session = DwarfSession(settings)
     session.simulation = False
+    session._last_calibration_time = time.time()
+    session._last_calibration_ip = settings.dwarf_ap_ip
 
     async def noop(self, *args, **kwargs):
         return None

@@ -259,6 +259,11 @@ shooting mode `2`, and `goto_only=false`. This lets the firmware calibrate again
 selected target and then continue directly to it. Command `15233` reports the combined
 workflow state. Once calibration has been confirmed, later slews use regular GoTo
 command `11002` until the configured calibration validity period expires.
+Before `11013`, the driver mirrors the captured app setup by entering V3 astronomy
+mode with `16404` and opening both tele (`10050`) and wide (`12036`) cameras. The
+final `11013` response is monitored asynchronously because firmware can spend several
+minutes making plate-solving attempts; Alpaca `SlewToCoordinatesAsync` therefore does
+not mistake that long-running response for a missing command acknowledgement.
 
 The Control Center reports calibration progress received on notification `15210` and
 only reports firmware-confirmed success after notification `15256` supplies the
