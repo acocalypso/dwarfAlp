@@ -276,6 +276,10 @@ _CMD_NOTIFY_V3_OBSERVATION_STATE = 15296
 # Observed on mini firmware captures for V3 filterwheel adjust writes.
 _MINI_DEFAULT_FILTER_PARAM_ID = 0x20100000000000D
 _MINI_ALT_FILTER_PARAM_ID = 0x100000000000D
+# Captured from the DWARF 3 app immediately after CMD_V3_ASTRO_SET_PARAMS.
+# Without this dedicated write the firmware can retain an earlier value (for
+# example 999) even though command 11041 echoes the requested frame count.
+_V3_ASTRO_FRAME_COUNT_PARAM_ID = 0x202000000000010
 
 
 def _resolve_ws_protocol_profile(settings: Settings) -> tuple[int, int]:
@@ -472,6 +476,8 @@ class DwarfSession:
         self._filter_change_lock_loop: asyncio.AbstractEventLoop | None = None
         self._capture_start_evidence_event = asyncio.Event()
         self._capture_frame_complete_event = asyncio.Event()
+        self._capture_start_response_task: asyncio.Task[None] | None = None
+        self._capture_stop_response_task: asyncio.Task[None] | None = None
         self._ws_bootstrapped = False
         self.camera_state = CameraState()
         self.focuser_state = FocuserState()
@@ -2204,6 +2210,7 @@ class DwarfSession:
         async with self._lock:
             self._refs[device] = max(0, self._refs[device] - 1)
             if not self.simulation and all(count == 0 for count in self._refs.values()):
+                await self._cancel_capture_protocol_tasks()
                 task = self._calibration_task
                 if task and not task.done():
                     task.cancel()
@@ -2220,6 +2227,8 @@ class DwarfSession:
             with contextlib.suppress(asyncio.CancelledError):
                 await self.camera_state.capture_task
         self.camera_state.capture_task = None
+
+        await self._cancel_capture_protocol_tasks()
 
         temperature_task = self._temperature_task
         if temperature_task:
@@ -2254,6 +2263,27 @@ class DwarfSession:
             self._refs[key] = 0
         self._last_calibration_time = None
         self._last_calibration_ip = None
+
+    async def _cancel_capture_protocol_tasks(self) -> None:
+        """Cancel delayed V3 start/stop response monitors before closing the socket."""
+
+        for attribute in ("_capture_start_response_task", "_capture_stop_response_task"):
+            task = getattr(self, attribute)
+            if task and not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+            setattr(self, attribute, None)
+        cancel_pending = getattr(self._ws_client, "cancel_pending", None)
+        if callable(cancel_pending):
+            cancel_pending(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+            )
+            cancel_pending(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
+            )
 
     # --- Telescope -----------------------------------------------------------------
 
@@ -3288,9 +3318,20 @@ class DwarfSession:
                 state.last_error = "astro_busy"
             else:
                 state.last_error = f"command_error:{exc.code}"
+            state.capture_id = None
+            state.capture_phase = CapturePhase.FAILED
+            state.start_time = None
             raise
         except asyncio.TimeoutError:
             state.last_error = "timeout"
+            state.capture_id = None
+            state.capture_phase = CapturePhase.FAILED
+            state.start_time = None
+            raise
+        except Exception:
+            state.capture_id = None
+            state.capture_phase = CapturePhase.FAILED
+            state.start_time = None
             raise
 
         if state.capture_id != capture_id or state.capture_phase != CapturePhase.STARTING:
@@ -3330,12 +3371,12 @@ class DwarfSession:
             raise CaptureConfigurationError("abort_not_supported_for_photo_workflow")
         state.capture_id = None
         state.capture_phase = CapturePhase.ABORTING
-        if not self.simulation:
-            await self._stop_astro_capture(strict=True)
         if state.capture_task and not state.capture_task.done():
             state.capture_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await state.capture_task
+        if not self.simulation:
+            await self._stop_astro_capture(strict=True)
         state.capture_task = None
         state.start_time = None
         state.image = None
@@ -4465,6 +4506,8 @@ class DwarfSession:
                     f"{self.profile.display_name} did not confirm the requested V3 astronomy "
                     "parameters"
                 )
+            if not self._is_dwarf_mini():
+                await self._set_v3_astro_frame_count(frames)
             self.camera_state.applied_duration = selected.exposure_s
             self.camera_state.applied_gain_value = selected.gain
             self.camera_state.applied_bin = (1, 1)
@@ -4563,6 +4606,31 @@ class DwarfSession:
         self.camera_state.applied_bin = (bin_x, bin_y)
         self.camera_state.applied_frame_count = frames
 
+    async def _set_v3_astro_frame_count(self, frames: int) -> None:
+        """Apply the separate V3 astronomy frame-count value used by DWARF 2/3."""
+
+        request = V3ReqAdjustParam()
+        request.param_id = _V3_ASTRO_FRAME_COUNT_PARAM_ID
+        request.value = max(1, int(frames))
+        await self._send_and_check(
+            _MODULE_CAMERA_PARAMS,
+            _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM,
+            request,
+            timeout=3.0,
+            expected_responses={
+                (
+                    protocol_pb2.ModuleId.MODULE_NOTIFY,
+                    _CMD_NOTIFY_V3_CAMERA_PARAM_STATE,
+                ): V3ResNotifyCameraParamState,
+            },
+            close_ws_on_timeout=False,
+        )
+        logger.info(
+            "dwarf.camera.v3_astro_frame_count_applied",
+            param_id=_V3_ASTRO_FRAME_COUNT_PARAM_ID,
+            frames=request.value,
+        )
+
     async def _start_astro_capture(self, *, timeout: float) -> int:
         if self.simulation:
             return protocol_pb2.OK
@@ -4601,6 +4669,44 @@ class DwarfSession:
             )
         evidence_before = self._capture_evidence_snapshot()
         self._capture_start_evidence_event.clear()
+        if self._uses_v3_protocol():
+            response_future = await self._begin_request(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                request,
+                ComResponse,
+            )
+            # Let the reader process an immediate rejection, but do not hold the
+            # Alpaca request open for the delayed completion response.
+            await asyncio.sleep(0)
+            if response_future.done():
+                return self._validate_astro_start_response(
+                    response_future.result(), option=locals().get("option")
+                )
+            old_task = self._capture_start_response_task
+            if old_task and not old_task.done():
+                old_task.cancel()
+            capture_id = self.camera_state.capture_id
+            monitor_timeout = max(
+                float(timeout),
+                self.camera_state.duration
+                * max(1, self.camera_state.requested_frame_count)
+                + 60.0,
+            )
+            self._capture_start_response_task = asyncio.create_task(
+                self._monitor_astro_start_response(
+                    response_future,
+                    capture_id=capture_id,
+                    timeout=monitor_timeout,
+                    option=locals().get("option"),
+                )
+            )
+            logger.info(
+                "dwarf.camera.astro_capture_dispatched",
+                capture_id=capture_id,
+                response_timeout=monitor_timeout,
+            )
+            return protocol_pb2.OK
         try:
             response = await self._send_command(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
@@ -4636,9 +4742,17 @@ class DwarfSession:
                 self.camera_state.capture_phase = CapturePhase.UNKNOWN
                 self.camera_state.last_error = "capture_start_unknown"
             raise
-        code = getattr(response, "code", protocol_pb2.OK)
+        return self._validate_astro_start_response(response, option=locals().get("option"))
+
+    def _validate_astro_start_response(
+        self,
+        response: Message,
+        *,
+        option: FilterOption | None = None,
+    ) -> int:
+        code = int(getattr(response, "code", protocol_pb2.OK))
         if code == protocol_pb2.OK:
-            if self.profile.filters.control_path == "astro-start-ir-index":
+            if option is not None:
                 self.camera_state.applied_filter_name = option.label
             return code
 
@@ -4650,7 +4764,7 @@ class DwarfSession:
                 code=code,
                 non_fatal=True,
             )
-            if self.profile.filters.control_path == "astro-start-ir-index":
+            if option is not None:
                 self.camera_state.applied_filter_name = option.label
             return code
 
@@ -4674,6 +4788,52 @@ class DwarfSession:
             protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
             code,
         )
+
+    async def _monitor_astro_start_response(
+        self,
+        response_future: asyncio.Future[Message],
+        *,
+        capture_id: str | None,
+        timeout: float,
+        option: FilterOption | None,
+    ) -> None:
+        try:
+            response = await asyncio.wait_for(response_future, timeout=timeout)
+            code = self._validate_astro_start_response(response, option=option)
+            logger.info(
+                "dwarf.camera.astro_capture_response",
+                capture_id=capture_id,
+                code=code,
+            )
+        except asyncio.CancelledError:
+            raise
+        except asyncio.TimeoutError:
+            self._ws_client.cancel_pending(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+            )
+            logger.warning(
+                "dwarf.camera.astro_capture_response_timeout",
+                capture_id=capture_id,
+                timeout=timeout,
+            )
+        except Exception as exc:
+            logger.warning(
+                "dwarf.camera.astro_capture_response_failed",
+                capture_id=capture_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            state = self.camera_state
+            if state.capture_id == capture_id and state.image is None:
+                state.last_error = str(exc) or type(exc).__name__
+                state.capture_phase = CapturePhase.FAILED
+                task = state.capture_task
+                if task and not task.done():
+                    task.cancel()
+        finally:
+            if self._capture_start_response_task is asyncio.current_task():
+                self._capture_start_response_task = None
 
     async def _astro_go_live(self) -> None:
         if self.simulation:
@@ -4840,6 +5000,29 @@ class DwarfSession:
             return
         try:
             request = astro_pb2.ReqStopCaptureRawLiveStacking()
+            if self._uses_v3_protocol():
+                start_task = self._capture_start_response_task
+                if start_task and not start_task.done():
+                    start_task.cancel()
+                self._capture_start_response_task = None
+                self._ws_client.cancel_pending(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                )
+                stop_task = self._capture_stop_response_task
+                if stop_task and not stop_task.done():
+                    return
+                response_future = await self._begin_request(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
+                    request,
+                    ComResponse,
+                )
+                self._capture_stop_response_task = asyncio.create_task(
+                    self._monitor_astro_stop_response(response_future)
+                )
+                logger.info("dwarf.camera.astro_stop_dispatched")
+                return
             await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
@@ -4849,6 +5032,37 @@ class DwarfSession:
             logger.debug("dwarf.astro.stop_capture_failed", error=str(exc))
             if strict:
                 raise CaptureConfigurationError("DWARF did not confirm capture abort") from exc
+
+    async def _monitor_astro_stop_response(
+        self, response_future: asyncio.Future[Message]
+    ) -> None:
+        try:
+            response = await asyncio.wait_for(response_future, timeout=30.0)
+            code = int(getattr(response, "code", protocol_pb2.OK))
+            if code != protocol_pb2.OK:
+                raise DwarfCommandError(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
+                    code,
+                )
+            logger.info("dwarf.camera.astro_stop_response", code=code)
+        except asyncio.CancelledError:
+            raise
+        except asyncio.TimeoutError:
+            self._ws_client.cancel_pending(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
+            )
+            logger.warning("dwarf.camera.astro_stop_response_timeout", timeout=30.0)
+        except Exception as exc:
+            logger.warning(
+                "dwarf.camera.astro_stop_response_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+        finally:
+            if self._capture_stop_response_task is asyncio.current_task():
+                self._capture_stop_response_task = None
 
     async def _set_exposure_mode_manual(self) -> None:
         request = ReqSetExpMode()

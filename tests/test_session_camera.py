@@ -159,6 +159,41 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    session._params_config = {}
+    session.camera_state.duration = 1.0
+    session.camera_state.requested_gain = 60
+    adjusted: list[tuple[int, int, int, int]] = []
+
+    async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
+        if command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_GET_PARAMS:
+            response = V3ResGetAstroParams()
+            entry = response.params.add()
+            entry.pipe_params = "0|0|1|60|999|null"
+            return response
+        if command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_SET_PARAMS:
+            response = V3ResSetAstroParams()
+            response.pipe_params = request.params
+            return response
+        raise AssertionError(f"unexpected command {command}")
+
+    async def fake_send_and_check(module, command, request, **_kwargs):
+        adjusted.append((module, command, request.param_id, request.value))
+
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    await session._ensure_exposure_settings(1.0)
+    await session._ensure_gain_settings()
+    await session._configure_astro_capture(frames=1, binning=(1, 1))
+
+    assert adjusted == [(15, 16703, 0x202000000000010, 1)]
+    assert session.camera_state.applied_frame_count == 1
+
+
+@pytest.mark.asyncio
 async def test_dwarf3_v3_astro_preset_accepts_firmware_zero_placeholder(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
     session.simulation = False
@@ -192,7 +227,7 @@ async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
     session.camera_state.filter_name = "Duo-Band"
     captured: dict[str, object] = {}
 
-    async def fake_send_command(module_id, command_id, request, **_kwargs):
+    async def fake_begin_request(module_id, command_id, request, _response_cls):
         captured["module_id"] = module_id
         captured["command_id"] = command_id
         captured["request"] = astro_pb2.ReqCaptureRawLiveStacking.FromString(
@@ -200,9 +235,11 @@ async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
         )
         response = ComResponse()
         response.code = protocol_pb2.OK
-        return response
+        future = asyncio.get_running_loop().create_future()
+        future.set_result(response)
+        return future
 
-    monkeypatch.setattr(session, "_send_command", fake_send_command)
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
 
     code = await session._start_astro_capture(timeout=5.0)
 
@@ -223,15 +260,17 @@ async def test_dwarf3_astro_start_uses_v3_sentinel_payload(monkeypatch):
     session.camera_state.filter_name = "Duo-Band Filter"
     captured: dict[str, object] = {}
 
-    async def fake_send_command(_module_id, _command_id, request, **_kwargs):
+    async def fake_begin_request(_module_id, _command_id, request, _response_cls):
         captured["request"] = ReqAstroStartCaptureRawLiveStacking.FromString(
             request.SerializeToString()
         )
         response = ComResponse()
         response.code = protocol_pb2.OK
-        return response
+        future = asyncio.get_running_loop().create_future()
+        future.set_result(response)
+        return future
 
-    monkeypatch.setattr(session, "_send_command", fake_send_command)
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
 
     await session._start_astro_capture(timeout=5.0)
 
@@ -247,15 +286,17 @@ async def test_mini_astro_start_does_not_force_after_recent_goto(monkeypatch):
     session.simulation = False
     captured: dict[str, object] = {}
 
-    async def fake_send_command(_module_id, _command_id, request, **_kwargs):
+    async def fake_begin_request(_module_id, _command_id, request, _response_cls):
         captured["request"] = astro_pb2.ReqCaptureRawLiveStacking.FromString(
             request.SerializeToString()
         )
         response = ComResponse()
         response.code = protocol_pb2.OK
-        return response
+        future = asyncio.get_running_loop().create_future()
+        future.set_result(response)
+        return future
 
-    monkeypatch.setattr(session, "_send_command", fake_send_command)
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
     monkeypatch.setattr(session, "_has_recent_goto", lambda: True)
 
     await session._start_astro_capture(timeout=5.0)
@@ -817,7 +858,7 @@ async def test_camera_go_live_after_capture(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_start_astro_capture_timeout_without_evidence_fails_for_mini(monkeypatch):
+async def test_start_astro_capture_dispatches_without_waiting_for_v3_response(monkeypatch):
     session = DwarfSession(
         Settings(
             force_simulation=True,
@@ -827,13 +868,19 @@ async def test_start_astro_capture_timeout_without_evidence_fails_for_mini(monke
     )
     session.simulation = False
 
-    async def fake_send_command(*_args, **_kwargs):
-        raise asyncio.TimeoutError()
+    response_future = asyncio.get_running_loop().create_future()
 
-    monkeypatch.setattr(session, "_send_command", fake_send_command)
+    async def fake_begin_request(*_args, **_kwargs):
+        return response_future
 
-    with pytest.raises(asyncio.TimeoutError):
-        await session._start_astro_capture(timeout=5.0)
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
+
+    assert await session._start_astro_capture(timeout=5.0) == protocol_pb2.OK
+    task = session._capture_start_response_task
+    assert task is not None
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
 
 
 @pytest.mark.asyncio
@@ -847,14 +894,41 @@ async def test_start_astro_capture_timeout_with_progress_evidence_succeeds(monke
     )
     session.simulation = False
 
-    async def fake_send_command(*_args, **_kwargs):
+    async def fake_begin_request(*_args, **_kwargs):
         session._v3_exposure_progress = (1, 30)
         session._capture_start_evidence_event.set()
-        raise asyncio.TimeoutError()
+        future = asyncio.get_running_loop().create_future()
+        response = ComResponse()
+        response.code = protocol_pb2.OK
+        future.set_result(response)
+        return future
 
-    monkeypatch.setattr(session, "_send_command", fake_send_command)
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
 
     assert await session._start_astro_capture(timeout=5.0) == protocol_pb2.OK
+
+
+@pytest.mark.asyncio
+async def test_stop_astro_capture_dispatches_without_waiting_for_v3_response(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    response_future = asyncio.get_running_loop().create_future()
+    commands: list[int] = []
+
+    async def fake_begin_request(_module, command, _request, _response_cls):
+        commands.append(command)
+        return response_future
+
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
+
+    await asyncio.wait_for(session._stop_astro_capture(strict=True), timeout=0.1)
+
+    assert commands == [protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING]
+    task = session._capture_stop_response_task
+    assert task is not None
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
 
 
 def test_decode_v3_device_config_payload_extracts_known_fields():
