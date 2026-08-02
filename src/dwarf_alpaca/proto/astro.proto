@@ -39,6 +39,19 @@ message ReqCaptureRawLiveStacking {
     bool force_start = 2;
 }
 
+// Protocol >=2.5 continuation after a recoverable dark-frame warning.
+message ReqContinueShooting {}
+
+// Start/continue shooting response used by the current V3 application.
+message ResAstroShooting {
+    int32 code = 1;
+    optional string exp_name = 2;
+    optional int32 gain = 3;
+    optional int32 resolution = 4;
+    optional int32 filter_type = 5;
+    optional int32 temp_threshold = 6;
+}
+
 // 停止叠图
 message ReqStopCaptureRawLiveStacking {
 

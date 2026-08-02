@@ -115,9 +115,11 @@ gain, filter, binning, frame count, dark status, and FITS output can be checked.
 Direct mini `PHOTO_RAW`/`PHOTOGRAPH` capture is disabled by default because available
 evidence does not prove long-exposure, gain, and raw-output guarantees.
 
-Dark status defaults fail-safe. To bypass a missing or unknown dark for one request,
-the client must explicitly send `ContinueWithoutDark=true`; the driver never starts a
-long dark-capture procedure itself.
+Like the official app's **Continue** action, light exposures proceed by default when
+a matching dark is missing or its temperature differs too much. The condition and any
+automatic `force_start` retry are logged. Set `allow_continue_without_darks=false` to
+make dark-library warnings fail the exposure; the driver never starts a long
+dark-capture procedure itself.
 
 `CanStopExposure` is false because distinct graceful-stop behavior is unproved.
 `CanAbortExposure` is true for the selected astronomy workflow.
@@ -158,9 +160,10 @@ Invoke-RestMethod -Uri "$base/camera/0/imagebytes?$tx"
 ```
 
 Query `/filterwheel/0/names` first and choose the corresponding zero-based position.
-Do not poll `imagebytes` until `imageready` is true. If the firmware reports no
-matching dark and you intentionally accept that limitation, append
-`&ContinueWithoutDark=true` to that single `startexposure` request.
+Do not poll `imagebytes` until `imageready` is true. By default the driver follows
+the app's Continue path when no temperature-matched dark is available. Append
+`&ContinueWithoutDark=false` to a `startexposure` request if that exposure must fail
+instead of continuing without a matching dark.
 
 ### 3. Choose a connection mode
 
@@ -242,7 +245,7 @@ Settings may be supplied via env vars (`DWARF_ALPACA_*`), `.env`, or a YAML prof
 | `dwarf_ws_client_id` | Profile-derived | DAF2, DAF3, or DAF4 client identifier selected by model; an explicit value overrides it. |
 | `ws_ping_interval_seconds` | `5.0` | Heartbeat cadence for the websocket. |
 | `go_live_before_exposure` | `True` | Enable/disable RTSP warm-up before astro captures. |
-| `allow_continue_without_darks` | `False` | Global opt-in for captures when dark status is missing/unknown; prefer the per-request flag. |
+| `allow_continue_without_darks` | `True` | Continue light captures when a dark is missing/unknown or temperature-mismatched, matching the app's Continue action. |
 | `temperature_refresh_interval_seconds` | `5.0` | How often to poll DWARF temperature notifications. |
 | `ble_adapter` / `ble_password` | `None` | Defaults for provisioning workflows. |
 | `force_simulation` | `False` | Bypass hardware access and return simulated data. |

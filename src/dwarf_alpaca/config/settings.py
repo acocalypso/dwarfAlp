@@ -59,7 +59,10 @@ class Settings(BaseSettings):
     # Direct PHOTO_RAW/PHOTOGRAPH does not currently prove long-exposure/gain/raw output.
     allow_unverified_direct_photo: bool = False
     capture_start_evidence_timeout_seconds: float = 3.0
-    allow_continue_without_darks: bool = False
+    # The official app offers "Continue" when a matching dark is missing or
+    # outside its temperature tolerance. Alpaca clients such as NINA cannot
+    # answer that interactive prompt, so continue by default and log it.
+    allow_continue_without_darks: bool = True
     dark_check_timeout_seconds: float = 5.0
     goto_valid_seconds: float = 300.0
     calibration_valid_seconds: float = 900.0

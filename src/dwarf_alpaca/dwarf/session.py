@@ -30,7 +30,6 @@ from ..proto import astro_pb2, protocol_pb2
 from ..proto.dwarf_messages import (
     CommonParam,
     ComResponse,
-    ReqAstroStartCaptureRawLiveStacking,
     ReqCloseCamera,
     ReqGetAllFeatureParams,
     ReqGetSystemWorkingState,
@@ -280,6 +279,12 @@ _MINI_ALT_FILTER_PARAM_ID = 0x100000000000D
 # Without this dedicated write the firmware can retain an earlier value (for
 # example 999) even though command 11041 echoes the requested frame count.
 _V3_ASTRO_FRAME_COUNT_PARAM_ID = 0x202000000000010
+_ASTRO_FORCE_START_DARK_WARNING_CODES = frozenset(
+    {
+        protocol_pb2.CODE_ASTRO_DARK_NOT_FOUND,
+        protocol_pb2.CODE_ASTRO_DARK_TEMP_MISMATCH,
+    }
+)
 
 
 def _resolve_ws_protocol_profile(settings: Settings) -> tuple[int, int]:
@@ -3312,7 +3317,10 @@ class DwarfSession:
 
         astro_code = protocol_pb2.OK
         try:
-            astro_code = await self._start_astro_capture(timeout=command_timeout)
+            astro_code = await self._start_astro_capture(
+                timeout=command_timeout,
+                force_on_dark_warning=bool(continue_without_darks),
+            )
         except DwarfCommandError as exc:
             if exc.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
                 state.last_error = "astro_busy"
@@ -4630,7 +4638,12 @@ class DwarfSession:
             frames=request.value,
         )
 
-    async def _start_astro_capture(self, *, timeout: float) -> int:
+    async def _start_astro_capture(
+        self,
+        *,
+        timeout: float,
+        force_on_dark_warning: bool = False,
+    ) -> int:
         if self.simulation:
             return protocol_pb2.OK
         embeds_filter_in_start = self._uses_v3_protocol() and bool(
@@ -4638,11 +4651,15 @@ class DwarfSession:
         )
         uses_v3_sentinel = self._uses_v3_protocol() and not embeds_filter_in_start
         if uses_v3_sentinel:
-            request = ReqAstroStartCaptureRawLiveStacking()
-            request.sentinel = -1
+            # The observed sentinel is ir_index=-1 in the same request used by
+            # filtered V3 devices. Retaining the full message allows the app's
+            # force_start continuation path to work on filterless models too.
+            request = astro_pb2.ReqCaptureRawLiveStacking()
+            request.ir_index = -1
             logger.info(
                 "dwarf.camera.astro_capture_start_options",
-                sentinel=request.sentinel,
+                ir_index=request.ir_index,
+                force_start=request.force_start,
                 protocol="v3",
             )
         else:
@@ -4674,15 +4691,24 @@ class DwarfSession:
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
                 request,
-                ComResponse,
+                astro_pb2.ResAstroShooting,
             )
             # Let the reader process an immediate rejection, but do not hold the
             # Alpaca request open for the delayed completion response.
             await asyncio.sleep(0)
             if response_future.done():
-                return self._validate_astro_start_response(
-                    response_future.result(), option=locals().get("option")
+                immediate_response = response_future.result()
+                immediate_code = int(
+                    getattr(immediate_response, "code", protocol_pb2.OK)
                 )
+                if not (
+                    immediate_code in _ASTRO_FORCE_START_DARK_WARNING_CODES
+                    and force_on_dark_warning
+                    and not bool(getattr(request, "force_start", False))
+                ):
+                    return self._validate_astro_start_response(
+                        immediate_response, option=locals().get("option")
+                    )
             old_task = self._capture_start_response_task
             if old_task and not old_task.done():
                 old_task.cancel()
@@ -4699,6 +4725,11 @@ class DwarfSession:
                     capture_id=capture_id,
                     timeout=monitor_timeout,
                     option=locals().get("option"),
+                    ir_index=int(getattr(request, "ir_index", -1)),
+                    force_on_dark_warning=(
+                        force_on_dark_warning
+                        and not bool(getattr(request, "force_start", False))
+                    ),
                 )
             )
             logger.info(
@@ -4789,6 +4820,49 @@ class DwarfSession:
             code,
         )
 
+    async def _begin_astro_dark_warning_continuation(
+        self,
+        *,
+        ir_index: int,
+        reason: str,
+        force_legacy: bool = False,
+    ) -> tuple[asyncio.Future[Message], int]:
+        if self.profile.model_id != "dwarf2" and not force_legacy:
+            command_id = protocol_pb2.DwarfCMD.CMD_ASTRO_CONTINUE_SHOOTING
+            logger.info(
+                "dwarf.camera.astro_capture_continue",
+                reason=reason,
+                command_id=command_id,
+                protocol_minimum="2.5",
+            )
+            future = await self._begin_request(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                command_id,
+                astro_pb2.ReqContinueShooting(),
+                ComResponse,
+            )
+            return future, command_id
+
+        command_id = (
+            protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING
+        )
+        retry_request = astro_pb2.ReqCaptureRawLiveStacking()
+        retry_request.ir_index = ir_index
+        retry_request.force_start = True
+        logger.info(
+            "dwarf.camera.astro_capture_force_retry",
+            reason=reason,
+            ir_index=ir_index,
+            force_start=True,
+        )
+        future = await self._begin_request(
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            command_id,
+            retry_request,
+            ComResponse,
+        )
+        return future, command_id
+
     async def _monitor_astro_start_response(
         self,
         response_future: asyncio.Future[Message],
@@ -4796,9 +4870,69 @@ class DwarfSession:
         capture_id: str | None,
         timeout: float,
         option: FilterOption | None,
+        ir_index: int,
+        force_on_dark_warning: bool,
     ) -> None:
+        pending_command_id = (
+            protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING
+        )
         try:
             response = await asyncio.wait_for(response_future, timeout=timeout)
+            code = int(getattr(response, "code", protocol_pb2.OK))
+            if code in _ASTRO_FORCE_START_DARK_WARNING_CODES:
+                warning_reason = (
+                    "dark_missing"
+                    if code == protocol_pb2.CODE_ASTRO_DARK_NOT_FOUND
+                    else "dark_temperature_mismatch"
+                )
+                logger.warning(
+                    "dwarf.camera.astro_capture_dark_warning",
+                    code=code,
+                    reason=warning_reason,
+                    action=("continue" if force_on_dark_warning else "fail"),
+                    ir_index=ir_index,
+                    exposure=getattr(response, "exp_name", None) or None,
+                    gain=getattr(response, "gain", None),
+                    resolution=getattr(response, "resolution", None),
+                    filter_type=getattr(response, "filter_type", None),
+                    temperature_threshold=getattr(
+                        response, "temp_threshold", None
+                    ),
+                )
+                if force_on_dark_warning:
+                    # APK 3.4.1 uses command 11050 on protocol >=2.5. DWARF 2
+                    # and older/unsupported implementations use the legacy
+                    # force_start retry.
+                    retry_future, pending_command_id = (
+                        await self._begin_astro_dark_warning_continuation(
+                            ir_index=ir_index,
+                            reason=warning_reason,
+                        )
+                    )
+                    response = await asyncio.wait_for(retry_future, timeout=timeout)
+                    continue_code = int(getattr(response, "code", protocol_pb2.OK))
+                    if (
+                        pending_command_id
+                        == protocol_pb2.DwarfCMD.CMD_ASTRO_CONTINUE_SHOOTING
+                        and continue_code
+                        in {
+                            protocol_pb2.WS_PARSE_PROTOBUF_ERROR,
+                            protocol_pb2.WS_INVALID_PARAM,
+                        }
+                    ):
+                        logger.warning(
+                            "dwarf.camera.astro_capture_continue_unsupported",
+                            code=continue_code,
+                            action="force_start_fallback",
+                        )
+                        retry_future, pending_command_id = (
+                            await self._begin_astro_dark_warning_continuation(
+                                ir_index=ir_index,
+                                reason=warning_reason,
+                                force_legacy=True,
+                            )
+                        )
+                        response = await asyncio.wait_for(retry_future, timeout=timeout)
             code = self._validate_astro_start_response(response, option=option)
             logger.info(
                 "dwarf.camera.astro_capture_response",
@@ -4810,7 +4944,7 @@ class DwarfSession:
         except asyncio.TimeoutError:
             self._ws_client.cancel_pending(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
-                protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                pending_command_id,
             )
             logger.warning(
                 "dwarf.camera.astro_capture_response_timeout",

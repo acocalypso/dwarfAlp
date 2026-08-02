@@ -115,6 +115,7 @@ enum DwarfCMD {
     CMD_V3_ASTRO_GET_PRESETS = 11043; // V3: Get exposure presets
     CMD_V3_ASTRO_SET_LOCATION = 11047; // V3: Set observation location
     CMD_V3_ASTRO_CONFIRM = 11048; // V3: Confirm observation
+    CMD_ASTRO_CONTINUE_SHOOTING = 11050; // APK 3.4.1: continue after a recoverable shooting warning
 
     CMD_CAMERA_WIDE_OPEN_CAMERA = 12000; // Turn on the camera
     CMD_CAMERA_WIDE_CLOSE_CAMERA = 12001; // Turn off the camera
@@ -316,11 +317,34 @@ enum DwarfErrorCode {
     CODE_ASTRO_DARK_NOT_FOUND = -11503; // Darkfield not found
     CODE_ASTRO_CALIBRATION_FAILED = -11504; // Calibration failed
     CODE_ASTRO_GOTO_FAILED = -11505; // GOTO failed
+    CODE_ASTRO_DARK_RUNNING = -11506; // Dark-frame capture is already running
+    CODE_ASTRO_CALIBRATION_RUNNING = -11507; // Calibration is already running
+    CODE_ASTRO_GOTO_RUNNING = -11508; // GOTO is already running
+    CODE_ASTRO_LIVE_STACKING_RUNNING = -11509; // Live stacking is already running
+    CODE_ASTRO_RESET_PITCH_MOTOR_FAILED = -11510; // Pitch motor reset failed
+    CODE_ASTRO_NEED_CALIBRATION = -11511; // Calibration is required
+    CODE_ASTRO_GOTO_READ_MOTOR_POSITION_AND_PLATE_SOLVING_FAILED = -11512; // GOTO preparation failed
     CODE_ASTRO_NEED_GOTO = -11513; // No GOTO
     CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM = -11514; // Parameters are not suitable
-    
+    CODE_ASTRO_CALIBRATION_PLATE_SOLVING_FAILED_TOO_MUCH = -11515; // Too many calibration plate-solve failures
     CODE_ASTRO_EQ_SOLVING_FAILED = -11516; // EQ calculation failed (only calculation failed to return)
     CODE_ASTRO_SKY_SEARCH_FAILED = -11517; // Sky detection failed
+    CODE_ASTRO_NEED_GOTO_DSO = -11518; // A DSO GOTO is required
+    CODE_ASTRO_RESTACK_CAMERA_MISMATCH = -11519; // Restack camera mismatch
+    CODE_ASTRO_RESTACK_BINNING_MISMATCH = -11520; // Restack binning mismatch
+    CODE_ASTRO_RESTACK_FILTER_MISMATCH = -11521; // Restack filter mismatch
+    CODE_ASTRO_RESTACK_TARGET_MISMATCH = -11522; // Restack target mismatch
+    CODE_ASTRO_RESTACK_DARKFRAME_MISMATCH = -11523; // Restack dark-frame mismatch
+    CODE_ASTRO_RESTACK_FAILED = -11524; // Restack failed
+    CODE_ASTRO_RESTACK_INVALID_DATA = -11525; // Restack input data is invalid
+    CODE_ASTRO_OVEREXPOSURE_WARNING = -11526; // Exposure may be overexposed
+    CODE_ASTRO_EXP_TOO_LONG = -11527; // Exposure is too long
+    CODE_ASTRO_NEED_EQ = -11528; // Equatorial mode is required
+    CODE_ASTRO_STAR_TOO_FEW = -11529; // Too few stars were detected
+    CODE_ASTRO_DARK_TEMP_MISMATCH = -11530; // Matching dark temperature differs from current sensor temperature
+    CODE_ASTRO_SUN_MOON_NOT_FOUND = -11531; // Sun or Moon was not found
+    CODE_ASTRO_GUIDING_FAILED_LOWER_EXPOSURE = -11532; // Guiding failed; lower exposure
+    CODE_ASTRO_GUIDING_FAILED_TARGET_BLOCKED = -11533; // Guiding target is blocked
 
     CODE_CAMERA_WIDE_OPENED = -12500; // Wide-angle camera turned on
     CODE_CAMERA_WIDE_CLOSED = -12501; // The wide-angle camera is turned off

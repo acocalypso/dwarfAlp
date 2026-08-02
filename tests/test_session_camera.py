@@ -18,7 +18,6 @@ from dwarf_alpaca.proto import astro_pb2, protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import (
     TYPE_NOTIFICATION,
     ComResponse,
-    ReqAstroStartCaptureRawLiveStacking,
     ResNotifyTemperature,
     V3ResModeSwitch,
     V3ResNotifyDeviceState,
@@ -294,7 +293,7 @@ async def test_dwarf2_astro_start_uses_v3_sentinel_payload(monkeypatch):
     captured: dict[str, object] = {}
 
     async def fake_begin_request(_module_id, _command_id, request, _response_cls):
-        captured["request"] = ReqAstroStartCaptureRawLiveStacking.FromString(
+        captured["request"] = astro_pb2.ReqCaptureRawLiveStacking.FromString(
             request.SerializeToString()
         )
         response = ComResponse()
@@ -308,8 +307,9 @@ async def test_dwarf2_astro_start_uses_v3_sentinel_payload(monkeypatch):
     await session._start_astro_capture(timeout=5.0)
 
     request = captured["request"]
-    assert isinstance(request, ReqAstroStartCaptureRawLiveStacking)
-    assert request.sentinel == -1
+    assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
+    assert request.ir_index == -1
+    assert request.force_start is False
     assert request.SerializeToString() == b"\x08\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01"
 
 
@@ -698,8 +698,9 @@ async def test_camera_start_exposure_accepts_nonfatal_need_goto_warning(monkeypa
         config_calls["frames"] = frames
         config_calls["binning"] = binning
 
-    async def fake_start(*, timeout: float) -> int:
+    async def fake_start(*, timeout: float, force_on_dark_warning: bool = False) -> int:
         config_calls["timeout"] = timeout
+        config_calls["force_on_dark_warning"] = force_on_dark_warning
         return protocol_pb2.CODE_ASTRO_NEED_GOTO
 
     async def fake_fetch(fetch_state) -> None:
@@ -845,7 +846,7 @@ async def test_camera_go_live_after_capture(monkeypatch):
     state.requested_frame_count = 1
     state.requested_bin = (1, 1)
 
-    async def fake_start(*, timeout: float) -> int:
+    async def fake_start(*, timeout: float, force_on_dark_warning: bool = False) -> int:
         return protocol_pb2.OK
 
     async def fake_stop(*_args, **_kwargs) -> None:
@@ -940,6 +941,139 @@ async def test_start_astro_capture_timeout_with_progress_evidence_succeeds(monke
     monkeypatch.setattr(session, "_begin_request", fake_begin_request)
 
     assert await session._start_astro_capture(timeout=5.0) == protocol_pb2.OK
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "dark_warning_code",
+    [
+        protocol_pb2.CODE_ASTRO_DARK_NOT_FOUND,
+        protocol_pb2.CODE_ASTRO_DARK_TEMP_MISMATCH,
+    ],
+)
+async def test_start_astro_capture_uses_continue_command_for_dark_warning(
+    monkeypatch, dark_warning_code
+):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    await session._get_filter_options()
+    session.camera_state.filter_index = 1
+    requests: list[tuple[int, bytes]] = []
+
+    async def fake_begin_request(_module, command, request, _response_cls):
+        requests.append((command, request.SerializeToString()))
+        response = ComResponse()
+        response.code = (
+            dark_warning_code
+            if len(requests) == 1
+            else protocol_pb2.CODE_ASTRO_NEED_GOTO
+        )
+        future = asyncio.get_running_loop().create_future()
+        future.set_result(response)
+        return future
+
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
+    monkeypatch.setattr(session, "_has_recent_goto", lambda: True)
+
+    code = await session._start_astro_capture(timeout=5.0, force_on_dark_warning=True)
+    monitor = session._capture_start_response_task
+    assert monitor is not None
+    await asyncio.wait_for(monitor, timeout=0.5)
+
+    assert code == protocol_pb2.OK
+    assert [command for command, _ in requests] == [11005, 11050]
+    start_request = astro_pb2.ReqCaptureRawLiveStacking.FromString(requests[0][1])
+    assert start_request.ir_index == 1
+    assert start_request.force_start is False
+    assert requests[1][1] == b""
+
+
+@pytest.mark.asyncio
+async def test_delayed_dark_temperature_warning_retries_without_failing_capture(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    await session._get_filter_options()
+    session.camera_state.filter_index = 1
+    session.camera_state.capture_id = "capture-under-test"
+    requests: list[tuple[int, bytes]] = []
+    futures: list[asyncio.Future[ComResponse]] = []
+
+    async def fake_begin_request(_module, command, request, _response_cls):
+        requests.append((command, request.SerializeToString()))
+        future = asyncio.get_running_loop().create_future()
+        futures.append(future)
+        return future
+
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
+    monkeypatch.setattr(session, "_has_recent_goto", lambda: True)
+
+    assert (
+        await session._start_astro_capture(
+            timeout=5.0,
+            force_on_dark_warning=True,
+        )
+        == protocol_pb2.OK
+    )
+    monitor = session._capture_start_response_task
+    assert monitor is not None
+
+    mismatch = ComResponse()
+    mismatch.code = protocol_pb2.CODE_ASTRO_DARK_TEMP_MISMATCH
+    futures[0].set_result(mismatch)
+    for _ in range(10):
+        if len(futures) == 2:
+            break
+        await asyncio.sleep(0)
+
+    assert len(futures) == 2
+    assert [command for command, _ in requests] == [11005, 11050]
+    assert requests[1][1] == b""
+    accepted_warning = ComResponse()
+    accepted_warning.code = protocol_pb2.CODE_ASTRO_NEED_GOTO
+    futures[1].set_result(accepted_warning)
+    await asyncio.wait_for(monitor, timeout=0.5)
+
+    assert session.camera_state.capture_id == "capture-under-test"
+    assert session.camera_state.capture_phase is not CapturePhase.FAILED
+
+
+@pytest.mark.asyncio
+async def test_dwarf2_dark_warning_uses_force_start_fallback(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf2"))
+    session.simulation = False
+    requests: list[tuple[int, astro_pb2.ReqCaptureRawLiveStacking]] = []
+
+    async def fake_begin_request(_module, command, request, _response_cls):
+        decoded = astro_pb2.ReqCaptureRawLiveStacking.FromString(
+            request.SerializeToString()
+        )
+        requests.append((command, decoded))
+        response = ComResponse()
+        response.code = (
+            protocol_pb2.CODE_ASTRO_DARK_NOT_FOUND
+            if len(requests) == 1
+            else protocol_pb2.OK
+        )
+        future = asyncio.get_running_loop().create_future()
+        future.set_result(response)
+        return future
+
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
+
+    assert (
+        await session._start_astro_capture(
+            timeout=5.0,
+            force_on_dark_warning=True,
+        )
+        == protocol_pb2.OK
+    )
+    monitor = session._capture_start_response_task
+    assert monitor is not None
+    await asyncio.wait_for(monitor, timeout=0.5)
+
+    assert [command for command, _ in requests] == [11005, 11005]
+    assert [request.force_start for _, request in requests] == [False, True]
+    assert [request.ir_index for _, request in requests] == [-1, -1]
 
 
 @pytest.mark.asyncio
