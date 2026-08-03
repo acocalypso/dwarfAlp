@@ -20,29 +20,47 @@ sequenceDiagram
     App-->>UI: Ready
 ```
 
-## Mini Deep Sky light frame
+## V3 Deep Sky light frame (DWARF 2, DWARF 3, Mini)
 
 ```mermaid
 sequenceDiagram
     participant N as NINA
     participant A as dwarfAlp
-    participant D as DWARF Mini
+    participant D as DWARF
     N->>A: Select Astro or Duo-Band
     Note over A: Cache selection only; no wheel-move command
     N->>A: StartExposure(duration, Light=true)
-    A->>D: 11041 exact exposure/gain/frame tuple
-    D-->>A: Echo tuple / status
+    A->>D: POST shootingMode/getParamAndSetting {modeId:2}
+    D-->>A: Live exposure names/indices, gain values, parameter IDs
+    A->>D: 16700 exposure param (manual, exact firmware index)
+    A->>D: 16701 gain param (manual, requested gain)
+    A->>D: 16703 absolute frame count
     A->>D: 11005 ReqCaptureRawLiveStacking(ir_index=1 or 2)
     D-->>A: Capture state/progress notifications
     A->>D: Retrieve newly created capture
     A-->>N: ImageReady + image array
 ```
 
-The 11040 presets observed on Mini firmware 1.1.3 build 2 include normal modes
-such as 15/30/60/90/180 seconds and a short tuple. Hardware probing confirmed
-that 11041 accepts and echoes an exact `0|0|1|60|1|null` tuple. This explains
-why rejecting 1 second solely because it is absent from the initially returned
-firmware list disagreed with the official app.
+APK 3.4.1 obtains the authoritative parameter catalogue from
+`POST /shootingMode/getParamAndSetting` with `modeId=2`. On Mini firmware 1.1.3
+build 2 it reported exposure parameter `144396663052566529`, gain parameter
+`144396663052566530`, 1 second as index `120`, and 5 seconds as index `141`.
+Command 11041 is now a quick-set selector (`ReqSetQuickSet.info_id`), not an
+arbitrary parameter setter. The failed driver run sent a 5-second-looking
+quick-set string but progress later reported index `156`, which is 15 seconds.
+
+### Driver versus APK 3.4.1
+
+| Stage | Old driver | Current APK workflow / corrected driver |
+|---|---|---|
+| Discover values | 11040 quick-set list only | HTTP mode-2 parameter catalogue |
+| Exposure | rewrite a 11041 string | 16700 with catalogue exposure index |
+| Gain | rewrite a 11041 string | 16701 with catalogue gain value |
+| Frame count | 16703 | 16703 |
+| Start | 11005 | 11005 |
+| Completion | stop when FTP polling times out | wait for progress/new file; FTP timeout alone is non-terminal |
+| Retrieval safety | changed album path could be accepted | require capture-time evidence and reject stale album media |
+| NINA array | JPEG could remain RGB/3-D | JPEG fallback is converted to a 2-D array; FITS remains preferred |
 
 ## Mini dark/calibration frame
 

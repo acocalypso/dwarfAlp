@@ -34,6 +34,10 @@ def test_extract_inventory_preserves_numeric_and_symbolic_values(tmp_path: Path)
         ),
         encoding="utf-8",
     )
+    (ws_dir / "WsRespCode.java").write_text(
+        'public static final WsRespCode CODE_TEST = new WsRespCode("CODE_TEST", 0, -11530);',
+        encoding="utf-8",
+    )
     (request_dir / "WsNumericReq.java").write_text(
         """
 public final class WsNumericReq {
@@ -58,3 +62,4 @@ public final class WsNumericReq {
     ]
     assert symbolic["command_id"] is None
     assert symbolic["raw_value_expression"] == "Library.VALUE"
+    assert inventory["response_codes"][0]["code"] == -11530

@@ -213,3 +213,8 @@ def flatten_exposure_entries(config: Any) -> list[tuple[int, float]]:
     if camera_options:
         return [(option.index, option.seconds) for option in camera_options]
     return [(option.index, option.seconds) for option in ExposureResolver._discover_options(config)]
+
+
+def parse_exposure_seconds(value: Any) -> float | None:
+    """Parse a firmware exposure label such as ``1/30`` or ``5`` to seconds."""
+    return ExposureResolver._parse_duration(value)

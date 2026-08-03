@@ -230,6 +230,18 @@ class DwarfHttpClient:
         response = await self._request("GET", "/getDefaultParamsConfig")
         return response.json()
 
+    async def get_param_and_setting(self, mode_id: int) -> dict[str, Any]:
+        """Fetch the live parameter catalogue for a shooting mode.
+
+        APK 3.4.1 uses this endpoint to obtain the firmware-defined exposure
+        index/name table and the model-specific parameter IDs.  Astronomy is
+        mode 2 on all V3 DWARF models.
+        """
+        return await self.post_json(
+            "/shootingMode/getParamAndSetting",
+            {"modeId": int(mode_id)},
+        )
+
     async def slew_to_coordinates(self, ra_hours: float, dec_degrees: float) -> dict[str, Any]:
         """Send a go-to command to the DWARF mount."""
         payload = {

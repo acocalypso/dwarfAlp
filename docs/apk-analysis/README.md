@@ -54,6 +54,7 @@ timestamp, not proof of the application source-build time.
 - [Other transports](transports.md)
 - [API report](api-inventory.md)
 - [Machine-readable inventory](api-inventory.json)
+- [Complete WebSocket command/error registry](websocket-code-registry.md)
 - [Capture workflows](capture-workflows.md)
 - [Compatibility and gap analysis](model-compatibility.md)
 - [Evidence index](evidence-index.md)

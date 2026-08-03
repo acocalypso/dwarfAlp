@@ -67,6 +67,7 @@ from ..proto.dwarf_messages import (
     V3ReqOpenTeleCamera,
     V3ReqOpenWideCamera,
     V3ReqSetCameraParam,
+    V3ReqSetExposureGain,
     V3ReqShootingModeSwitch,
     V3ResFocusInit,
     V3ResGetDeviceConfig,
@@ -89,9 +90,7 @@ from ..proto.notify_pb2 import (
 )
 from ..proto.v3_astro_pb2 import (
     V3ReqGetAstroParams,
-    V3ReqSetAstroParams,
     V3ResGetAstroParams,
-    V3ResSetAstroParams,
 )
 from ..proto.v3_notify_pb2 import V3ResNotifyAutoFocusState
 from . import exposure
@@ -260,7 +259,11 @@ _GOTO_KIND_DSO = "dso"
 _MODULE_CAMERA_PARAMS = 15
 _MODULE_DEVICE_CONFIG = 14
 _CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700
+_CMD_V3_CAMERA_PARAMS_SET_GAIN = 16701
 _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM = 16703
+_V3_ASTRO_MODE_ID = 2
+_V3_ASTRO_EXPOSURE_PARAM_ID = 0x0201000000000001
+_V3_ASTRO_GAIN_PARAM_ID = 0x0201000000000002
 _CMD_V3_DEVICE_CONFIG_MODE_QUERY = 16402
 _CMD_V3_DEVICE_CONFIG_SHOOTING_MODE = 16403
 _CMD_V3_DEVICE_CONFIG_MODE_SWITCH = 16404
@@ -530,6 +533,7 @@ class DwarfSession:
         self._v3_device_config_bytes: int | None = None
         self._v3_astro_presets: list[V3AstroPreset] | None = None
         self._v3_selected_astro_preset: V3AstroPreset | None = None
+        self._v3_astro_param_catalog: dict[str, Any] | None = None
         self._calibration_lock = asyncio.Lock()
         self._last_calibration_time: float | None = None
         self._last_calibration_ip: str | None = None
@@ -1051,6 +1055,22 @@ class DwarfSession:
         )
 
     async def _handle_notification(self, packet: Message) -> None:
+        if self.camera_state.capture_id is not None:
+            raw_data = bytes(getattr(packet, "data", b"") or b"")
+            command_id_for_trace = int(getattr(packet, "cmd", 0))
+            module_id_for_trace = int(getattr(packet, "module_id", 0))
+            logger.info(
+                "dwarf.camera.capture.trace.packet",
+                capture_id=self.camera_state.capture_id,
+                module_id=module_id_for_trace,
+                module_name=self._enum_name(protocol_pb2.ModuleId, module_id_for_trace),
+                command_id=command_id_for_trace,
+                command_name=self._enum_name(protocol_pb2.DwarfCMD, command_id_for_trace),
+                packet_type=int(getattr(packet, "type", 0)),
+                payload_length=len(raw_data),
+                payload_hex=raw_data[:512].hex(),
+                payload_truncated=len(raw_data) > 512,
+            )
         self._trace_calibration_notification(packet)
         module_id = getattr(packet, "module_id", None)
         if module_id != protocol_pb2.ModuleId.MODULE_NOTIFY:
@@ -3485,12 +3505,132 @@ class DwarfSession:
         self.camera_state.applied_duration = duration
         return selected
 
+    async def _get_v3_astro_param_catalog(self) -> dict[str, Any]:
+        if self._v3_astro_param_catalog is not None:
+            return self._v3_astro_param_catalog
+        response = await self._http_client.get_param_and_setting(_V3_ASTRO_MODE_ID)
+        if not isinstance(response, dict) or int(response.get("code", -1)) != 0:
+            raise CaptureConfigurationError(
+                f"{self.profile.display_name} parameter catalogue request failed"
+            )
+        data = response.get("data")
+        if not isinstance(data, dict):
+            raise CaptureConfigurationError(
+                f"{self.profile.display_name} returned no astronomy parameter catalogue"
+            )
+        self._v3_astro_param_catalog = data
+        return data
+
+    async def _resolve_v3_astro_controls(
+        self, duration: float, gain: int
+    ) -> tuple[int, int, int, int]:
+        catalog = await self._get_v3_astro_param_catalog()
+        camera_params = catalog.get("cameraParams")
+        if not isinstance(camera_params, list):
+            raise CaptureConfigurationError("V3 astronomy camera parameters are unavailable")
+        tele = next(
+            (
+                item
+                for item in camera_params
+                if isinstance(item, dict) and int(item.get("cameraId", -1)) == 0
+            ),
+            None,
+        )
+        special = tele.get("specialParams") if isinstance(tele, dict) else None
+        exposure_param = special.get("exp") if isinstance(special, dict) else None
+        gain_param = special.get("gain") if isinstance(special, dict) else None
+        if not isinstance(exposure_param, dict) or not isinstance(gain_param, dict):
+            raise CaptureConfigurationError("V3 astronomy exposure/gain controls are unavailable")
+
+        values = exposure_param.get("values")
+        choices: list[tuple[float, int, str]] = []
+        if isinstance(values, list):
+            for item in values:
+                if not isinstance(item, dict):
+                    continue
+                label = str(item.get("name", "")).strip()
+                try:
+                    seconds = exposure.parse_exposure_seconds(label)
+                    index = int(item["value"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if seconds is not None and seconds > 0:
+                    choices.append((seconds, index, label))
+        match = next(
+            (choice for choice in choices if math.isclose(choice[0], duration, rel_tol=1e-6, abs_tol=1e-6)),
+            None,
+        )
+        if match is None:
+            supported = ", ".join(choice[2] for choice in choices if choice[0] >= 1.0)
+            raise CaptureConfigurationError(
+                f"No exact firmware exposure value is available for requested duration {duration:g}s"
+                + (f" (supported: {supported})" if supported else "")
+            )
+
+        gain_values = gain_param.get("values")
+        if isinstance(gain_values, list) and gain not in {
+            int(value) for value in gain_values if isinstance(value, (int, float))
+        }:
+            raise CaptureConfigurationError(
+                f"Gain {gain} is not supported by the active V3 astronomy mode"
+            )
+        return (
+            int(exposure_param.get("paramId", _V3_ASTRO_EXPOSURE_PARAM_ID)),
+            match[1],
+            int(gain_param.get("paramId", _V3_ASTRO_GAIN_PARAM_ID)),
+            gain,
+        )
+
+    async def _apply_v3_astro_exposure_gain(self, duration: float, gain: int) -> None:
+        exposure_param_id, exposure_index, gain_param_id, gain_value = (
+            await self._resolve_v3_astro_controls(duration, gain)
+        )
+        expected = {
+            (protocol_pb2.ModuleId.MODULE_NOTIFY, protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_CAMERA_PARAM_STATE):
+                V3ResNotifyCameraParamState
+        }
+        exp_request = V3ReqSetCameraParam()
+        exp_request.param_id = exposure_param_id
+        exp_request.flag = 1  # manual
+        exp_request.value = exposure_index
+        await self._send_and_check(
+            _MODULE_CAMERA_PARAMS,
+            _CMD_V3_CAMERA_PARAMS_SET_PARAM,
+            exp_request,
+            expected_responses=expected,
+        )
+        gain_request = V3ReqSetExposureGain()
+        gain_request.param_id = gain_param_id
+        gain_request.flag = 1  # manual
+        gain_request.value = gain_value
+        await self._send_and_check(
+            _MODULE_CAMERA_PARAMS,
+            _CMD_V3_CAMERA_PARAMS_SET_GAIN,
+            gain_request,
+            expected_responses=expected,
+        )
+        self.camera_state.exposure_index = exposure_index
+        self.camera_state.applied_duration = duration
+        self.camera_state.applied_gain_value = gain_value
+        logger.info(
+            "dwarf.camera.v3_astro_exposure_gain_applied",
+            exposure=duration,
+            exposure_index=exposure_index,
+            exposure_param_id=exposure_param_id,
+            gain=gain_value,
+            gain_param_id=gain_param_id,
+        )
+
     async def _ensure_exposure_settings(self, duration: float) -> None:
         if self.simulation:
             return
         state = self.camera_state
         if self._uses_v3_protocol():
-            await self._select_v3_astro_preset(duration)
+            requested_gain = state.requested_gain
+            if requested_gain is None:
+                requested_gain = int(self.profile.camera.min_gain_db)
+            await self._resolve_v3_astro_controls(duration, int(requested_gain))
+            state.applied_duration = duration
             return
         resolver = await self._get_exposure_resolver()
         option = resolver.choose_option(duration) if resolver else None
@@ -4491,38 +4631,20 @@ class DwarfSession:
                     f"{self.profile.display_name} V3 astronomy capture currently supports only "
                     "1x1 binning"
                 )
-            selected = self._v3_selected_astro_preset
-            if selected is None:
-                selected = await self._select_v3_astro_preset(self.camera_state.duration)
             frames = max(1, int(frames))
-            parts = list(selected.pipe_parts)
-            parts[4] = str(frames)
-            requested_pipe = "|".join(parts)
-            request = V3ReqSetAstroParams()
-            request.params = requested_pipe
-            response = await self._send_request(
-                protocol_pb2.ModuleId.MODULE_ASTRO,
-                protocol_pb2.DwarfCMD.CMD_V3_ASTRO_SET_PARAMS,
-                request,
-                V3ResSetAstroParams,
-                timeout=8.0,
+            requested_gain = self.camera_state.requested_gain
+            if requested_gain is None:
+                requested_gain = int(self.profile.camera.min_gain_db)
+            await self._apply_v3_astro_exposure_gain(
+                self.camera_state.duration, int(requested_gain)
             )
-            code = int(getattr(response, "code", protocol_pb2.OK))
-            echoed_pipe = str(getattr(response, "pipe_params", ""))
-            if code != protocol_pb2.OK or echoed_pipe != requested_pipe:
-                raise CaptureConfigurationError(
-                    f"{self.profile.display_name} did not confirm the requested V3 astronomy "
-                    "parameters"
-                )
             await self._set_v3_astro_frame_count(frames)
-            self.camera_state.applied_duration = selected.exposure_s
-            self.camera_state.applied_gain_value = selected.gain
             self.camera_state.applied_bin = (1, 1)
             self.camera_state.applied_frame_count = frames
             logger.info(
                 "dwarf.camera.v3_astro_params_applied",
-                exposure=selected.exposure_s,
-                gain=selected.gain,
+                exposure=self.camera_state.duration,
+                gain=int(requested_gain),
                 frames=frames,
                 binning=(1, 1),
             )
@@ -4917,7 +5039,7 @@ class DwarfSession:
                         and continue_code
                         in {
                             protocol_pb2.WS_PARSE_PROTOBUF_ERROR,
-                            protocol_pb2.WS_INVALID_PARAM,
+                            protocol_pb2.WS_INVAID_PARAM,
                         }
                     ):
                         logger.warning(
@@ -5448,7 +5570,10 @@ class DwarfSession:
             # rejects files older than last_start_time, so the cached entry is
             # a sufficient stale-file guard and keeps StartExposure responsive.
             state.pending_ftp_baseline = state.last_ftp_entry
-            state.pending_album_baseline = state.last_album_mod_time
+            # The HTTP album query is cheap and provides the only reliable
+            # baseline when firmware FTP is unavailable.  Without it an old
+            # album item can be mistaken for the exposure NINA just requested.
+            await self._refresh_album_baseline()
 
     async def _refresh_ftp_baseline(self, *, capture_kind: str) -> None:
         state = self.camera_state
@@ -5537,14 +5662,32 @@ class DwarfSession:
                 progress_task = asyncio.create_task(self._capture_frame_complete_event.wait())
                 trigger = "ftp"
                 try:
-                    done, _pending = await asyncio.wait(
-                        {ftp_task, progress_task},
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
-                    if progress_task in done and progress_task.result():
-                        trigger = "stacking_progress"
-                    elif ftp_task in done:
-                        trigger = "ftp" if ftp_task.result() else "ftp_timeout"
+                    deadline = time.monotonic() + max(state.duration + 45.0, 50.0)
+                    while True:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            trigger = "capture_timeout"
+                            break
+                        active = {progress_task}
+                        if not ftp_task.done():
+                            active.add(ftp_task)
+                        done, _pending = await asyncio.wait(
+                            active,
+                            timeout=remaining,
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+                        if not done:
+                            trigger = "capture_timeout"
+                            break
+                        if progress_task in done and progress_task.result():
+                            trigger = "stacking_progress"
+                            break
+                        if ftp_task in done and ftp_task.result():
+                            trigger = "ftp"
+                            break
+                        # FTP timeout is not capture completion. Firmware may
+                        # still be exposing/stacking and will notify us later.
+                        trigger = "waiting_after_ftp_timeout"
                     logger.info(
                         "dwarf.camera.astro_capture_stop_triggered",
                         capture_id=state.capture_id,
@@ -5665,6 +5808,17 @@ class DwarfSession:
                     is_new = True
             if not is_new and file_id and file_id != last_known_file:
                 is_new = True
+            if is_new and not self._album_entry_is_recent(
+                latest_entry, not_before=state.last_start_time
+            ):
+                logger.warning(
+                    "dwarf.camera.album_stale_entry_rejected",
+                    capture_id=state.capture_id,
+                    file=file_id,
+                    modification_time=mod_time,
+                    exposure_started_at=state.last_start_time,
+                )
+                is_new = False
             if is_new:
                 entry = latest_entry
                 if mod_time is not None:
@@ -5728,6 +5882,34 @@ class DwarfSession:
         self._store_frame(state, frame, timestamp)
         state.pending_album_baseline = state.last_album_mod_time
 
+    @staticmethod
+    def _album_entry_is_recent(
+        entry: dict[str, Any], *, not_before: float | None
+    ) -> bool:
+        if not_before is None:
+            return True
+        raw = entry.get("modificationTime")
+        try:
+            timestamp = float(raw)
+            if timestamp > 10_000_000_000:
+                timestamp /= 1000.0
+            if timestamp > 1_000_000_000:
+                return timestamp >= not_before - 5.0
+        except (TypeError, ValueError):
+            pass
+        identifier = DwarfSession._album_entry_file(entry) or ""
+        match = re.search(r"(20\d{6})[-_](\d{6})", identifier)
+        if match:
+            try:
+                timestamp = time.mktime(
+                    datetime.strptime("".join(match.groups()), "%Y%m%d%H%M%S").timetuple()
+                )
+                return timestamp >= not_before - 5.0
+            except ValueError:
+                pass
+        # With no temporal evidence, a changed path is insufficient proof.
+        return False
+
     def _store_frame(self, state: CameraState, frame: np.ndarray, timestamp: float) -> None:
         if not np.issubdtype(frame.dtype, np.integer) and not np.issubdtype(
             frame.dtype, np.floating
@@ -5760,7 +5942,7 @@ class DwarfSession:
         if frame is None:
             raise ValueError("decode_failed")
         if frame.ndim == 3:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if frame.dtype not in (np.uint8, np.uint16):
             raise ValueError(f"unsupported_jpeg_dtype:{frame.dtype}")
         return frame

@@ -440,6 +440,29 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
             ),
         ),
         MessageSpec(
+            name="V3ReqSetExposureGain",
+            fields=(
+                (
+                    "param_id",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT64,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "flag",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "value",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
             name="V3ReqShootingModeSwitch",
             fields=(
                 (
@@ -1145,6 +1168,7 @@ ReqGetAllFeatureParams = _prototype("ReqGetAllFeatureParams")
 ResGetAllFeatureParams = _prototype("ResGetAllFeatureParams")
 ReqSetIrCut = _prototype("ReqSetIrCut")
 V3ReqSetCameraParam = _prototype("V3ReqSetCameraParam")
+V3ReqSetExposureGain = _prototype("V3ReqSetExposureGain")
 V3ReqAdjustParam = _prototype("V3ReqAdjustParam")
 V3ReqModeQuery = _prototype("V3ReqModeQuery")
 V3ResModeQuery = _prototype("V3ResModeQuery")

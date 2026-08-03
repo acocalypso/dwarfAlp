@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source": {
     "application": "DWARFLAB",
     "package": "com.convergence.dwarflab",
@@ -9,7 +9,7 @@
     "generator": "scripts/extract_apk_api_inventory.py"
   },
   "limitations": [
-    "A null command_id means JADX emitted a symbolic third-party constant; raw_value_expression preserves the evidence without guessing.",
+    "Symbolic third-party constants are resolved only where their library value is known; raw_value_expression always preserves the JADX evidence.",
     "Presence in WsCmd proves registration in app code, not support on every model.",
     "Only request wrappers with a directly traceable WsCmd return are linked."
   ],
@@ -85,7 +85,7 @@
     {
       "name": "CMD_CAMERA_TELE_STOP_BURST",
       "ordinal": 4,
-      "command_id": null,
+      "command_id": 10004,
       "raw_value_expression": "IMediaPlayer.MEDIA_INFO_VIDEO_DECODED_START",
       "transport": "websocket",
       "direction": "request",
@@ -119,7 +119,7 @@
     {
       "name": "CMD_CAMERA_TELE_STOP_RECORD",
       "ordinal": 6,
-      "command_id": null,
+      "command_id": 10006,
       "raw_value_expression": "IMediaPlayer.MEDIA_INFO_FIND_STREAM_INFO",
       "transport": "websocket",
       "direction": "request",
@@ -153,7 +153,7 @@
     {
       "name": "CMD_CAMERA_TELE_GET_EXP_MODE",
       "ordinal": 8,
-      "command_id": null,
+      "command_id": 10008,
       "raw_value_expression": "IMediaPlayer.MEDIA_INFO_VIDEO_SEEK_RENDERING_START",
       "transport": "websocket",
       "direction": "request",
@@ -170,7 +170,7 @@
     {
       "name": "CMD_CAMERA_TELE_SET_EXP",
       "ordinal": 9,
-      "command_id": null,
+      "command_id": 10009,
       "raw_value_expression": "IMediaPlayer.MEDIA_INFO_AUDIO_SEEK_RENDERING_START",
       "transport": "websocket",
       "direction": "request",
@@ -204,7 +204,7 @@
     {
       "name": "CMD_CAMERA_TELE_SET_GAIN_MODE",
       "ordinal": 11,
-      "command_id": null,
+      "command_id": 10011,
       "raw_value_expression": "RequestManager.NOTIFY_CONNECT_SUCCESS",
       "transport": "websocket",
       "direction": "request",
@@ -221,7 +221,7 @@
     {
       "name": "CMD_CAMERA_TELE_GET_GAIN_MODE",
       "ordinal": 12,
-      "command_id": null,
+      "command_id": 10012,
       "raw_value_expression": "RequestManager.NOTIFY_CONNECT_FAILED",
       "transport": "websocket",
       "direction": "request",
@@ -238,7 +238,7 @@
     {
       "name": "CMD_CAMERA_TELE_SET_GAIN",
       "ordinal": 13,
-      "command_id": null,
+      "command_id": 10013,
       "raw_value_expression": "RequestManager.NOTIFY_CONNECT_SUSPENDED",
       "transport": "websocket",
       "direction": "request",
@@ -5654,7 +5654,7 @@
     {
       "name": "CMD_DEVICE_LENS_DEFOG",
       "ordinal": 353,
-      "command_id": null,
+      "command_id": 17000,
       "raw_value_expression": "FirebaseError.ERROR_INVALID_CUSTOM_TOKEN",
       "transport": "websocket",
       "direction": "request",
@@ -5710,7 +5710,7 @@
     {
       "name": "CMD_DEVICE_AUTO_SHUTDOWN",
       "ordinal": 355,
-      "command_id": null,
+      "command_id": 17002,
       "raw_value_expression": "FirebaseError.ERROR_CUSTOM_TOKEN_MISMATCH",
       "transport": "websocket",
       "direction": "request",
@@ -5733,6 +5733,1238 @@
           "kind": "APK enum declaration"
         }
       ],
+      "confidence": "confirmed in app code"
+    }
+  ],
+  "response_codes": [
+    {
+      "name": "WS_OK",
+      "ordinal": 0,
+      "code": 0,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 34
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "WS_PARSE_PROTOBUF_ERROR",
+      "ordinal": 1,
+      "code": -1,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 35
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "WS_SDCARD_NOT_EXIST",
+      "ordinal": 2,
+      "code": -2,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 36
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "WS_INVAID_PARAM",
+      "ordinal": 3,
+      "code": -3,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 37
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "WS_SDCARD_WRITE_ERROR",
+      "ordinal": 4,
+      "code": -4,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 38
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "WS_DEVICE_NOT_ACTIVATED",
+      "ordinal": 5,
+      "code": -5,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 39
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "WS_SDCARD_FULL_ERROR",
+      "ordinal": 6,
+      "code": -6,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 40
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_OPENED",
+      "ordinal": 7,
+      "code": -10500,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 41
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_CLOSED",
+      "ordinal": 8,
+      "code": -10501,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 42
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_ISP_SET_FAILED",
+      "ordinal": 9,
+      "code": -10502,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 43
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_OPEN_FAILED",
+      "ordinal": 10,
+      "code": -10503,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 44
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_START_RECORD_FAILED",
+      "ordinal": 11,
+      "code": -10504,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 45
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_STOP_RECORD_FAILED",
+      "ordinal": 12,
+      "code": -10505,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 46
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_CAPTURE_RAW_FAILED",
+      "ordinal": 13,
+      "code": -10506,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 47
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_WORKING_BUSY",
+      "ordinal": 14,
+      "code": -10507,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 48
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_GET_IMAGE_FAILED",
+      "ordinal": 15,
+      "code": -10508,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 49
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_RUNNING_PHOTO",
+      "ordinal": 16,
+      "code": -10509,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 50
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_RUNNING_RECORD",
+      "ordinal": 17,
+      "code": -10510,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 51
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_RUNNING_PANORAMA",
+      "ordinal": 18,
+      "code": -10511,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 52
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_RUNNING_TIMELAPSE",
+      "ordinal": 19,
+      "code": -10512,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 53
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_RUNNING_CAPTURE_DARK",
+      "ordinal": 20,
+      "code": -10513,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 54
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_RUNNING_CAPTURE_LIVE_STACKING",
+      "ordinal": 21,
+      "code": -10514,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 55
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_EXP_TOO_LONG",
+      "ordinal": 22,
+      "code": -10515,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 56
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_SWITCH_WORK_MODE_FAILED",
+      "ordinal": 23,
+      "code": -10516,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 57
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_RUNNING_TRACK",
+      "ordinal": 24,
+      "code": -10517,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 58
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_TELE_RECORD_FILE_ERROR",
+      "ordinal": 25,
+      "code": -10518,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 59
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_PLATE_SOLVING_FAILED",
+      "ordinal": 26,
+      "code": -11500,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 60
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_FUNCTION_BUSY",
+      "ordinal": 27,
+      "code": -11501,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 61
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_DARK_GAIN_OUT_OF_RANGE",
+      "ordinal": 28,
+      "code": -11502,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 62
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_DARK_NOT_FOUND",
+      "ordinal": 29,
+      "code": -11503,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 63
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_CALIBRATION_FAILED",
+      "ordinal": 30,
+      "code": -11504,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 64
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_GOTO_FAILED",
+      "ordinal": 31,
+      "code": -11505,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 65
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_DARK_RUNNING",
+      "ordinal": 32,
+      "code": -11506,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 66
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_CALIBRATION_RUNNING",
+      "ordinal": 33,
+      "code": -11507,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 67
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_GOTO_RUNNING",
+      "ordinal": 34,
+      "code": -11508,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 68
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_LIVE_STACKING_RUNNING",
+      "ordinal": 35,
+      "code": -11509,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 69
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_RESET_PITCH_MOTOR_FAILED",
+      "ordinal": 36,
+      "code": -11510,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 70
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_NEED_CALIBRATION",
+      "ordinal": 37,
+      "code": -11511,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 71
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_GOTO_READ_MOTOR_POSITION_AND_PLATE_SOLVING_FAILED",
+      "ordinal": 38,
+      "code": -11512,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 72
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_NEED_GOTO",
+      "ordinal": 39,
+      "code": -11513,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 73
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM",
+      "ordinal": 40,
+      "code": -11514,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 74
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_CALIBRATION_PLATE_SOLVING_FAILED_TOO_MUCH",
+      "ordinal": 41,
+      "code": -11515,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 75
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_EQ_SOLVING_FAILED",
+      "ordinal": 42,
+      "code": -11516,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 76
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_SKY_SEARCH_FAILED",
+      "ordinal": 43,
+      "code": -11517,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 77
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_NEED_GOTO_DSO",
+      "ordinal": 44,
+      "code": -11518,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 78
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_RESTACK_CAMERA_MISMATCH",
+      "ordinal": 45,
+      "code": -11519,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 79
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_RESTACK_BINNING_MISMATCH",
+      "ordinal": 46,
+      "code": -11520,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 80
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_RESTACK_FILTER_MISMATCH",
+      "ordinal": 47,
+      "code": -11521,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 81
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_RESTACK_TARGET_MISMATCH",
+      "ordinal": 48,
+      "code": -11522,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 82
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_RESTACK_DARKFRAME_MISMATCH",
+      "ordinal": 49,
+      "code": -11523,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 83
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_RESTACK_FAILED",
+      "ordinal": 50,
+      "code": -11524,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 84
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_RESTACK_INVALID_DATA",
+      "ordinal": 51,
+      "code": -11525,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 85
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_OVEREXPOSURE_WARNING",
+      "ordinal": 52,
+      "code": -11526,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 86
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_EXP_TOO_LONG",
+      "ordinal": 53,
+      "code": -11527,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 87
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_NEED_EQ",
+      "ordinal": 54,
+      "code": -11528,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 88
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_STAR_TOO_FEW",
+      "ordinal": 55,
+      "code": -11529,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 89
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_DARK_TEMP_MISMATCH",
+      "ordinal": 56,
+      "code": -11530,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 90
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_SUN_MOON_NOT_FOUND",
+      "ordinal": 57,
+      "code": -11531,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 91
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_GUIDING_FAILED_LOWER_EXPOSURE",
+      "ordinal": 58,
+      "code": -11532,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 92
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_ASTRO_GUIDING_FAILED_TARGET_BLOCKED",
+      "ordinal": 59,
+      "code": -11533,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 93
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_OPENED",
+      "ordinal": 60,
+      "code": -12500,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 94
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_CLOSED",
+      "ordinal": 61,
+      "code": -12501,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 95
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_CANNOT_FOUND",
+      "ordinal": 62,
+      "code": -12502,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 96
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_OPEN_FAILED",
+      "ordinal": 63,
+      "code": -12503,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 97
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_CLOSE_FAILED",
+      "ordinal": 64,
+      "code": -12504,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 98
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_SET_ISP_FAILED",
+      "ordinal": 65,
+      "code": -12505,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 99
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_PHOTOGRAPHING",
+      "ordinal": 66,
+      "code": -12506,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 100
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_TIMELAPSE_RECORDING",
+      "ordinal": 67,
+      "code": -12507,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 101
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_EXP_TOO_LONG",
+      "ordinal": 68,
+      "code": -12508,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 102
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_CAMERA_WIDE_RECORD_FILE_ERROR",
+      "ordinal": 69,
+      "code": -12509,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 103
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_SYSTEM_SET_TIME_FAILED",
+      "ordinal": 70,
+      "code": -13300,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 104
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_SYSTEM_SET_TIMEZONE_FAILED",
+      "ordinal": 71,
+      "code": -13301,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 105
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_RGB_POWER_UART_INIT_FAILED",
+      "ordinal": 72,
+      "code": -13800,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 106
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_RGB_POWER_UART_SEND_FAILED",
+      "ordinal": 73,
+      "code": -13801,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 107
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_IS_RUNNING",
+      "ordinal": 74,
+      "code": -14500,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 108
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_IS_STOPPED",
+      "ordinal": 75,
+      "code": -14501,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 109
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_PARALLEL_IN",
+      "ordinal": 76,
+      "code": -14502,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 110
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_PARALLEL_END",
+      "ordinal": 77,
+      "code": -14503,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 111
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_INVALID_PARAMETER_ID",
+      "ordinal": 78,
+      "code": -14504,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 112
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_INVALID_PARAMETER_ANGLE",
+      "ordinal": 79,
+      "code": -14505,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 113
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_INVALID_PARAMETER_SPEED",
+      "ordinal": 80,
+      "code": -14506,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 114
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_INVALID_PARAMETER_SPEED_RAMPING",
+      "ordinal": 81,
+      "code": -14507,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 115
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_INVALID_PARAMETER_RESOLUTION",
+      "ordinal": 82,
+      "code": -14508,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 116
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_INVALID_PARAMETER_POSITION",
+      "ordinal": 83,
+      "code": -14509,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 117
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_OVERTIME_GET_LIMIT_RETURN",
+      "ordinal": 84,
+      "code": -14510,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 118
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_OVERTIME_GET_RESET_RETURN",
+      "ordinal": 85,
+      "code": -14511,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 119
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_OVERTIME_GET_ABSOLUTE_POSITION_RETURN",
+      "ordinal": 86,
+      "code": -14512,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 120
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_OVERTIME_GET_RELATIVE_POSITION_RETURN",
+      "ordinal": 87,
+      "code": -14513,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 121
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_OVERTIME_WAIT_TO_STOP",
+      "ordinal": 88,
+      "code": -14514,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 122
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_OVERTIME_WAIT_TO_RUN",
+      "ordinal": 89,
+      "code": -14515,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 123
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_LIMIT_SPEED_TO_MAX",
+      "ordinal": 90,
+      "code": -14516,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 124
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_LIMIT_SPEED_TO_MIN",
+      "ordinal": 91,
+      "code": -14517,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 125
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_LIMIT_POSITION_WARNING",
+      "ordinal": 92,
+      "code": -14518,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 126
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_LIMIT_POSITION_HIT",
+      "ordinal": 93,
+      "code": -14519,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 127
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_NEED_RESET",
+      "ordinal": 94,
+      "code": -14520,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 128
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_OVERTIME_GET_PE_SWITCH_RETURN",
+      "ordinal": 95,
+      "code": -14521,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 129
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_OVERTIME_TO_RESET",
+      "ordinal": 96,
+      "code": -14522,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 130
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_STEP_MOTOR_ROLL_LIMIT_ANGLE_WARNING",
+      "ordinal": 97,
+      "code": -14523,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 131
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_TRACK_TRACKER_INITING",
+      "ordinal": 98,
+      "code": -14900,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 132
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_TRACK_TRACKER_FAILED",
+      "ordinal": 99,
+      "code": -14901,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 133
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_TRACK_SENTRY_MODE_INITING",
+      "ordinal": 100,
+      "code": -14902,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 134
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_TRACK_SENTRY_MODE_FAILED",
+      "ordinal": 101,
+      "code": -14903,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 135
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_UFOTRACK_MODE_INITING",
+      "ordinal": 102,
+      "code": -14904,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 136
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_UFO_DAY_AUTO_MODE",
+      "ordinal": 104,
+      "code": -14906,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 138
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_FOCUS_ASTRO_AUTO_FOCUS_SLOW_ERROR",
+      "ordinal": 105,
+      "code": -15100,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 139
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_FOCUS_ASTRO_AUTO_FOCUS_FAST_ERROR",
+      "ordinal": 106,
+      "code": -15101,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 140
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_FOCUS_EXP_TOO_LONG",
+      "ordinal": 107,
+      "code": -15106,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 141
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_PANORAMA_MOTOR_RESET_FAILED",
+      "ordinal": 111,
+      "code": -15601,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 145
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_PANORAMA_UPLOAD_USER_STOP",
+      "ordinal": 112,
+      "code": -15602,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 146
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_PANORAMA_UPLOAD_FILE_CHECK_FAILED",
+      "ordinal": 113,
+      "code": -15603,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 147
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_PANORAMA_UPLOAD_COMPRESS_FAILED",
+      "ordinal": 114,
+      "code": -15604,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 148
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_PANORAMA_UPLOAD_UPLOAD_FAILED",
+      "ordinal": 115,
+      "code": -15605,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 149
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_PANORAMA_UPLOAD_IS_RUNNING",
+      "ordinal": 117,
+      "code": -15607,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 151
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_PANORAMA_UPLOAD_CAMERA_BUSY",
+      "ordinal": 118,
+      "code": -15608,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 152
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_PANORAMA_UPLOAD_NOT_IN_STA",
+      "ordinal": 119,
+      "code": -15609,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 153
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_PANORAMA_COMPOSE_IS_RUNNING",
+      "ordinal": 121,
+      "code": -15615,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 155
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_SHOOTING_SCHEDULE_DEVICE_ID_NOT_MATCH",
+      "ordinal": 123,
+      "code": -16300,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 157
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_SHOOTING_SCHEDULE_INVALID_SHOOTING_DURATION",
+      "ordinal": 124,
+      "code": -16301,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 158
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_SHOOTING_SCHEDULE_TIME_CONFLICT",
+      "ordinal": 125,
+      "code": -16302,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 159
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_SHOOTING_SCHEDULE_DATABASE_OPERATION_FAILED",
+      "ordinal": 127,
+      "code": -16305,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 161
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_SHOOTING_SCHEDULE_PASSWORD_ERROR",
+      "ordinal": 128,
+      "code": -16306,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 162
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_SHOOTING_SCHEDULE_INTERRUPTED",
+      "ordinal": 132,
+      "code": -16310,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 166
+      },
+      "confidence": "confirmed in app code"
+    },
+    {
+      "name": "CODE_SHOOTING_SCHEDULE_NOT_SYNCED",
+      "ordinal": 133,
+      "code": -16311,
+      "evidence": {
+        "source": "com/convergence/dwarflab/data/bean/ws/WsRespCode.java",
+        "line": 167
+      },
       "confidence": "confirmed in app code"
     }
   ]

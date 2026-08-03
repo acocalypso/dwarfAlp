@@ -1,6 +1,7 @@
 import asyncio
 import time
 import types
+from datetime import datetime
 
 import pytest
 from websockets.exceptions import ConnectionClosedOK
@@ -129,6 +130,12 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
     session._params_config = {}
     session.camera_state.duration = 1.0
     session.camera_state.requested_gain = 60
+    session._v3_astro_param_catalog = {
+        "cameraParams": [{"cameraId": 0, "specialParams": {
+            "exp": {"paramId": 0x201000000000001, "values": [{"name": "1", "value": 120}]},
+            "gain": {"paramId": 0x201000000000002, "values": [60]},
+        }}]
+    }
     calls: list[tuple[int, str]] = []
     adjusted: list[tuple[int, int, int, int]] = []
 
@@ -155,12 +162,16 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
     await session._ensure_gain_settings()
     await session._configure_astro_capture(frames=2, binning=(1, 1))
 
-    assert calls == [(protocol_pb2.DwarfCMD.CMD_V3_ASTRO_SET_PARAMS, "0|0|1|60|2|null")]
+    assert calls == []
     assert session.camera_state.applied_duration == 1.0
     assert session.camera_state.applied_gain_value == 60
     assert session.camera_state.applied_bin == (1, 1)
     assert session.camera_state.applied_frame_count == 2
-    assert adjusted == [(15, 16703, 0x202000000000010, 2)]
+    assert adjusted == [
+        (15, 16700, 0x201000000000001, 120),
+        (15, 16701, 0x201000000000002, 60),
+        (15, 16703, 0x202000000000010, 2),
+    ]
 
 
 @pytest.mark.asyncio
@@ -170,6 +181,12 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
     session._params_config = {}
     session.camera_state.duration = 1.0
     session.camera_state.requested_gain = 60
+    session._v3_astro_param_catalog = {
+        "cameraParams": [{"cameraId": 0, "specialParams": {
+            "exp": {"paramId": 0x201000000000001, "values": [{"name": "1", "value": 120}]},
+            "gain": {"paramId": 0x201000000000002, "values": [60]},
+        }}]
+    }
     adjusted: list[tuple[int, int, int, int]] = []
 
     async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
@@ -194,7 +211,11 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
     await session._ensure_gain_settings()
     await session._configure_astro_capture(frames=1, binning=(1, 1))
 
-    assert adjusted == [(15, 16703, 0x202000000000010, 1)]
+    assert adjusted == [
+        (15, 16700, 0x201000000000001, 120),
+        (15, 16701, 0x201000000000002, 60),
+        (15, 16703, 0x202000000000010, 1),
+    ]
     assert session.camera_state.applied_frame_count == 1
 
 
@@ -401,7 +422,7 @@ async def test_abort_during_configuration_prevents_late_capture_start(monkeypatc
     assert state.capture_phase == CapturePhase.IDLE
 
 
-def test_jpeg_decode_preserves_eight_bit_color_planes():
+def test_jpeg_decode_returns_nina_compatible_two_dimensional_frame():
     cv2 = pytest.importorskip("cv2")
     import numpy as np
 
@@ -415,7 +436,29 @@ def test_jpeg_decode_preserves_eight_bit_color_planes():
     decoded = DwarfSession._decode_jpeg(encoded.tobytes())
 
     assert decoded.dtype == np.uint8
-    assert decoded.shape == (2, 3, 3)
+    assert decoded.shape == (2, 3)
+
+
+def test_album_entry_recency_rejects_old_capture_path():
+    started = time.mktime(datetime.strptime("20260802-234815", "%Y%m%d-%H%M%S").timetuple())
+
+    assert not DwarfSession._album_entry_is_recent(
+        {
+            "filePath": (
+                "/DWARF_mini/Astronomy/RESTACKED/"
+                "RESTACKED_DWARF_RAW_TELE_M16_Duo-Band_20260729-080242164/stacked.jpg"
+            )
+        },
+        not_before=started,
+    )
+
+
+def test_album_entry_recency_accepts_epoch_milliseconds():
+    started = 1_800_000_000.0
+    assert DwarfSession._album_entry_is_recent(
+        {"filePath": "/new.fits", "modificationTime": int((started + 1) * 1000)},
+        not_before=started,
+    )
 
 
 @pytest.mark.asyncio
