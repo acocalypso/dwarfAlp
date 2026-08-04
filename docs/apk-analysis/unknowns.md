@@ -7,7 +7,9 @@
 | Dark stop semantics | Mini 1.1.3 build 2 | start count >3, stop from app | WS timestamps and resulting files | acknowledgement, terminal state and partial-file policy |
 | 11040 unknown tuple fields 1,2,6 | Mini | vary one app control at a time | before/after 11040/11041 payloads | maps each field without guessing |
 | Exact RTSP paths/codecs | each model | enter tele/wide preview and switch modes | RTSP setup/describe plus media metadata | camera-to-path and codec mapping |
-| Local HTTP paths/methods | Mini | device info, album list, one download, log export | authorized device-side HTTP log or PCAP | full method/path/content type/status |
+| Raw HTTP body/response fields | current firmware | exercise activation, reset-state, log and firmware-update screens without invoking destructive actions | authorized HTTP PCAP | schemas for operations whose Retrofit signature uses raw `RequestBody` |
+| 50 request commands without a traced wrapper | current APK | trigger one UI control at a time | raw WS plus matching UI action | request protobuf or confirmation that the command uses an empty payload |
+| Notification payloads without handler types | current APK | exercise the corresponding device state | unsolicited WS frames plus app display | protobuf schema and terminal-state meaning |
 | BLE characteristic roles/framing | each model | provision a disposable test SSID | Android Bluetooth HCI snoop, sanitized | read/write/notify UUID roles, segmentation, retry and STA-IP message |
 | DWARF 3 newer-profile use | DWARF 3, current firmware | connect app 3.4.1 and enter Deep Sky | initial WS envelopes and parameter commands | whether D3 negotiates 1.2, 1.20 or another profile and uses 10038 vs 11040 |
 | Photo abort support | Mini | start a safely long direct-photo exposure and press app stop | WS plus final state/file | device command, response and whether physical exposure stops |

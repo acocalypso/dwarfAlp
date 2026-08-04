@@ -1,0 +1,1069 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DWARFLAB Local Device HTTP API",
+    "version": "3.4.1-apk",
+    "description": "Unofficial device-local API reconstructed from DWARFLAB 3.4.1. Destructive firmware, reset and delete operations are documented for completeness and must not be invoked without explicit authorization."
+  },
+  "servers": [
+    {
+      "url": "http://{device}:8082",
+      "variables": {
+        "device": {
+          "default": "192.168.88.1"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/album/astro/fitsList": {
+      "post": {
+        "operationId": "astroFits",
+        "summary": "astroFits",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "album"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 50
+        },
+        "x-apk-signature": "Object astroFits(@Body @NotNull AstroFitsRequest astroFitsRequest, @NotNull Continuation<? super ApiDeviceResponse<AstroFitsResp>> continuation);",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AstroFitsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/album/astro/deleteFits": {
+      "delete": {
+        "operationId": "deleteFits",
+        "summary": "deleteFits",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "album"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 56
+        },
+        "x-apk-signature": "Object deleteFits(@Body @NotNull DeleteFitsRequest deleteFitsRequest, @NotNull Continuation<? super ApiDeviceResponse<Object>> continuation);",
+        "x-dangerous-operation": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteFitsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/album/delete": {
+      "post": {
+        "operationId": "deleteMedias",
+        "summary": "deleteMedias",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "album"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 60
+        },
+        "x-apk-signature": "Object deleteMedias(@Body @NotNull RequestBody requestBody, @NotNull Continuation<? super ApiDeviceResponse<List<DeleteMediaItemResp>>> continuation);",
+        "x-dangerous-operation": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deviceActivateStatusNotify": {
+      "post": {
+        "operationId": "deviceActivateStatusNotify",
+        "summary": "deviceActivateStatusNotify",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "deviceActivateStatusNotify"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 65
+        },
+        "x-apk-signature": "Observable<ApiDeviceResponse<ActivateInfo>> deviceActivateStatusNotify(@Body @NotNull RequestBody requestBody);",
+        "x-dangerous-operation": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deviceActivateWriteFile": {
+      "post": {
+        "operationId": "deviceActivateWriteFile",
+        "summary": "deviceActivateWriteFile",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "deviceActivateWriteFile"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 70
+        },
+        "x-apk-signature": "Observable<ApiDeviceResponse<ActivateInfo>> deviceActivateWriteFile(@Body @NotNull RequestBody requestBody);",
+        "x-dangerous-operation": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deviceInfo": {
+      "post": {
+        "operationId": "deviceInfo",
+        "summary": "deviceInfo",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "deviceInfo"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 74
+        },
+        "x-apk-signature": "Object deviceInfo(@NotNull Continuation<? super ApiDeviceResponse<DeviceInfoResp>> continuation);",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/downloadLog": {
+      "get": {
+        "operationId": "downloadLogFile",
+        "summary": "downloadLogFile",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "downloadLog"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 84
+        },
+        "x-apk-signature": "Object downloadLogFile(@NotNull Continuation<? super Response<ResponseBody>> continuation);"
+      }
+    },
+    "/getDefaultParamsConfig": {
+      "get": {
+        "operationId": "getDefaultParamsConfig",
+        "summary": "getDefaultParamsConfig",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "getDefaultParamsConfig"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 88
+        },
+        "x-apk-signature": "Object getDefaultParamsConfig(@NotNull Continuation<? super ApiDeviceResponse<DeviceConfig>> continuation);",
+        "x-apk-overloads": [
+          {
+            "operation": "getDefaultParamsConfigRx",
+            "signature": "Observable<ApiDeviceResponse<DeviceConfig>> getDefaultParamsConfigRx();",
+            "evidence": {
+              "source": "com/convergence/dwarflab/data/http/Api.java",
+              "line": 92
+            }
+          }
+        ]
+      }
+    },
+    "/getDeviceActivateInfo": {
+      "post": {
+        "operationId": "getDeviceActivateInfo",
+        "summary": "getDeviceActivateInfo",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "getDeviceActivateInfo"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 97
+        },
+        "x-apk-signature": "Object getDeviceActivateInfo(@Body @NotNull RequestBody requestBody, @NotNull Continuation<? super ApiDeviceResponse<ActivateInfo>> continuation);",
+        "x-dangerous-operation": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logInfo": {
+      "get": {
+        "operationId": "getLogInfo",
+        "summary": "getLogInfo",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "logInfo"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 101
+        },
+        "x-apk-signature": "Object getLogInfo(@NotNull Continuation<? super ApiDeviceResponse<LogInfoBean>> continuation);"
+      }
+    },
+    "/album/getMediaInfoByFilePath": {
+      "post": {
+        "operationId": "getMediaInfoByFilePath",
+        "summary": "getMediaInfoByFilePath",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "album"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 106
+        },
+        "x-apk-signature": "Observable<ApiDeviceResponse<MediaItemInfo>> getMediaInfoByFilePath(@Body @NotNull StackingReq requestBody);",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/album/list/mediaInfos": {
+      "post": {
+        "operationId": "getMediaInfos",
+        "summary": "getMediaInfos",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "album"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 111
+        },
+        "x-apk-signature": "Observable<ApiDeviceResponse<List<MediaItemInfo>>> getMediaInfos(@Body @NotNull RequestBody requestBody);",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "x-apk-overloads": [
+          {
+            "operation": "mediaInfos",
+            "signature": "Object mediaInfos(@Body @NotNull MediaInfoRequest mediaInfoRequest, @NotNull Continuation<? super ApiDeviceResponse<List<MediaItemInfo>>> continuation);",
+            "evidence": {
+              "source": "com/convergence/dwarflab/data/http/Api.java",
+              "line": 135
+            }
+          }
+        ]
+      }
+    },
+    "/shootingMode/getParamAndSetting": {
+      "post": {
+        "operationId": "getParamAndSetting",
+        "summary": "getParamAndSetting",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "shootingMode"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 116
+        },
+        "x-apk-signature": "Object getParamAndSetting(@Body @NotNull GetParamAndSettingRequest getParamAndSettingRequest, @NotNull Continuation<? super ApiDeviceResponse<ParamAndSettingDataRaw>> continuation);",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetParamAndSettingRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/getResetState": {
+      "post": {
+        "operationId": "getResetState",
+        "summary": "getResetState",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "getResetState"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 121
+        },
+        "x-apk-signature": "Object getResetState(@NotNull Continuation<? super ApiDeviceResponse<DeviceResetStateResp>> continuation);",
+        "x-dangerous-operation": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shootingMode/getSupportedShootingModes": {
+      "get": {
+        "operationId": "getShootingMode",
+        "summary": "getShootingMode",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "shootingMode"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 126
+        },
+        "x-apk-signature": "Object getShootingMode(@NotNull Continuation<? super ApiDeviceResponse<ShootingModeResp>> continuation);"
+      }
+    },
+    "/album/list/mediaCounts": {
+      "post": {
+        "operationId": "mediaCounts",
+        "summary": "mediaCounts",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "album"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 130
+        },
+        "x-apk-signature": "Object mediaCounts(@NotNull Continuation<? super ApiDeviceResponse<ArrayList<MediaCount>>> continuation);",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resetDeviceInfo": {
+      "post": {
+        "operationId": "resetDeviceInfo",
+        "summary": "resetDeviceInfo",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "resetDeviceInfo"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 140
+        },
+        "x-apk-signature": "Object resetDeviceInfo(@NotNull Continuation<? super CodeResponse> continuation);",
+        "x-dangerous-operation": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/setDeviceNameAndPsd": {
+      "post": {
+        "operationId": "setDeviceNameAndPsd",
+        "summary": "setDeviceNameAndPsd",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "setDeviceNameAndPsd"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 145
+        },
+        "x-apk-signature": "Object setDeviceNameAndPsd(@Body @NotNull RequestBody requestBody, @NotNull Continuation<? super ApiDeviceResponse<SetDeviceNameAndPsdResp>> continuation);",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/update": {
+      "get": {
+        "operationId": "updateFirmware",
+        "summary": "updateFirmware",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "update"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 149
+        },
+        "x-apk-signature": "Object updateFirmware(@Nullable @Query(\"version\") String str, @NotNull Continuation<? super NCommonResult> continuation);",
+        "x-dangerous-operation": true,
+        "parameters": [
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/uploadFirmware": {
+      "post": {
+        "operationId": "uploadFirmware",
+        "summary": "uploadFirmware",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "uploadFirmware"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 153
+        },
+        "x-apk-signature": "Object uploadFirmware(@NotNull @Part MultipartBody.Part part, @NotNull @Part MultipartBody.Part part2, @NotNull Continuation<? super CodeResponse> continuation);",
+        "x-dangerous-operation": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/uploadFirmwareDiff": {
+      "post": {
+        "operationId": "uploadFirmwareDiff",
+        "summary": "uploadFirmwareDiff",
+        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "tags": [
+          "uploadFirmwareDiff"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-apk-evidence": {
+          "source": "com/convergence/dwarflab/data/http/Api.java",
+          "line": 158
+        },
+        "x-apk-signature": "Object uploadFirmwareDiff(@NotNull @Part MultipartBody.Part part, @NotNull @Part MultipartBody.Part part2, @NotNull Continuation<? super CodeResponse> continuation);",
+        "x-dangerous-operation": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{filePath}": {
+      "get": {
+        "operationId": "downloadDeviceFile",
+        "summary": "Download an album or FITS file",
+        "tags": [
+          "files"
+        ],
+        "servers": [
+          {
+            "url": "http://{device}:80",
+            "variables": {
+              "device": {
+                "default": "192.168.88.1"
+              }
+            }
+          }
+        ],
+        "parameters": [
+          {
+            "name": "filePath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path returned by an album endpoint, without the leading slash."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FITS, JPEG, PNG or other device media",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-confidence": "hardware-observed"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DeviceResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {}
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "AstroFitsRequest": {
+        "type": "object",
+        "properties": {
+          "srcDir": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "srcDir"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/AstroFitsRequest.java"
+      },
+      "DeleteFitsItem": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "filePath"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/DeleteFitsItem.java"
+      },
+      "DeleteFitsRequest": {
+        "type": "object",
+        "properties": {
+          "datas": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "x-java-type": "DeleteFitsItem"
+            }
+          }
+        },
+        "required": [
+          "datas"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/DeleteFitsRequest.java"
+      },
+      "DeleteMediaItem": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "integer"
+          },
+          "subType": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fileName",
+          "filePath",
+          "mediaType",
+          "subType"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/DeleteMediaItem.java"
+      },
+      "DeleteMediaRequest": {
+        "type": "object",
+        "properties": {
+          "datas": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "x-java-type": "DeleteMediaItem"
+            }
+          }
+        },
+        "required": [
+          "datas"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/DeleteMediaRequest.java"
+      },
+      "DownloadMediaRequest": {
+        "type": "object",
+        "properties": {
+          "datas": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "x-java-type": "MediaItemInfo"
+            }
+          }
+        },
+        "required": [
+          "datas"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/DownloadMediaRequest.java"
+      },
+      "FirmwareInfo": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "integer"
+          },
+          "fileMd5": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "integer"
+          },
+          "fullFileMd5": {
+            "type": "string"
+          },
+          "newVersion": {
+            "type": "string"
+          },
+          "oldVersion": {
+            "type": "string"
+          },
+          "updateFileType": {
+            "type": "integer"
+          },
+          "updateType": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deviceId",
+          "fileMd5",
+          "fileName",
+          "fileSize",
+          "fullFileMd5",
+          "newVersion",
+          "oldVersion",
+          "updateFileType",
+          "updateType"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/FirmwareInfo.java"
+      },
+      "FirmwareInfoData": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "x-java-type": "FirmwareInfo"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/FirmwareInfoData.java"
+      },
+      "GetParamAndSettingRequest": {
+        "type": "object",
+        "properties": {
+          "modeId": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "modeId"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/GetParamAndSettingRequest.java"
+      },
+      "MediaInfoRequest": {
+        "type": "object",
+        "properties": {
+          "mediaType": {
+            "type": "integer"
+          },
+          "pageIndex": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mediaType",
+          "pageIndex",
+          "pageSize"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/MediaInfoRequest.java"
+      },
+      "SetDeviceNameAndPsdRequest": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "integer"
+          },
+          "newValue": {
+            "type": "string"
+          },
+          "oldValue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "newValue",
+          "oldValue"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/request/SetDeviceNameAndPsdRequest.java"
+      }
+    }
+  }
+}

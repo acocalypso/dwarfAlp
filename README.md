@@ -23,6 +23,26 @@ DWARF 2 does not advertise an Alpaca FilterWheel device. See
 [the engineering audit](docs/engineering-audit.md) for the exact
 evidence and limitations.
 
+## API documentation website
+
+The publishable [API Observatory](docs/site/index.html) combines the generated
+ASCOM Alpaca OpenAPI 3.1 specification with the reconstructed DWARFLAB local
+HTTP API, all 356 APK WebSocket registrations, 123 response/error codes, and
+the BLE provisioning registry. Regenerate its machine-readable data with:
+
+```powershell
+uv run python scripts/extract_apk_api_inventory.py build/apk-audit-3.4.1/decompiled/sources docs/apk-analysis/api-inventory.json --markdown-output docs/apk-analysis/websocket-code-registry.md
+uv run python scripts/generate_api_site.py
+```
+
+To publish it, select **GitHub Actions** as the Pages source in the repository's
+Settings > Pages screen. The `Publish API documentation` workflow deploys
+`docs/site` after a push to `main`. For a local preview:
+
+```powershell
+uv run python -m http.server 8000 --directory docs/site
+```
+
 ---
 
 ## Highlights

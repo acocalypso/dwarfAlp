@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DwarfAlp Swagger UI</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+      body { margin: 0; background: #071014; }
+      .topbar { display: none; }
+      .swagger-ui, .swagger-ui .info .title, .swagger-ui .opblock-tag { color: #e8f5f2; }
+      .swagger-ui .scheme-container, .swagger-ui section.models, .swagger-ui .opblock-tag-section { background: #0c181d; }
+      .swagger-ui .info p, .swagger-ui .info li, .swagger-ui .opblock-description-wrapper p { color: #a9bfbc; }
+      .spec-switch { position: sticky; top: 0; z-index: 20; display: flex; gap: 8px; padding: 12px 18px; background: #071014; border-bottom: 1px solid #20363d; }
+      .spec-switch button, .spec-switch a { color: #e8f5f2; background: #102229; border: 1px solid #20363d; border-radius: 8px; padding: 8px 12px; text-decoration: none; cursor: pointer; }
+      .spec-switch button.active { background: #52e0d0; color: #04201f; }
+    </style>
+  </head>
+  <body>
+    <div class="spec-switch">
+      <a href="index.html">← Observatory</a>
+      <button class="active" data-spec="openapi.json">DwarfAlp Alpaca</button>
+      <button data-spec="device-openapi.json">DWARFLAB device HTTP</button>
+    </div>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      const buttons = [...document.querySelectorAll("button[data-spec]")];
+      const render = (url) => SwaggerUIBundle({ url, dom_id: "#swagger-ui", deepLinking: true, persistAuthorization: true, displayRequestDuration: true });
+      buttons.forEach((button) => button.addEventListener("click", () => {
+        buttons.forEach((item) => item.classList.toggle("active", item === button));
+        render(button.dataset.spec);
+      }));
+      render("openapi.json");
+    </script>
+  </body>
+</html>

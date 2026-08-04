@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="DwarfAlp OpenAPI and DWARFLAB protocol reference" />
+    <title>DwarfAlp API Observatory</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="nav shell" aria-label="Primary navigation">
+        <a class="brand" href="#overview" aria-label="DwarfAlp API Observatory home">
+          <span class="brand-mark" aria-hidden="true">◉</span>
+          <span>DwarfAlp <b>API Observatory</b></span>
+        </a>
+        <div class="nav-links">
+          <a href="#alpaca">Alpaca</a>
+          <a href="#device-http">Device HTTP</a>
+          <a href="#cloud-http">Cloud HTTP</a>
+          <a href="#websocket">WebSocket</a>
+          <a href="#ble">BLE</a>
+          <a href="#unknowns">Unknowns</a>
+        </div>
+      </nav>
+      <div class="shell hero-grid" id="overview">
+        <div>
+          <p class="eyebrow">Unofficial · evidence-led · open source</p>
+          <h1>One map for the complete DwarfAlp protocol surface.</h1>
+          <p class="lede">
+            Browse the ASCOM Alpaca server, DWARFLAB device HTTP operations,
+            WebSocket commands, response codes, protobuf evidence, and BLE provisioning API.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#alpaca">Explore the API</a>
+            <a class="button" href="swagger.html">Open Swagger UI</a>
+            <a class="button" href="openapi.json" download>Download OpenAPI</a>
+            <a class="button" href="protocol-inventory.json" download>Download registry</a>
+          </div>
+        </div>
+        <aside class="signal-card" aria-label="Documentation provenance">
+          <div class="orb" aria-hidden="true"><span></span></div>
+          <p class="signal-label">Evidence source</p>
+          <strong>DWARFLAB 3.4.1</strong>
+          <p>Static APK analysis, protobuf declarations, captures, and hardware verification.</p>
+        </aside>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="metrics" id="metrics" aria-label="API inventory totals"></section>
+
+      <section class="panel" id="alpaca">
+        <div class="section-heading">
+          <div><p class="eyebrow">Public integration surface</p><h2>ASCOM Alpaca API</h2></div>
+          <a class="text-link" href="openapi.json">Raw OpenAPI 3.1 JSON ↗</a>
+        </div>
+        <p class="section-copy">Generated directly from the DwarfAlp FastAPI routes. These are the endpoints used by NINA and other Alpaca clients.</p>
+        <div class="toolbar">
+          <label><span>Search Alpaca operations</span><input id="alpaca-search" type="search" placeholder="start exposure, slew, focuser…" /></label>
+          <select id="alpaca-tag" aria-label="Filter Alpaca operations by tag"><option value="">All device groups</option></select>
+        </div>
+        <div id="alpaca-list" class="endpoint-list"></div>
+      </section>
+
+      <section class="panel" id="device-http">
+        <div class="section-heading">
+          <div><p class="eyebrow">Device-local · port 8082</p><h2>DWARFLAB HTTP API</h2></div>
+          <a class="text-link" href="device-openapi.json">Raw OpenAPI 3.1 JSON ↗</a>
+        </div>
+        <div class="notice warning"><strong>Use care.</strong> Firmware upload, reset, activation, and deletion endpoints are included for completeness—not as an invitation to invoke them.</div>
+        <div class="toolbar">
+          <label><span>Search device operations</span><input id="http-search" type="search" placeholder="album, FITS, shooting mode…" /></label>
+        </div>
+        <div id="http-list" class="endpoint-list"></div>
+      </section>
+
+      <section class="panel" id="cloud-http">
+        <div class="section-heading">
+          <div><p class="eyebrow">App backend · documentation only</p><h2>DWARFLAB cloud HTTP registrations</h2></div>
+        </div>
+        <div class="notice warning"><strong>Not used by DwarfAlp.</strong> These account, content, telemetry, and OTA registrations are included only to make the APK inventory complete.</div>
+        <div class="toolbar">
+          <label><span>Search cloud operations</span><input id="cloud-search" type="search" placeholder="firmware, account, log…" /></label>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Scope</th><th>Method</th><th>Path</th><th>Operation</th></tr></thead><tbody id="cloud-table"></tbody></table></div>
+      </section>
+
+      <section class="panel" id="websocket">
+        <div class="section-heading">
+          <div><p class="eyebrow">Binary protocol · protobuf</p><h2>WebSocket command registry</h2></div>
+          <span class="status-pill" id="ws-count">Loading registry…</span>
+        </div>
+        <p class="section-copy">Registration proves that the app knows a code. It does not prove support on every DWARF model or firmware.</p>
+        <div class="toolbar three">
+          <label><span>Search commands</span><input id="ws-search" type="search" placeholder="capture, calibration, focus…" /></label>
+          <label><span>Direction</span><select id="ws-direction"><option value="">All</option><option value="request">Requests</option><option value="notification">Notifications</option></select></label>
+          <label><span>Evidence</span><select id="ws-evidence"><option value="">All</option><option value="payload">Payload mapped</option><option value="unknown">Payload unresolved</option></select></label>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Command</th><th>Direction</th><th>Payload evidence</th></tr></thead><tbody id="ws-table"></tbody></table></div>
+      </section>
+
+      <section class="split-grid">
+        <article class="panel" id="errors">
+          <div class="section-heading"><div><p class="eyebrow">Firmware responses</p><h2>Error codes</h2></div></div>
+          <label class="standalone-search"><span>Search errors</span><input id="error-search" type="search" placeholder="-11530 or dark…" /></label>
+          <div class="table-wrap compact"><table><thead><tr><th>Code</th><th>Name</th></tr></thead><tbody id="error-table"></tbody></table></div>
+        </article>
+        <article class="panel" id="ble">
+          <div class="section-heading"><div><p class="eyebrow">Provisioning transport</p><h2>BLE API</h2></div></div>
+          <div id="ble-content"></div>
+        </article>
+      </section>
+
+      <section class="panel" id="unknowns">
+        <div class="section-heading"><div><p class="eyebrow">Research backlog</p><h2>Known unknowns</h2></div></div>
+        <p class="section-copy">These calls are registered but lack a directly traceable request wrapper or notification payload in the decompiled app. They remain explicitly unresolved instead of being assigned guessed schemas.</p>
+        <div id="unknown-list" class="unknown-grid"></div>
+      </section>
+    </main>
+
+    <footer class="shell footer">
+      <p>DwarfAlp API Observatory · generated from repository code and APK evidence</p>
+      <p>DWARFLAB and DWARF are trademarks of their respective owner. This project is unofficial.</p>
+    </footer>
+    <script type="module" src="assets/app.js"></script>
+  </body>
+</html>

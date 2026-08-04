@@ -1,10 +1,11 @@
 # Device API inventory
 
-The machine-readable [api-inventory.json](api-inventory.json) contains all 314
-WebSocket commands and all 123 response/error codes recovered from the APK
-`WsCmd` and `WsRespCode` registries, their declaration
-line, literal or preserved symbolic value, direction, and directly traceable
-request wrapper/protobuf builder. It is generated with:
+The machine-readable [api-inventory.json](api-inventory.json) contains all 356
+WebSocket commands, all 123 response/error codes, 50 Retrofit HTTP operations,
+11 HTTP request models, eight BLE commands, and eight BLE UUIDs recovered from
+the APK. It preserves declarations, literal or symbolic values, direction,
+directly traceable request protobufs, notification payload handlers, and source
+lines. It is generated with:
 
 ```text
 uv run python scripts/extract_apk_api_inventory.py \
@@ -37,10 +38,10 @@ human-oriented subset relevant to dwarfAlp and the current Mini investigation.
 | GOTO stop | all profiles | WS | 11004 | empty | common response/state | stop slew | APK registry | confirmed in app code |
 | Focus step/continuous/stop | profile-specific | WS | focus command family | direction/step or speed | focus position/state | focus UI | APK focus wrappers | confirmed in app code |
 | Battery/storage/temperature | all, capability-dependent | WS | notify family | unsolicited | state payload | device updates | APK response handlers | confirmed in app code |
-| Device info | all | HTTP | port 8082, path unresolved | GET-like coroutine call | `DeviceInfoResp` | connection/device page | EV-HTTP-01 | base confirmed; path unknown |
+| Device info | all | HTTP | `POST :8082/deviceInfo` | empty JSON object | `DeviceInfoResp` | connection/device page | APK Retrofit `Api.java` | confirmed in app code |
 | Wi-Fi provisioning | all | BLE | DAFx + 9999 UUID family | BLE protobuf frames | config/list/STA messages | connection setup | EV-BLE-01 | confirmed in app code |
 | Preview | all | RTSP/media | path model-dependent | stream setup | video frames | camera/focus UI | media components + repository behavior | strongly inferred/static |
-| Final image retrieval | V3 models | HTTP/file/FTP | album media listing, static path, `album/astro/fitsList` for FITS browsing | list/download | FITS/JPEG | capture complete | APK 3.4.1 + hardware logs | confirmed paths; creation timing remains firmware-dependent |
+| Final image retrieval | V3 models | HTTP/file | `album/list/mediaInfos`, `album/astro/fitsList`, then static port 80 path | list/download | FITS/JPEG | capture complete | APK 3.4.1 + hardware logs | confirmed paths; creation timing remains firmware-dependent |
 | Firmware update | all | cloud HTTP + device update path | cloud endpoints separated | version/artifact metadata | OTA state | settings/update UI | OTA ViewModels/NetHttpApi | confirmed in app code, out of driver scope |
 
 There is no evidence for an independent “move Mini filter wheel” command in the

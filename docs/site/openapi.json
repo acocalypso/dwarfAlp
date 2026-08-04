@@ -1,0 +1,3938 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DwarfAlp ASCOM Alpaca API",
+    "version": "0.1.0",
+    "description": "ASCOM Alpaca telescope, camera, focuser and filter-wheel API for DWARF 2, DWARF 3 and DWARF Mini. The API follows Alpaca response envelopes; device-specific behavior is documented in the companion registry.",
+    "license": {
+      "name": "See repository LICENSE",
+      "identifier": "MIT"
+    }
+  },
+  "paths": {
+    "/management/health": {
+      "get": {
+        "summary": "Healthcheck",
+        "description": "Basic health endpoint for monitoring and tests.",
+        "operationId": "healthcheck_management_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Healthcheck Management Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/apiversions": {
+      "get": {
+        "summary": "Get Api Versions",
+        "operationId": "get_api_versions_management_apiversions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/description": {
+      "get": {
+        "summary": "Get Description",
+        "operationId": "get_description_management_v1_description_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/configureddevices": {
+      "get": {
+        "summary": "Get Configured Devices",
+        "operationId": "get_configured_devices_management_v1_configureddevices_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/devicelist": {
+      "get": {
+        "summary": "Get Device List",
+        "operationId": "get_device_list_management_v1_devicelist_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/runtime": {
+      "get": {
+        "summary": "Get Runtime State",
+        "operationId": "get_runtime_state_management_v1_runtime_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/connected": {
+      "get": {
+        "summary": "Get Connected",
+        "operationId": "get_connected_api_v1_telescope_0_connected_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Put Connected",
+        "operationId": "put_connected_api_v1_telescope_0_connected_put",
+        "parameters": [
+          {
+            "name": "Connected",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Set connection state",
+              "title": "Connected"
+            },
+            "description": "Set connection state"
+          },
+          {
+            "name": "Simulation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Override simulation mode",
+              "title": "Simulation"
+            },
+            "description": "Override simulation mode"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/description": {
+      "get": {
+        "summary": "Get Description",
+        "operationId": "get_description_api_v1_telescope_0_description_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/name": {
+      "get": {
+        "summary": "Get Name",
+        "operationId": "get_name_api_v1_telescope_0_name_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/driverversion": {
+      "get": {
+        "summary": "Get Driver Version",
+        "operationId": "get_driver_version_api_v1_telescope_0_driverversion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/interfaceversion": {
+      "get": {
+        "summary": "Get Interface Version",
+        "operationId": "get_interface_version_api_v1_telescope_0_interfaceversion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/rightascension": {
+      "get": {
+        "summary": "Get Right Ascension",
+        "operationId": "get_right_ascension_api_v1_telescope_0_rightascension_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/declination": {
+      "get": {
+        "summary": "Get Declination",
+        "operationId": "get_declination_api_v1_telescope_0_declination_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/altitude": {
+      "get": {
+        "summary": "Get Altitude",
+        "operationId": "get_altitude_api_v1_telescope_0_altitude_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/azimuth": {
+      "get": {
+        "summary": "Get Azimuth",
+        "operationId": "get_azimuth_api_v1_telescope_0_azimuth_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/athome": {
+      "get": {
+        "summary": "Get At Home",
+        "operationId": "get_at_home_api_v1_telescope_0_athome_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/atpark": {
+      "get": {
+        "summary": "Get At Park",
+        "operationId": "get_at_park_api_v1_telescope_0_atpark_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/utcdate": {
+      "get": {
+        "summary": "Get Utc Date",
+        "operationId": "get_utc_date_api_v1_telescope_0_utcdate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Utc Date",
+        "operationId": "set_utc_date_api_v1_telescope_0_utcdate_put",
+        "parameters": [
+          {
+            "name": "UTCDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Utcdate"
+            }
+          },
+          {
+            "name": "Date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/declinationrate": {
+      "get": {
+        "summary": "Get Declination Rate",
+        "operationId": "get_declination_rate_api_v1_telescope_0_declinationrate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/guideratedeclination": {
+      "get": {
+        "summary": "Get Guide Rate Declination",
+        "operationId": "get_guide_rate_declination_api_v1_telescope_0_guideratedeclination_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/guideraterightascension": {
+      "get": {
+        "summary": "Get Guide Rate Right Ascension",
+        "operationId": "get_guide_rate_right_ascension_api_v1_telescope_0_guideraterightascension_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/ispulseguiding": {
+      "get": {
+        "summary": "Get Is Pulse Guiding",
+        "operationId": "get_is_pulse_guiding_api_v1_telescope_0_ispulseguiding_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/rightascensionrate": {
+      "get": {
+        "summary": "Get Right Ascension Rate",
+        "operationId": "get_right_ascension_rate_api_v1_telescope_0_rightascensionrate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/sideofpier": {
+      "get": {
+        "summary": "Get Side Of Pier",
+        "operationId": "get_side_of_pier_api_v1_telescope_0_sideofpier_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/siderealtime": {
+      "get": {
+        "summary": "Get Sidereal Time",
+        "operationId": "get_sidereal_time_api_v1_telescope_0_siderealtime_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/targetdeclination": {
+      "get": {
+        "summary": "Get Target Declination",
+        "operationId": "get_target_declination_api_v1_telescope_0_targetdeclination_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/targetrightascension": {
+      "get": {
+        "summary": "Get Target Right Ascension",
+        "operationId": "get_target_right_ascension_api_v1_telescope_0_targetrightascension_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/trackingrate": {
+      "get": {
+        "summary": "Get Tracking Rate",
+        "operationId": "get_tracking_rate_api_v1_telescope_0_trackingrate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Tracking Rate",
+        "operationId": "set_tracking_rate_api_v1_telescope_0_trackingrate_put",
+        "parameters": [
+          {
+            "name": "TrackingRate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trackingrate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/alignmentmode": {
+      "get": {
+        "summary": "Get Alignment Mode",
+        "operationId": "get_alignment_mode_api_v1_telescope_0_alignmentmode_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/aperturearea": {
+      "get": {
+        "summary": "Get Aperture Area",
+        "operationId": "get_aperture_area_api_v1_telescope_0_aperturearea_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/aperturediameter": {
+      "get": {
+        "summary": "Get Aperture Diameter",
+        "operationId": "get_aperture_diameter_api_v1_telescope_0_aperturediameter_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/driverinfo": {
+      "get": {
+        "summary": "Get Driver Info",
+        "operationId": "get_driver_info_api_v1_telescope_0_driverinfo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/doesrefraction": {
+      "get": {
+        "summary": "Get Does Refraction",
+        "operationId": "get_does_refraction_api_v1_telescope_0_doesrefraction_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/equatorialsystem": {
+      "get": {
+        "summary": "Get Equatorial System",
+        "operationId": "get_equatorial_system_api_v1_telescope_0_equatorialsystem_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/focallength": {
+      "get": {
+        "summary": "Get Focal Length",
+        "operationId": "get_focal_length_api_v1_telescope_0_focallength_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/siteelevation": {
+      "get": {
+        "summary": "Get Site Elevation",
+        "operationId": "get_site_elevation_api_v1_telescope_0_siteelevation_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Site Elevation",
+        "operationId": "set_site_elevation_api_v1_telescope_0_siteelevation_put",
+        "parameters": [
+          {
+            "name": "Elevation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Elevation"
+            }
+          },
+          {
+            "name": "SiteElevation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Siteelevation"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/slewsettletime": {
+      "get": {
+        "summary": "Get Slew Settle Time",
+        "operationId": "get_slew_settle_time_api_v1_telescope_0_slewsettletime_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/supportedactions": {
+      "get": {
+        "summary": "Get Supported Actions",
+        "operationId": "get_supported_actions_api_v1_telescope_0_supportedactions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/slewtocoordinatesasync": {
+      "put": {
+        "summary": "Slew To Coordinates Async",
+        "operationId": "slew_to_coordinates_async_api_v1_telescope_0_slewtocoordinatesasync_put",
+        "parameters": [
+          {
+            "name": "RightAscension",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 24.0,
+                  "minimum": 0.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rightascension"
+            }
+          },
+          {
+            "name": "Declination",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90.0,
+                  "minimum": -90.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Declination"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/abortslew": {
+      "put": {
+        "summary": "Abort Slew",
+        "operationId": "abort_slew_api_v1_telescope_0_abortslew_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/slewing": {
+      "get": {
+        "summary": "Get Slewing",
+        "operationId": "get_slewing_api_v1_telescope_0_slewing_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/tracking": {
+      "put": {
+        "summary": "Set Tracking",
+        "operationId": "set_tracking_api_v1_telescope_0_tracking_put",
+        "parameters": [
+          {
+            "name": "Tracking",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tracking"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Get Tracking",
+        "operationId": "get_tracking_api_v1_telescope_0_tracking_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/canpark": {
+      "get": {
+        "summary": "Get Canpark",
+        "operationId": "get_canpark_api_v1_telescope_0_canpark_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/canfindhome": {
+      "get": {
+        "summary": "Get Can Find Home",
+        "operationId": "get_can_find_home_api_v1_telescope_0_canfindhome_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/canpulseguide": {
+      "get": {
+        "summary": "Get Can Pulseguide",
+        "operationId": "get_can_pulseguide_api_v1_telescope_0_canpulseguide_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/cansetdeclinationrate": {
+      "get": {
+        "summary": "Get Can Set Declination Rate",
+        "operationId": "get_can_set_declination_rate_api_v1_telescope_0_cansetdeclinationrate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/cansetguiderates": {
+      "get": {
+        "summary": "Get Can Set Guiderates",
+        "operationId": "get_can_set_guiderates_api_v1_telescope_0_cansetguiderates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/cansetpark": {
+      "get": {
+        "summary": "Get Can Set Park",
+        "operationId": "get_can_set_park_api_v1_telescope_0_cansetpark_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/cansetpierside": {
+      "get": {
+        "summary": "Get Can Set Pierside",
+        "operationId": "get_can_set_pierside_api_v1_telescope_0_cansetpierside_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/cansetrightascensionrate": {
+      "get": {
+        "summary": "Get Can Set Ra Rate",
+        "operationId": "get_can_set_ra_rate_api_v1_telescope_0_cansetrightascensionrate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/cansettracking": {
+      "get": {
+        "summary": "Get Can Set Tracking",
+        "operationId": "get_can_set_tracking_api_v1_telescope_0_cansettracking_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/canslew": {
+      "get": {
+        "summary": "Get Can Slew",
+        "operationId": "get_can_slew_api_v1_telescope_0_canslew_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/canslewasync": {
+      "get": {
+        "summary": "Get Can Slew Async",
+        "operationId": "get_can_slew_async_api_v1_telescope_0_canslewasync_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/canslewaltaz": {
+      "get": {
+        "summary": "Get Can Slew Altaz",
+        "operationId": "get_can_slew_altaz_api_v1_telescope_0_canslewaltaz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/canslewaltazasync": {
+      "get": {
+        "summary": "Get Can Slew Altaz Async",
+        "operationId": "get_can_slew_altaz_async_api_v1_telescope_0_canslewaltazasync_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/cansync": {
+      "get": {
+        "summary": "Get Can Sync",
+        "operationId": "get_can_sync_api_v1_telescope_0_cansync_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/cansyncaltaz": {
+      "get": {
+        "summary": "Get Can Sync Altaz",
+        "operationId": "get_can_sync_altaz_api_v1_telescope_0_cansyncaltaz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/canunpark": {
+      "get": {
+        "summary": "Get Can Unpark",
+        "operationId": "get_can_unpark_api_v1_telescope_0_canunpark_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/canmoveaxis": {
+      "get": {
+        "summary": "Get Can Move Axis",
+        "operationId": "get_can_move_axis_api_v1_telescope_0_canmoveaxis_get",
+        "parameters": [
+          {
+            "name": "Axis",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2,
+              "minimum": 0,
+              "title": "Axis"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/axisrates/{Axis}": {
+      "get": {
+        "summary": "Get Axis Rates",
+        "operationId": "get_axis_rates_api_v1_telescope_0_axisrates__Axis__get",
+        "parameters": [
+          {
+            "name": "Axis",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Axis"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/axisrates": {
+      "get": {
+        "summary": "Get Axis Rates Query",
+        "operationId": "get_axis_rates_query_api_v1_telescope_0_axisrates_get",
+        "parameters": [
+          {
+            "name": "Axis",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2,
+              "minimum": 0,
+              "title": "Axis"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/moveaxis": {
+      "put": {
+        "summary": "Move Axis",
+        "operationId": "move_axis_api_v1_telescope_0_moveaxis_put",
+        "parameters": [
+          {
+            "name": "Axis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Axis"
+            }
+          },
+          {
+            "name": "Rate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/trackingrates": {
+      "get": {
+        "summary": "Get Tracking Rates",
+        "operationId": "get_tracking_rates_api_v1_telescope_0_trackingrates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/sitelatitude": {
+      "get": {
+        "summary": "Get Site Latitude",
+        "operationId": "get_site_latitude_api_v1_telescope_0_sitelatitude_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Site Latitude",
+        "operationId": "set_site_latitude_api_v1_telescope_0_sitelatitude_put",
+        "parameters": [
+          {
+            "name": "Latitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Latitude"
+            }
+          },
+          {
+            "name": "SiteLatitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sitelatitude"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telescope/0/sitelongitude": {
+      "get": {
+        "summary": "Get Site Longitude",
+        "operationId": "get_site_longitude_api_v1_telescope_0_sitelongitude_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Site Longitude",
+        "operationId": "set_site_longitude_api_v1_telescope_0_sitelongitude_put",
+        "parameters": [
+          {
+            "name": "Longitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Longitude"
+            }
+          },
+          {
+            "name": "SiteLongitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sitelongitude"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/description": {
+      "get": {
+        "summary": "Get Description",
+        "operationId": "get_description_api_v1_camera_0_description_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/name": {
+      "get": {
+        "summary": "Get Name",
+        "operationId": "get_name_api_v1_camera_0_name_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/driverversion": {
+      "get": {
+        "summary": "Get Driver Version",
+        "operationId": "get_driver_version_api_v1_camera_0_driverversion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/driverinfo": {
+      "get": {
+        "summary": "Get Driver Info",
+        "operationId": "get_driver_info_api_v1_camera_0_driverinfo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/interfaceversion": {
+      "get": {
+        "summary": "Get Interface Version",
+        "operationId": "get_interface_version_api_v1_camera_0_interfaceversion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/supportedactions": {
+      "get": {
+        "summary": "Get Supported Actions",
+        "operationId": "get_supported_actions_api_v1_camera_0_supportedactions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/canabortexposure": {
+      "get": {
+        "summary": "Get Can Abort Exposure",
+        "operationId": "get_can_abort_exposure_api_v1_camera_0_canabortexposure_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/canstopexposure": {
+      "get": {
+        "summary": "Get Can Stop Exposure",
+        "operationId": "get_can_stop_exposure_api_v1_camera_0_canstopexposure_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/canasymmetricbin": {
+      "get": {
+        "summary": "Get Can Asymmetric Bin",
+        "operationId": "get_can_asymmetric_bin_api_v1_camera_0_canasymmetricbin_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/canfastreadout": {
+      "get": {
+        "summary": "Get Can Fast Readout",
+        "operationId": "get_can_fast_readout_api_v1_camera_0_canfastreadout_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/cangetcoolerpower": {
+      "get": {
+        "summary": "Get Can Get Cooler Power",
+        "operationId": "get_can_get_cooler_power_api_v1_camera_0_cangetcoolerpower_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/cansetccdtemperature": {
+      "get": {
+        "summary": "Get Can Set Ccd Temperature",
+        "operationId": "get_can_set_ccd_temperature_api_v1_camera_0_cansetccdtemperature_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/hasshutter": {
+      "get": {
+        "summary": "Get Has Shutter",
+        "operationId": "get_has_shutter_api_v1_camera_0_hasshutter_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/cameraxsize": {
+      "get": {
+        "summary": "Get Camera X Size",
+        "operationId": "get_camera_x_size_api_v1_camera_0_cameraxsize_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/cameraysize": {
+      "get": {
+        "summary": "Get Camera Y Size",
+        "operationId": "get_camera_y_size_api_v1_camera_0_cameraysize_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/maxbinx": {
+      "get": {
+        "summary": "Get Max Bin X",
+        "operationId": "get_max_bin_x_api_v1_camera_0_maxbinx_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/maxbiny": {
+      "get": {
+        "summary": "Get Max Bin Y",
+        "operationId": "get_max_bin_y_api_v1_camera_0_maxbiny_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/pixelsizex": {
+      "get": {
+        "summary": "Get Pixel Size X",
+        "operationId": "get_pixel_size_x_api_v1_camera_0_pixelsizex_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/pixelsizey": {
+      "get": {
+        "summary": "Get Pixel Size Y",
+        "operationId": "get_pixel_size_y_api_v1_camera_0_pixelsizey_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/exposuremax": {
+      "get": {
+        "summary": "Get Exposure Max",
+        "operationId": "get_exposure_max_api_v1_camera_0_exposuremax_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/exposuremin": {
+      "get": {
+        "summary": "Get Exposure Min",
+        "operationId": "get_exposure_min_api_v1_camera_0_exposuremin_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/exposureresolution": {
+      "get": {
+        "summary": "Get Exposure Resolution",
+        "operationId": "get_exposure_resolution_api_v1_camera_0_exposureresolution_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/readoutmode": {
+      "get": {
+        "summary": "Get Readout Mode",
+        "operationId": "get_readout_mode_api_v1_camera_0_readoutmode_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/readoutmodes": {
+      "get": {
+        "summary": "Get Readout Modes",
+        "operationId": "get_readout_modes_api_v1_camera_0_readoutmodes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/gainmin": {
+      "get": {
+        "summary": "Get Gain Min",
+        "operationId": "get_gain_min_api_v1_camera_0_gainmin_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/gainmax": {
+      "get": {
+        "summary": "Get Gain Max",
+        "operationId": "get_gain_max_api_v1_camera_0_gainmax_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/gain": {
+      "get": {
+        "summary": "Get Gain",
+        "operationId": "get_gain_api_v1_camera_0_gain_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Gain",
+        "operationId": "set_gain_api_v1_camera_0_gain_put",
+        "parameters": [
+          {
+            "name": "Gain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/offsetmin": {
+      "get": {
+        "summary": "Get Offset Min",
+        "operationId": "get_offset_min_api_v1_camera_0_offsetmin_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/offsetmax": {
+      "get": {
+        "summary": "Get Offset Max",
+        "operationId": "get_offset_max_api_v1_camera_0_offsetmax_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/offset": {
+      "get": {
+        "summary": "Get Offset",
+        "operationId": "get_offset_api_v1_camera_0_offset_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Offset",
+        "operationId": "set_offset_api_v1_camera_0_offset_put",
+        "parameters": [
+          {
+            "name": "Offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/sensortype": {
+      "get": {
+        "summary": "Get Sensor Type",
+        "operationId": "get_sensor_type_api_v1_camera_0_sensortype_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/sensorname": {
+      "get": {
+        "summary": "Get Sensor Name",
+        "operationId": "get_sensor_name_api_v1_camera_0_sensorname_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/electronsperadu": {
+      "get": {
+        "summary": "Get Electrons Per Adu",
+        "operationId": "get_electrons_per_adu_api_v1_camera_0_electronsperadu_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/fullwellcapacity": {
+      "get": {
+        "summary": "Get Full Well Capacity",
+        "operationId": "get_full_well_capacity_api_v1_camera_0_fullwellcapacity_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/maxadu": {
+      "get": {
+        "summary": "Get Max Adu",
+        "operationId": "get_max_adu_api_v1_camera_0_maxadu_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/bayeroffsetx": {
+      "get": {
+        "summary": "Get Bayer Offset X",
+        "operationId": "get_bayer_offset_x_api_v1_camera_0_bayeroffsetx_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/bayeroffsety": {
+      "get": {
+        "summary": "Get Bayer Offset Y",
+        "operationId": "get_bayer_offset_y_api_v1_camera_0_bayeroffsety_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/ccdtemperature": {
+      "get": {
+        "summary": "Get Ccd Temperature",
+        "operationId": "get_ccd_temperature_api_v1_camera_0_ccdtemperature_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/cooleron": {
+      "get": {
+        "summary": "Get Cooler On",
+        "operationId": "get_cooler_on_api_v1_camera_0_cooleron_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Cooler On",
+        "operationId": "set_cooler_on_api_v1_camera_0_cooleron_put",
+        "parameters": [
+          {
+            "name": "CoolerOn",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean",
+              "title": "Cooleron"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/coolerpower": {
+      "get": {
+        "summary": "Get Cooler Power",
+        "operationId": "get_cooler_power_api_v1_camera_0_coolerpower_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/heatsinktemperature": {
+      "get": {
+        "summary": "Get Heatsink Temperature",
+        "operationId": "get_heatsink_temperature_api_v1_camera_0_heatsinktemperature_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/connected": {
+      "get": {
+        "summary": "Get Connected",
+        "operationId": "get_connected_api_v1_camera_0_connected_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Put Connected",
+        "operationId": "put_connected_api_v1_camera_0_connected_put",
+        "parameters": [
+          {
+            "name": "Connected",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Connected"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/camerastate": {
+      "get": {
+        "summary": "Get Camera State",
+        "operationId": "get_camera_state_api_v1_camera_0_camerastate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/lastexposureduration": {
+      "get": {
+        "summary": "Get Last Exposure Duration",
+        "operationId": "get_last_exposure_duration_api_v1_camera_0_lastexposureduration_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/lastexposurestarttime": {
+      "get": {
+        "summary": "Get Last Exposure Start Time",
+        "operationId": "get_last_exposure_start_time_api_v1_camera_0_lastexposurestarttime_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/imagetimestamp": {
+      "get": {
+        "summary": "Get Image Timestamp",
+        "operationId": "get_image_timestamp_api_v1_camera_0_imagetimestamp_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/startexposure": {
+      "put": {
+        "summary": "Start Exposure",
+        "operationId": "start_exposure_api_v1_camera_0_startexposure_put",
+        "parameters": [
+          {
+            "name": "Duration",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration"
+            }
+          },
+          {
+            "name": "Light",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Light"
+            }
+          },
+          {
+            "name": "ContinueWithoutDark",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Continuewithoutdark"
+            }
+          },
+          {
+            "name": "FrameCount",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Framecount"
+            }
+          },
+          {
+            "name": "NumFrames",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Numframes"
+            }
+          },
+          {
+            "name": "ImageCount",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Imagecount"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/stopexposure": {
+      "put": {
+        "summary": "Stop Exposure",
+        "operationId": "stop_exposure_api_v1_camera_0_stopexposure_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/abortexposure": {
+      "put": {
+        "summary": "Abort Exposure",
+        "operationId": "abort_exposure_api_v1_camera_0_abortexposure_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/imageready": {
+      "get": {
+        "summary": "Get Image Ready",
+        "operationId": "get_image_ready_api_v1_camera_0_imageready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/percentcompleted": {
+      "get": {
+        "summary": "Get Percent Completed",
+        "operationId": "get_percent_completed_api_v1_camera_0_percentcompleted_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/imagebytes": {
+      "get": {
+        "summary": "Get Image Bytes",
+        "operationId": "get_image_bytes_api_v1_camera_0_imagebytes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/imagearray": {
+      "get": {
+        "summary": "Get Image Array",
+        "operationId": "get_image_array_api_v1_camera_0_imagearray_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/imagearrayvariant": {
+      "get": {
+        "summary": "Get Image Array Variant",
+        "operationId": "get_image_array_variant_api_v1_camera_0_imagearrayvariant_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/numx": {
+      "get": {
+        "summary": "Get Num X",
+        "operationId": "get_num_x_api_v1_camera_0_numx_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Num X",
+        "operationId": "set_num_x_api_v1_camera_0_numx_put",
+        "parameters": [
+          {
+            "name": "NumX",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Numx"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/numy": {
+      "get": {
+        "summary": "Get Num Y",
+        "operationId": "get_num_y_api_v1_camera_0_numy_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Num Y",
+        "operationId": "set_num_y_api_v1_camera_0_numy_put",
+        "parameters": [
+          {
+            "name": "NumY",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Numy"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/startx": {
+      "get": {
+        "summary": "Get Start X",
+        "operationId": "get_start_x_api_v1_camera_0_startx_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Start X",
+        "operationId": "set_start_x_api_v1_camera_0_startx_put",
+        "parameters": [
+          {
+            "name": "StartX",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Startx"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/starty": {
+      "get": {
+        "summary": "Get Start Y",
+        "operationId": "get_start_y_api_v1_camera_0_starty_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Start Y",
+        "operationId": "set_start_y_api_v1_camera_0_starty_put",
+        "parameters": [
+          {
+            "name": "StartY",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Starty"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/binx": {
+      "get": {
+        "summary": "Get Bin X",
+        "operationId": "get_bin_x_api_v1_camera_0_binx_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Bin X",
+        "operationId": "set_bin_x_api_v1_camera_0_binx_put",
+        "parameters": [
+          {
+            "name": "BinX",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Binx"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/biny": {
+      "get": {
+        "summary": "Get Bin Y",
+        "operationId": "get_bin_y_api_v1_camera_0_biny_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Bin Y",
+        "operationId": "set_bin_y_api_v1_camera_0_biny_put",
+        "parameters": [
+          {
+            "name": "BinY",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Biny"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/cameragains": {
+      "get": {
+        "summary": "Get Camera Gains",
+        "operationId": "get_camera_gains_api_v1_camera_0_cameragains_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/camera/0/gains": {
+      "get": {
+        "summary": "Get Available Gains",
+        "operationId": "get_available_gains_api_v1_camera_0_gains_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/description": {
+      "get": {
+        "summary": "Get Description",
+        "operationId": "get_description_api_v1_focuser_0_description_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/name": {
+      "get": {
+        "summary": "Get Name",
+        "operationId": "get_name_api_v1_focuser_0_name_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/driverversion": {
+      "get": {
+        "summary": "Get Driver Version",
+        "operationId": "get_driver_version_api_v1_focuser_0_driverversion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/interfaceversion": {
+      "get": {
+        "summary": "Get Interface Version",
+        "operationId": "get_interface_version_api_v1_focuser_0_interfaceversion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/driverinfo": {
+      "get": {
+        "summary": "Get Driver Info",
+        "operationId": "get_driver_info_api_v1_focuser_0_driverinfo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/absolute": {
+      "get": {
+        "summary": "Get Absolute",
+        "operationId": "get_absolute_api_v1_focuser_0_absolute_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/maxstep": {
+      "get": {
+        "summary": "Get Max Step",
+        "operationId": "get_max_step_api_v1_focuser_0_maxstep_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/maxincrement": {
+      "get": {
+        "summary": "Get Max Increment",
+        "operationId": "get_max_increment_api_v1_focuser_0_maxincrement_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/isinverted": {
+      "get": {
+        "summary": "Get Is Inverted",
+        "operationId": "get_is_inverted_api_v1_focuser_0_isinverted_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Is Inverted",
+        "operationId": "set_is_inverted_api_v1_focuser_0_isinverted_put",
+        "parameters": [
+          {
+            "name": "Inverted",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean",
+              "title": "Inverted"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/temperature": {
+      "get": {
+        "summary": "Get Temperature",
+        "operationId": "get_temperature_api_v1_focuser_0_temperature_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/connected": {
+      "get": {
+        "summary": "Get Connected",
+        "operationId": "get_connected_api_v1_focuser_0_connected_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Put Connected",
+        "operationId": "put_connected_api_v1_focuser_0_connected_put",
+        "parameters": [
+          {
+            "name": "Connected",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Connected"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/supportedactions": {
+      "get": {
+        "summary": "Get Supported Actions",
+        "operationId": "get_supported_actions_api_v1_focuser_0_supportedactions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/ismoving": {
+      "get": {
+        "summary": "Get Is Moving",
+        "operationId": "get_is_moving_api_v1_focuser_0_ismoving_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/position": {
+      "get": {
+        "summary": "Get Position",
+        "operationId": "get_position_api_v1_focuser_0_position_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/move": {
+      "put": {
+        "summary": "Move",
+        "operationId": "move_api_v1_focuser_0_move_put",
+        "parameters": [
+          {
+            "name": "Position",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/moveabsolute": {
+      "put": {
+        "summary": "Move Absolute",
+        "operationId": "move_absolute_api_v1_focuser_0_moveabsolute_put",
+        "parameters": [
+          {
+            "name": "Position",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/halt": {
+      "put": {
+        "summary": "Halt",
+        "operationId": "halt_api_v1_focuser_0_halt_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/stepsize": {
+      "get": {
+        "summary": "Get Step Size",
+        "operationId": "get_step_size_api_v1_focuser_0_stepsize_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/tempcomp": {
+      "get": {
+        "summary": "Get Temp Comp",
+        "operationId": "get_temp_comp_api_v1_focuser_0_tempcomp_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Temp Comp",
+        "operationId": "set_temp_comp_api_v1_focuser_0_tempcomp_put",
+        "parameters": [
+          {
+            "name": "TempComp",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean",
+              "title": "Tempcomp"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/focuser/0/tempcompavailable": {
+      "get": {
+        "summary": "Get Temp Comp Available",
+        "operationId": "get_temp_comp_available_api_v1_focuser_0_tempcompavailable_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/description": {
+      "get": {
+        "summary": "Get Description",
+        "operationId": "get_description_api_v1_filterwheel_0_description_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/name": {
+      "get": {
+        "summary": "Get Name",
+        "operationId": "get_name_api_v1_filterwheel_0_name_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/driverversion": {
+      "get": {
+        "summary": "Get Driver Version",
+        "operationId": "get_driver_version_api_v1_filterwheel_0_driverversion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/driverinfo": {
+      "get": {
+        "summary": "Get Driver Info",
+        "operationId": "get_driver_info_api_v1_filterwheel_0_driverinfo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/interfaceversion": {
+      "get": {
+        "summary": "Get Interface Version",
+        "operationId": "get_interface_version_api_v1_filterwheel_0_interfaceversion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/supportedactions": {
+      "get": {
+        "summary": "Get Supported Actions",
+        "operationId": "get_supported_actions_api_v1_filterwheel_0_supportedactions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/connected": {
+      "get": {
+        "summary": "Get Connected",
+        "operationId": "get_connected_api_v1_filterwheel_0_connected_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Put Connected",
+        "operationId": "put_connected_api_v1_filterwheel_0_connected_put",
+        "parameters": [
+          {
+            "name": "Connected",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Connected"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/names": {
+      "get": {
+        "summary": "Get Names",
+        "operationId": "get_names_api_v1_filterwheel_0_names_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/focusoffsets": {
+      "get": {
+        "summary": "Get Focus Offsets",
+        "operationId": "get_focus_offsets_api_v1_filterwheel_0_focusoffsets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filterwheel/0/position": {
+      "get": {
+        "summary": "Get Position",
+        "operationId": "get_position_api_v1_filterwheel_0_position_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Put Position",
+        "operationId": "put_position_api_v1_filterwheel_0_position_put",
+        "parameters": [
+          {
+            "name": "Position",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://{host}:{port}",
+      "description": "Running DwarfAlp server",
+      "variables": {
+        "host": {
+          "default": "127.0.0.1"
+        },
+        "port": {
+          "default": "11111"
+        }
+      }
+    }
+  ],
+  "x-documentation-evidence": {
+    "alpaca": "Generated from the FastAPI application routes",
+    "deviceProtocol": "Derived from DWARFLAB APK 3.4.1 and hardware captures"
+  }
+}

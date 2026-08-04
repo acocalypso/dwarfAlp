@@ -3,19 +3,24 @@
 ## Local HTTP
 
 `DeviceHttpApi` constructs `http://<current-device-ip>:8082/` and uses the
-application OkHttp client. Traced operations include device information, media
-metadata/download and device-log operations. Decompiled coroutine bodies for
-some endpoints are incomplete, so endpoint path/method pairs that are not
-independently present in captures remain unresolved. Cloud/account/update
-operations live in the separate `NetHttpApi` and are not part of local Alpaca
-control.
+application OkHttp client. APK 3.4.1's Retrofit `Api.java` registers 24 local
+operation declarations across 21 distinct paths. The complete signatures and
+source lines are in [api-inventory.json](api-inventory.json), and an OpenAPI
+rendering is generated as `docs/site/device-openapi.json`. Cloud/account
+operations live in separate Retrofit interfaces and are catalogued with a
+`cloud` scope, not presented as local telescope control.
 
 | Operation | Method/path | Authentication | Evidence | Confidence |
 |---|---|---|---|---|
 | Device API base | `http://<device>:8082/` | none observed at base builder | `DeviceHttpApi.a`, constructor | confirmed in app code |
-| Device info | unresolved path | unknown | `DeviceHttpApi.deviceInfo` response type `DeviceInfoResp` | confirmed call, path unknown |
-| Media operations | unresolved paths | unknown | `MediaInfoRequest`, `DeviceHttpApi` methods | confirmed call, paths unknown |
-| Device logs | unresolved paths | unknown | `LogInfoBean`, `DeviceHttpApi` methods | confirmed call, paths unknown |
+| Device info | `POST /deviceInfo` | none in Retrofit declaration | `Api.java` | confirmed in app code |
+| Shooting modes | `GET /shootingMode/getSupportedShootingModes`, `POST /shootingMode/getParamAndSetting` | none in declaration | `Api.java` | confirmed in app code |
+| Album metadata | `POST /album/list/mediaCounts`, `POST /album/list/mediaInfos`, `POST /album/getMediaInfoByFilePath` | none in declaration | `Api.java` | confirmed in app code |
+| FITS list | `POST /album/astro/fitsList` | none in declaration | `Api.java` | confirmed in app code |
+| Album/FITS deletion | `POST /album/delete`, `DELETE /album/astro/deleteFits` | none in declaration | `Api.java` | confirmed; destructive |
+| Device logs | `GET /logInfo`, `GET /downloadLog` | none in declaration | `Api.java` | confirmed in app code |
+| Reset/activation | `/getResetState`, `/resetDeviceInfo`, activation endpoints | none in declaration | `Api.java` | confirmed; reset is destructive |
+| Firmware upload | multipart `POST /uploadFirmware`, `/uploadFirmwareDiff` | none in declaration | `Api.java` | confirmed; destructive and out of driver scope |
 
 ## BLE provisioning
 

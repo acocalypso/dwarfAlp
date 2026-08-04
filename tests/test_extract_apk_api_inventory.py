@@ -29,7 +29,7 @@ def test_extract_inventory_preserves_numeric_and_symbolic_values(tmp_path: Path)
             (
                 'public static final WsCmd CMD_NUMERIC = new WsCmd("CMD_NUMERIC", 0, 11005);',
                 "public static final WsCmd CMD_SYMBOLIC = "
-                'new WsCmd("CMD_SYMBOLIC", 1, Library.VALUE);',
+                'new WsCmd("CMD_SYMBOLIC", Library.ORDINAL, Library.VALUE);',
             )
         ),
         encoding="utf-8",
@@ -61,5 +61,7 @@ public final class WsNumericReq {
         "AstroProto.ReqCapture"
     ]
     assert symbolic["command_id"] is None
+    assert symbolic["ordinal"] is None
+    assert symbolic["raw_ordinal_expression"] == "Library.ORDINAL"
     assert symbolic["raw_value_expression"] == "Library.VALUE"
     assert inventory["response_codes"][0]["code"] == -11530
