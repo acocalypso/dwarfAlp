@@ -9,6 +9,7 @@ __pycache__/
 var/
 venv/
 .pytest_cache/
+.test-*/
 .coverage
 dwarf_python_api/
 build/

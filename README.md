@@ -49,7 +49,7 @@ uv run python -m http.server 8000 --directory docs/site
 
 - **End-to-end DWARF bridge** – `DwarfSession` maintains websocket, HTTP, FTP, and BLE clients, negotiates the master lock, and caches notifications for low-latency Alpaca responses.
 - **Full Alpaca surface area** – Telescope, camera, focuser, and filter wheel routers translate Alpaca verbs into real DWARF commands including go-to slews, joystick motion, exposure setup, filter selection, and temperature polling.
-- **Capture pipeline** – Exposure requests map durations to DWARF parameter tables, monitor dark-library status, trigger astro captures, stop at the requested `15209.stacked_count`, and harvest the matching FITS from the onboard FTP album.
+- **Capture pipeline** – Exposure requests map durations to DWARF parameter tables, monitor dark-library status, trigger astro captures, stop at the requested `15209.stacked_count`, and harvest the matching FITS through FTP or the app-equivalent HTTP album/FITS-list workflow.
 - **Filter handling** – Automatic discovery of filter definitions, IR-cut coordination, and persistence of the active slot for imaging tasks.
 - **Provisioning workflow** – BLE onboarding stores STA credentials in `var/connectivity.json`, updates settings dynamically, and feeds the combined `dwarf-alpaca start` command.
 - **Structured logging & tests** – `structlog` JSON output, rotating startup logs, and a pytest suite covering discovery, CLI flows, session orchestration, and device endpoints.
@@ -333,9 +333,12 @@ For a deeper exploration see [`docs/architecture.md`](docs/architecture.md).
 1. **Provision / connect** – Use `dwarf-alpaca start` to provision (if necessary) and acquire the DWARF master lock. When startup calibration preparation is enabled, it autofocuses but waits for a target before calibrating or slewing.
 2. **Discover** – Clients broadcast Alpaca discovery; this server replies with Telescope/0, Camera/0, and Focuser/0 entries, plus FilterWheel/0 only on models that contain filters.
 3. **Slew & track** – The first uncalibrated slew uses the V3 one-click calibration + GoTo workflow; subsequent slews use the regular DWARF astro GoTo command.
+   Because Alpaca's coordinate-slew method has no target-name field, the driver resolves
+   coordinates against NINA's local `NINA.sqlite` sky-atlas catalogue when it is available.
+   This sends names such as `M11` to the DWARF instead of the generic `Custom` label.
 4. **Focus** – Manual and continuous focus moves map to DWARF focus commands with live position updates from notifications.
 5. **Filter selection** – On DWARF 3 and DWARF mini, Alpaca positions map to model-specific V3 `ir_index` values that are applied by the next astronomy-start command. DWARF 2 does not expose a filter wheel.
-6. **Capture** – Exposure requests ensure gain/exposure indices, start astro capture, watch dark-library and stacking progress, and poll FTP concurrently. The first requested completed stack or newly created FITS triggers `11006`; the FITS newer than the exposure start is downloaded and its exact device path is logged as `dwarf.camera.ftp_capture_selected`.
+6. **Capture** – Exposure requests ensure gain/exposure indices, start astro capture, watch dark-library and stacking progress, and poll FTP concurrently. The first requested completed stack or newly created FITS triggers `11006`. FTP is preferred; the fallback mirrors the DWARFLAB app by reading the astronomy album's `astroImageDetails.srcDir`, calling `/album/astro/fitsList`, and downloading the returned FITS rather than `stacked.jpg`. The selected path is logged as `dwarf.camera.ftp_capture_selected` or `dwarf.camera.astro_fits_selected`.
 7. **Telemetry** – Temperature and camera metadata stream back into Alpaca GET endpoints for real-time monitoring.
 
 ---

@@ -207,6 +207,32 @@ class DwarfHttpClient:
         )
         return []
 
+    async def list_astro_fits(self, src_dir: str) -> list[dict[str, Any]]:
+        """Return the FITS products belonging to an astronomy album directory.
+
+        The DWARFLAB app does not download the astronomy album entry itself (that
+        is normally ``stacked.jpg``).  It takes ``astroImageDetails.srcDir`` from
+        that entry and resolves the actual FITS files through this endpoint.
+        """
+
+        response = await self.post_json("/album/astro/fitsList", {"srcDir": src_dir})
+        data: Any = response.get("data") if isinstance(response, dict) else None
+        if data is None and isinstance(response, dict):
+            for key in ("result", "obj", "payload", "value"):
+                if response.get(key) is not None:
+                    data = response[key]
+                    break
+        if isinstance(data, dict):
+            data = data.get("fitsInfo", data.get("items", data.get("list", [])))
+        if not isinstance(data, list):
+            logger.warning(
+                "dwarf.http.astro_fits_unexpected",
+                src_dir=src_dir,
+                data_type=type(data).__name__ if data is not None else None,
+            )
+            return []
+        return [item for item in data if isinstance(item, dict)]
+
     async def fetch_media_file(self, file_path: str) -> bytes:
         normalized_path = self._normalize_media_path(file_path)
         # Album media files are served by the static file server (port 80),

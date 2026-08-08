@@ -3,6 +3,7 @@ import time
 import types
 from datetime import datetime
 
+import numpy as np
 import pytest
 from websockets.exceptions import ConnectionClosedOK
 
@@ -676,6 +677,55 @@ async def test_album_media_type_selection():
 
     assert result == (None, None)
     assert dummy_client.calls == [(4, 1)]
+
+
+def test_adjust_shoot_parameters_response_is_nonfatal_warning():
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    response = ComResponse()
+    response.code = protocol_pb2.CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM
+
+    assert session._validate_astro_start_response(response) == response.code
+
+
+@pytest.mark.asyncio
+async def test_astro_album_download_uses_fits_list(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session.simulation = False
+    state = session.camera_state
+    state.capture_id = "capture-1"
+    calls: list[object] = []
+
+    class DummyHttpClient:
+        async def list_astro_fits(self, src_dir: str):
+            calls.append(("list", src_dir))
+            return [
+                {"filePath": "/Astronomy/M11/failed.fit", "isFailed": True},
+                {"filePath": "/Astronomy/M11/frame.fit", "isFailed": False},
+            ]
+
+        async def fetch_media_file(self, path: str):
+            calls.append(("fetch", path))
+            return b"fits"
+
+    monkeypatch.setattr(session, "_http_client", DummyHttpClient())
+    monkeypatch.setattr(
+        session,
+        "_decode_capture_content",
+        lambda identifier, content: np.zeros((2, 3), dtype="uint16"),
+    )
+
+    result = await session._download_album_astro_fits(
+        state,
+        {"astroImageDetails": {"srcDir": "/Astronomy/M11"}},
+    )
+
+    assert result is True
+    assert calls == [
+        ("list", "/Astronomy/M11"),
+        ("fetch", "/Astronomy/M11/frame.fit"),
+    ]
+    assert state.retrieved_file_path == "/Astronomy/M11/frame.fit"
+    assert state.image.shape == (2, 3)
 
 
 @pytest.mark.asyncio

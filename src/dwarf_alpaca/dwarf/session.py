@@ -24,6 +24,7 @@ from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
 from websockets.exceptions import ConnectionClosed, ConnectionClosedOK
 
+from ..astronomy.target_names import resolve_nina_target_name
 from ..config.settings import Settings
 from ..device_profile import DeviceProfile, get_device_profile
 from ..proto import astro_pb2, protocol_pb2
@@ -286,6 +287,12 @@ _ASTRO_FORCE_START_DARK_WARNING_CODES = frozenset(
     {
         protocol_pb2.CODE_ASTRO_DARK_NOT_FOUND,
         protocol_pb2.CODE_ASTRO_DARK_TEMP_MISMATCH,
+    }
+)
+_ASTRO_NON_FATAL_START_WARNING_CODES = frozenset(
+    {
+        protocol_pb2.CODE_ASTRO_NEED_GOTO,
+        protocol_pb2.CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM,
     }
 )
 
@@ -2319,6 +2326,17 @@ class DwarfSession:
         *,
         target_name: str = "Custom",
     ) -> tuple[float, float]:
+        if not target_name or target_name.casefold() == "custom":
+            resolved_target = resolve_nina_target_name(ra_hours, dec_degrees)
+            if resolved_target:
+                logger.info(
+                    "dwarf.telescope.target_name_resolved",
+                    requested_name=target_name,
+                    resolved_name=resolved_target,
+                    ra_hours=ra_hours,
+                    dec_degrees=dec_degrees,
+                )
+                target_name = resolved_target
         if self.simulation:
             self._record_goto(ra_hours, dec_degrees)
             return ra_hours, dec_degrees
@@ -4909,9 +4927,9 @@ class DwarfSession:
                 self.camera_state.applied_filter_name = option.label
             return code
 
-        if code == protocol_pb2.CODE_ASTRO_NEED_GOTO:
+        if code in _ASTRO_NON_FATAL_START_WARNING_CODES:
             logger.warning(
-                "dwarf.camera.astro_capture_goto_warning",
+                "dwarf.camera.astro_capture_start_warning",
                 module_id=protocol_pb2.ModuleId.MODULE_ASTRO,
                 command_id=protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
                 code=code,
@@ -5563,7 +5581,7 @@ class DwarfSession:
         state = self.camera_state
         if capture_kind == "photo":
             await self._refresh_ftp_baseline(capture_kind=capture_kind)
-            await self._refresh_album_baseline()
+            await self._refresh_album_baseline(media_type=1)
         else:
             # Walking every astronomy directory over FTP can take longer than
             # NINA's 10-second StartExposure timeout. Astro retrieval already
@@ -5573,7 +5591,7 @@ class DwarfSession:
             # The HTTP album query is cheap and provides the only reliable
             # baseline when firmware FTP is unavailable.  Without it an old
             # album item can be mistaken for the exposure NINA just requested.
-            await self._refresh_album_baseline()
+            await self._refresh_album_baseline(media_type=4)
 
     async def _refresh_ftp_baseline(self, *, capture_kind: str) -> None:
         state = self.camera_state
@@ -5592,12 +5610,12 @@ class DwarfSession:
             state.last_ftp_entry = latest
         state.pending_ftp_baseline = state.last_ftp_entry
 
-    async def _refresh_album_baseline(self) -> None:
+    async def _refresh_album_baseline(self, *, media_type: int = 1) -> None:
         state = self.camera_state
         if self.simulation:
             state.pending_album_baseline = state.last_album_mod_time
             return
-        mod_time, entry = await self._get_latest_album_entry()
+        mod_time, entry = await self._get_latest_album_entry(media_type=media_type)
         if mod_time is not None:
             state.last_album_mod_time = mod_time
         if entry is not None:
@@ -5635,6 +5653,78 @@ class DwarfSession:
         if isinstance(file_name, str) and file_name:
             return file_name
         return None
+
+    @staticmethod
+    def _album_astro_src_dir(entry: dict[str, Any]) -> str | None:
+        details = entry.get("astroImageDetails")
+        if isinstance(details, dict):
+            src_dir = details.get("srcDir")
+            if isinstance(src_dir, str) and src_dir.strip():
+                return src_dir.strip()
+        src_dir = entry.get("srcDir")
+        if isinstance(src_dir, str) and src_dir.strip():
+            return src_dir.strip()
+        return None
+
+    async def _download_album_astro_fits(
+        self, state: CameraState, entry: dict[str, Any]
+    ) -> bool:
+        src_dir = self._album_astro_src_dir(entry)
+        if not src_dir:
+            logger.warning(
+                "dwarf.camera.astro_album_src_dir_missing",
+                capture_id=state.capture_id,
+                keys=sorted(entry.keys()),
+            )
+            return False
+        try:
+            fits_entries = await self._http_client.list_astro_fits(src_dir)
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.camera.astro_fits_list_failed",
+                capture_id=state.capture_id,
+                src_dir=src_dir,
+                error=str(exc),
+            )
+            return False
+        candidates = [
+            item
+            for item in fits_entries
+            if not bool(item.get("isFailed"))
+            and isinstance(item.get("filePath") or item.get("url"), str)
+        ]
+        if not candidates:
+            logger.warning(
+                "dwarf.camera.astro_fits_list_empty",
+                capture_id=state.capture_id,
+                src_dir=src_dir,
+                total=len(fits_entries),
+            )
+            return False
+        fits_entry = candidates[-1]
+        file_id = str(fits_entry.get("filePath") or fits_entry.get("url"))
+        try:
+            content = await self._http_client.fetch_media_file(file_id)
+            frame = self._decode_capture_content(file_id, content)
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.warning(
+                "dwarf.camera.astro_fits_download_failed",
+                capture_id=state.capture_id,
+                src_dir=src_dir,
+                path=file_id,
+                error=str(exc),
+            )
+            return False
+        self._store_frame(state, frame, time.time())
+        state.retrieved_file_path = file_id
+        logger.info(
+            "dwarf.camera.astro_fits_selected",
+            capture_id=state.capture_id,
+            src_dir=src_dir,
+            path=file_id,
+            size_bytes=len(content),
+        )
+        return True
 
     async def _simulate_capture(self, state: CameraState) -> None:
         await asyncio.sleep(state.duration)
@@ -5848,6 +5938,12 @@ class DwarfSession:
             state.last_error = "album_missing_file"
             state.pending_album_baseline = state.last_album_mod_time
             state.last_end_time = time.time()
+            return
+
+        if state.capture_mode == "astro" and await self._download_album_astro_fits(
+            state, entry
+        ):
+            state.pending_album_baseline = state.last_album_mod_time
             return
 
         try:
