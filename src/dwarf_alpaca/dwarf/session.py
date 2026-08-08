@@ -154,6 +154,46 @@ def _decode_com_res_with_int_value(raw: bytes) -> int | None:
     return None
 
 
+def _length_delimited_field(raw: bytes, wanted_field: int) -> bytes | None:
+    """Return one protobuf length-delimited field without requiring its schema."""
+
+    index = 0
+    while index < len(raw):
+        try:
+            key, index = _read_varint(raw, index)
+        except ValueError:
+            return None
+        field = key >> 3
+        wire_type = key & 0x07
+        if wire_type == 0:
+            try:
+                _value, index = _read_varint(raw, index)
+            except ValueError:
+                return None
+            continue
+        if wire_type == 1:
+            index += 8
+            continue
+        if wire_type == 2:
+            try:
+                length, index = _read_varint(raw, index)
+            except ValueError:
+                return None
+            end = index + int(length)
+            if end > len(raw):
+                return None
+            value = raw[index:end]
+            if field == wanted_field:
+                return value
+            index = end
+            continue
+        if wire_type == 5:
+            index += 4
+            continue
+        return None
+    return None
+
+
 def _decode_v3_device_config_payload(raw: bytes) -> dict[str, Any]:
     result: dict[str, Any] = {}
     index = 0
@@ -204,6 +244,16 @@ def _decode_v3_device_config_payload(raw: bytes) -> dict[str, Any]:
             index += length
             if field == 1:
                 result["field1_blob_len"] = length
+                # CMD 16405 is the APK's GetDeviceStateInfo request. Field 2
+                # of its response is TeleCameraStateInfo, which this legacy
+                # compatibility decoder receives as ``raw``. Its field 1 is
+                # ExclusiveCameraState; that message's field 1 is
+                # CaptureRawState { state=1, camera_type=2 }.
+                capture_raw = _length_delimited_field(data, 1)
+                if capture_raw is not None:
+                    capture_state = _decode_com_res_with_int_value(capture_raw)
+                    if capture_state is not None:
+                        result["capture_raw_state"] = int(capture_state)
             elif field == 2:
                 result["field2_blob_hex"] = data.hex()
                 # Observed as nested payload `08 01` / `08 02`.
@@ -491,6 +541,9 @@ class DwarfSession:
         self._filter_change_lock_loop: asyncio.AbstractEventLoop | None = None
         self._capture_start_evidence_event = asyncio.Event()
         self._capture_frame_complete_event = asyncio.Event()
+        self._astro_capture_ready_event = asyncio.Event()
+        self._astro_capture_ready_event.set()
+        self._astro_capture_operation_state: int | None = None
         self._capture_start_response_task: asyncio.Task[None] | None = None
         self._capture_stop_response_task: asyncio.Task[None] | None = None
         self._ws_bootstrapped = False
@@ -979,6 +1032,12 @@ class DwarfSession:
                 config_data = getattr(response, "config_data", b"") or b""
                 self._v3_device_config_bytes = len(config_data)
                 parsed = _decode_v3_device_config_payload(bytes(config_data))
+                capture_raw_state = parsed.get("capture_raw_state")
+                if isinstance(capture_raw_state, int):
+                    self._set_astro_capture_operation_state(
+                        capture_raw_state,
+                        source="device_state_16405",
+                    )
                 legacy_camera = parsed.get("legacy_camera")
                 if isinstance(legacy_camera, dict):
                     preview_width = legacy_camera.get("previewWidth")
@@ -1099,6 +1158,8 @@ class DwarfSession:
             self._handle_tracking_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_SET_FEATURE_PARAM:
             self._handle_feature_param_notification(packet)
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING:
+            self._handle_astro_capture_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING:
             self._handle_astro_capture_progress_notification(packet)
         elif command_id == _CMD_NOTIFY_V3_EXPOSURE_PROGRESS:
@@ -1286,6 +1347,40 @@ class DwarfSession:
         # Feature-param notifications are not Mini filter-wheel readback.
         # App 3.4.1 carries the Mini filter only in the astronomy start request.
         return
+
+    def _set_astro_capture_operation_state(self, value: int, *, source: str) -> None:
+        try:
+            operation_state = _OperationState(value)
+            state_name = operation_state.name.lower()
+        except ValueError:
+            operation_state = None
+            state_name = "unknown"
+        self._astro_capture_operation_state = int(value)
+        ready = operation_state in {_OperationState.IDLE, _OperationState.STOPPED}
+        if ready:
+            self._astro_capture_ready_event.set()
+        else:
+            self._astro_capture_ready_event.clear()
+        logger.info(
+            "dwarf.camera.astro_capture_state",
+            state=int(value),
+            state_name=state_name,
+            ready=ready,
+            source=source,
+        )
+
+    def _handle_astro_capture_state_notification(self, packet: Message) -> None:
+        raw_data = bytes(getattr(packet, "data", b"") or b"")
+        # Protobuf omits the field for enum value zero, so an empty payload is
+        # the valid IDLE notification seen immediately before a new capture.
+        value = 0 if not raw_data else _decode_com_res_with_int_value(raw_data)
+        if value is None:
+            logger.warning(
+                "dwarf.camera.astro_capture_state_decode_failed",
+                payload_hex=raw_data.hex(),
+            )
+            return
+        self._set_astro_capture_operation_state(value, source="notification_15208")
 
     def _handle_astro_capture_progress_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -3199,6 +3294,16 @@ class DwarfSession:
         }:
             raise CaptureBusyError("capture_already_in_progress")
         mini_profile = self._is_dwarf_mini()
+        if mini_profile and not light:
+            state.capture_phase = CapturePhase.FAILED
+            state.last_error = "mini_dark_calibration_unverified"
+            raise CaptureConfigurationError(
+                "DWARF mini dark frames use the dedicated calibration workflow; "
+                "image delivery to NINA has not yet been hardware-verified"
+            )
+        if not self.simulation:
+            await self._ensure_ws()
+            await self._wait_for_astro_capture_ready()
         state.capture_id = uuid.uuid4().hex
         capture_id = state.capture_id
         state.capture_phase = CapturePhase.CONFIGURING
@@ -3242,14 +3347,6 @@ class DwarfSession:
             state.capture_phase = CapturePhase.READY
             return
 
-        if mini_profile and not light:
-            state.capture_phase = CapturePhase.FAILED
-            state.last_error = "mini_dark_calibration_unverified"
-            raise CaptureConfigurationError(
-                "DWARF mini dark frames use the dedicated calibration workflow; "
-                "image delivery to NINA has not yet been hardware-verified"
-            )
-
         if continue_without_darks is None:
             continue_without_darks = self.settings.allow_continue_without_darks
 
@@ -3259,7 +3356,6 @@ class DwarfSession:
                 "cannot be independently confirmed; use the astro workflow"
             )
 
-        await self._ensure_ws()
         await self._enter_v3_astro_mode()
         await self._ensure_exposure_settings(duration)
         await self._ensure_gain_settings()
@@ -4853,6 +4949,10 @@ class DwarfSession:
                     return self._validate_astro_start_response(
                         immediate_response, option=locals().get("option")
                     )
+            self._set_astro_capture_operation_state(
+                _OperationState.RUNNING,
+                source="start_11005_dispatch",
+            )
             old_task = self._capture_start_response_task
             if old_task and not old_task.done():
                 old_task.cancel()
@@ -5290,6 +5390,10 @@ class DwarfSession:
                 stop_task = self._capture_stop_response_task
                 if stop_task and not stop_task.done():
                     return
+                self._set_astro_capture_operation_state(
+                    _OperationState.STOPPING,
+                    source="stop_11006_dispatch",
+                )
                 response_future = await self._begin_request(
                     protocol_pb2.ModuleId.MODULE_ASTRO,
                     protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
@@ -5311,19 +5415,112 @@ class DwarfSession:
             if strict:
                 raise CaptureConfigurationError("DWARF did not confirm capture abort") from exc
 
+    async def _query_astro_capture_operation_state(self) -> int | None:
+        """Mirror the APK's 16405 whole-device state query for tele RAW state."""
+
+        try:
+            response = await self._send_request(
+                _MODULE_DEVICE_CONFIG,
+                _CMD_V3_DEVICE_CONFIG_GET_CONFIG,
+                V3ReqGetDeviceConfig(),
+                V3ResGetDeviceConfig,
+                timeout=5.0,
+                suppress_timeout_warning=True,
+                close_ws_on_timeout=False,
+            )
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            logger.debug(
+                "dwarf.camera.astro_capture_state_query_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return None
+        config_data = bytes(getattr(response, "config_data", b"") or b"")
+        parsed = _decode_v3_device_config_payload(config_data)
+        value = parsed.get("capture_raw_state")
+        if not isinstance(value, int):
+            logger.debug(
+                "dwarf.camera.astro_capture_state_query_missing",
+                payload_hex=config_data.hex(),
+            )
+            return None
+        self._set_astro_capture_operation_state(value, source="device_state_16405")
+        return value
+
+    async def _wait_for_astro_capture_ready(self, *, timeout: float = 75.0) -> None:
+        """Do not start while firmware is finalizing the preceding stack."""
+
+        if not self._uses_v3_protocol():
+            return
+        current = self._astro_capture_operation_state
+        if current is None or current in {_OperationState.IDLE, _OperationState.STOPPED}:
+            return
+        started = time.monotonic()
+        logger.info(
+            "dwarf.camera.astro_capture_ready_wait_started",
+            state=current,
+            timeout=timeout,
+        )
+        deadline = started + timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.warning(
+                    "dwarf.camera.astro_capture_ready_wait_timeout",
+                    state=self._astro_capture_operation_state,
+                    timeout=timeout,
+                )
+                raise DwarfCommandError(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                    protocol_pb2.CODE_ASTRO_FUNCTION_BUSY,
+                )
+            try:
+                await asyncio.wait_for(
+                    self._astro_capture_ready_event.wait(),
+                    timeout=min(2.0, remaining),
+                )
+            except asyncio.TimeoutError:
+                await self._query_astro_capture_operation_state()
+                continue
+            logger.info(
+                "dwarf.camera.astro_capture_ready_wait_finished",
+                state=self._astro_capture_operation_state,
+                elapsed_seconds=round(time.monotonic() - started, 3),
+            )
+            return
+
     async def _monitor_astro_stop_response(
         self, response_future: asyncio.Future[Message]
     ) -> None:
+        state_task = asyncio.create_task(self._astro_capture_ready_event.wait())
         try:
-            response = await asyncio.wait_for(response_future, timeout=30.0)
-            code = int(getattr(response, "code", protocol_pb2.OK))
-            if code != protocol_pb2.OK:
-                raise DwarfCommandError(
+            done, _pending = await asyncio.wait(
+                {response_future, state_task},
+                timeout=75.0,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if state_task in done and state_task.result():
+                self._ws_client.cancel_pending(
                     protocol_pb2.ModuleId.MODULE_ASTRO,
                     protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
-                    code,
                 )
-            logger.info("dwarf.camera.astro_stop_response", code=code)
+                logger.info(
+                    "dwarf.camera.astro_stop_state_confirmed",
+                    state=self._astro_capture_operation_state,
+                )
+            elif response_future in done:
+                response = response_future.result()
+                code = int(getattr(response, "code", protocol_pb2.OK))
+                if code != protocol_pb2.OK:
+                    raise DwarfCommandError(
+                        protocol_pb2.ModuleId.MODULE_ASTRO,
+                        protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
+                        code,
+                    )
+                logger.info("dwarf.camera.astro_stop_response", code=code)
+            else:
+                raise asyncio.TimeoutError
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
@@ -5331,7 +5528,7 @@ class DwarfSession:
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING,
             )
-            logger.warning("dwarf.camera.astro_stop_response_timeout", timeout=30.0)
+            logger.warning("dwarf.camera.astro_stop_response_timeout", timeout=75.0)
         except Exception as exc:
             logger.warning(
                 "dwarf.camera.astro_stop_response_failed",
@@ -5339,6 +5536,10 @@ class DwarfSession:
                 error_type=type(exc).__name__,
             )
         finally:
+            if not state_task.done():
+                state_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await state_task
             if self._capture_stop_response_task is asyncio.current_task():
                 self._capture_stop_response_task = None
 

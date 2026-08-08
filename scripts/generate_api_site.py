@@ -73,6 +73,8 @@ def _dwarfalp_openapi() -> dict[str, Any]:
         "-11514 is treated as a nonfatal warning when the device continues shooting. "
         "Progress notification 15209 current_count identifies when the requested raw "
         "frames exist; the driver stops there without waiting for the later stacked_count. "
+        "Before a following exposure it waits for capture-state notification 15208 to "
+        "report idle/stopped, using the APK-equivalent 16405 device-state query as recovery. "
         "The result is retrieved as FITS through FTP or through the app-equivalent "
         "album mediaType=4, astroImageDetails.srcDir, /album/astro/fitsList sequence."
     )

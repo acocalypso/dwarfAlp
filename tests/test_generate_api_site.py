@@ -35,6 +35,7 @@ def test_published_openapi_and_protocol_inventory_are_complete() -> None:
     assert "Latest integration findings" in index
     assert "CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM" in index
     assert "Raw-frame completion" in index
+    assert "Repeated exposures" in index
     assert device["paths"]["/resetDeviceInfo"]["post"]["x-dangerous-operation"]
     assert len(inventory["commands"]) == 356
     assert len(inventory["response_codes"]) == 123

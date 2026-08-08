@@ -111,9 +111,14 @@ Configuration/transfer/decode error -> FAILED
    timestamped astronomy folders first, and album is fallback. A result must be newer
    than the baseline and capture start, and the selected device path is recorded in the
    capture log.
-10. FITS stays unsigned 16-bit after FITS scaling. JPEG stays genuine 8-bit RGB;
+10. `15208` is the authoritative capture lifecycle (`idle=0`, `running=1`,
+    `stopping=2`, `stopped=3`). A subsequent exposure waits for idle/stopped rather
+    than assuming the first FITS or a `11006` response makes the camera reusable.
+    Command `16405` mirrors the APK's whole-device state query and recovers a missed
+    lifecycle notification.
+11. FITS stays unsigned 16-bit after FITS scaling. JPEG stays genuine 8-bit RGB;
     its source format/bit depth is reported and never promoted to fake sensor depth.
-11. `ImageReady`, `CameraState`, `PercentCompleted`, `ImageArray`, and `ImageBytes`
+12. `ImageReady`, `CameraState`, `PercentCompleted`, `ImageArray`, and `ImageBytes`
     read the same session capture state.
 
 Graceful StopExposure is not advertised because distinct stop semantics are not

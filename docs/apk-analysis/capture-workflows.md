@@ -39,6 +39,8 @@ sequenceDiagram
     D-->>A: Capture state/progress notifications
     Note over A,D: Delayed -11514 is nonfatal if shooting continues
     A->>D: 11006 when 15209.current_count reaches requested frames
+    D-->>A: 15208 stopping (2), then stopped (3)
+    Note over A: Do not start the next exposure before idle/stopped
     A->>D: FTP FITS, or album mediaType=4
     D-->>A: astroImageDetails.srcDir
     A->>D: POST /album/astro/fitsList {srcDir}
@@ -66,6 +68,7 @@ quick-set string but progress later reported index `156`, which is 15 seconds.
 | Start | 11005 | 11005 |
 | Completion | stop when FTP polling times out | stop when `15209.current_count` reaches the requested raw-frame count or a new FITS appears; do not wait for later `stacked_count` |
 | Start warning | delayed nonzero response failed the local capture task | keep retrieval alive for `-11514` when firmware progress/file creation shows shooting continues |
+| Repeat capture | start again as soon as NINA consumed the FITS | track `15208` (`0/1/2/3` = idle/running/stopping/stopped), query `16405` if needed, and wait for idle/stopped before the next `11005` |
 | Retrieval | generic album item could return `stacked.jpg` | prefer FITS; resolve `astroImageDetails.srcDir` through `/album/astro/fitsList` and download `filePath` from port 80 |
 | Retrieval safety | changed album path could be accepted | baseline astronomy media type 4, require capture-time evidence, and reject stale album media |
 | FTP scan | recursively inspect every astronomy folder | parse folder timestamps and inspect only the newest folders; 94-folder Mini storage improved from about 26 seconds to 1.1 seconds in the connected-device test |

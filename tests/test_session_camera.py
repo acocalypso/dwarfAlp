@@ -1194,9 +1194,12 @@ async def test_stop_astro_capture_dispatches_without_waiting_for_v3_response(mon
 
 
 def test_decode_v3_device_config_payload_extracts_known_fields():
-    raw = bytes.fromhex("0a00120208011900000060b81e014021000000403333f33f28800f30b808")
+    raw = bytes.fromhex(
+        "0a040a020803120208011900000060b81e014021000000403333f33f28800f30b808"
+    )
     parsed = _decode_v3_device_config_payload(raw)
 
+    assert parsed.get("capture_raw_state") == 3
     assert parsed.get("field2_mode") == 1
     assert parsed.get("image_width") == 1920
     assert parsed.get("image_height") == 1080
@@ -1210,6 +1213,39 @@ def test_decode_v3_device_config_payload_extracts_known_fields():
     assert legacy.get("previewHeight") == 1080
     assert legacy.get("fvWidth") == pytest.approx(2.140000104904175)
     assert legacy.get("fvHeight") == pytest.approx(1.2000000476837158)
+
+
+def test_capture_state_notification_controls_device_ready_event():
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+
+    session._handle_astro_capture_state_notification(types.SimpleNamespace(data=b"\x08\x01"))
+    assert session._astro_capture_operation_state == 1
+    assert not session._astro_capture_ready_event.is_set()
+
+    session._handle_astro_capture_state_notification(types.SimpleNamespace(data=b"\x08\x02"))
+    assert session._astro_capture_operation_state == 2
+    assert not session._astro_capture_ready_event.is_set()
+
+    session._handle_astro_capture_state_notification(types.SimpleNamespace(data=b"\x08\x03"))
+    assert session._astro_capture_operation_state == 3
+    assert session._astro_capture_ready_event.is_set()
+
+    session._handle_astro_capture_state_notification(types.SimpleNamespace(data=b""))
+    assert session._astro_capture_operation_state == 0
+    assert session._astro_capture_ready_event.is_set()
+
+
+@pytest.mark.asyncio
+async def test_next_capture_waits_until_firmware_reports_stopped():
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session._set_astro_capture_operation_state(2, source="test")
+
+    wait_task = asyncio.create_task(session._wait_for_astro_capture_ready(timeout=0.5))
+    await asyncio.sleep(0)
+    assert not wait_task.done()
+
+    session._set_astro_capture_operation_state(3, source="test")
+    await asyncio.wait_for(wait_task, timeout=0.1)
 
 
 @pytest.mark.asyncio
