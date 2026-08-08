@@ -71,6 +71,8 @@ def _dwarfalp_openapi() -> dict[str, Any]:
     exposure_operation["description"] = (
         "Start a DWARF exposure. For V3 astronomy captures, delayed firmware code "
         "-11514 is treated as a nonfatal warning when the device continues shooting. "
+        "Progress notification 15209 current_count identifies when the requested raw "
+        "frames exist; the driver stops there without waiting for the later stacked_count. "
         "The result is retrieved as FITS through FTP or through the app-equivalent "
         "album mediaType=4, astroImageDetails.srcDir, /album/astro/fitsList sequence."
     )

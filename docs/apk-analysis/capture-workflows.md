@@ -38,7 +38,7 @@ sequenceDiagram
     A->>D: 11005 ReqCaptureRawLiveStacking(ir_index=1 or 2)
     D-->>A: Capture state/progress notifications
     Note over A,D: Delayed -11514 is nonfatal if shooting continues
-    A->>D: 11006 after requested stack completes
+    A->>D: 11006 when 15209.current_count reaches requested frames
     A->>D: FTP FITS, or album mediaType=4
     D-->>A: astroImageDetails.srcDir
     A->>D: POST /album/astro/fitsList {srcDir}
@@ -64,10 +64,11 @@ quick-set string but progress later reported index `156`, which is 15 seconds.
 | Gain | rewrite a 11041 string | 16701 with catalogue gain value |
 | Frame count | 16703 | 16703 |
 | Start | 11005 | 11005 |
-| Completion | stop when FTP polling times out | wait for progress/new file; FTP timeout alone is non-terminal |
+| Completion | stop when FTP polling times out | stop when `15209.current_count` reaches the requested raw-frame count or a new FITS appears; do not wait for later `stacked_count` |
 | Start warning | delayed nonzero response failed the local capture task | keep retrieval alive for `-11514` when firmware progress/file creation shows shooting continues |
 | Retrieval | generic album item could return `stacked.jpg` | prefer FITS; resolve `astroImageDetails.srcDir` through `/album/astro/fitsList` and download `filePath` from port 80 |
 | Retrieval safety | changed album path could be accepted | baseline astronomy media type 4, require capture-time evidence, and reject stale album media |
+| FTP scan | recursively inspect every astronomy folder | parse folder timestamps and inspect only the newest folders; 94-folder Mini storage improved from about 26 seconds to 1.1 seconds in the connected-device test |
 | NINA array | JPEG could remain RGB/3-D | JPEG fallback is converted to a 2-D array; FITS remains preferred |
 
 ## Alpaca coordinate slew target names

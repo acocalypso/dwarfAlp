@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import io
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -46,6 +47,7 @@ class DwarfFtpClient:
     username: str = "Anonymous"
     password: str = ""
     poll_interval: float = 1.0
+    max_astro_directories_per_scan: int = 8
 
     async def get_latest_photo_entry(
         self,
@@ -185,9 +187,16 @@ class DwarfFtpClient:
                 subdirs = ftp.nlst()
             except error_perm:
                 subdirs = []
-            for subdir in subdirs:
-                if not subdir.startswith("DWARF_RAW"):
-                    continue
+            capture_dirs = [
+                subdir for subdir in subdirs if subdir.startswith("DWARF_RAW")
+            ]
+            # A Mini with a populated SD card can have hundreds of astronomy
+            # directories. Walking all of them took 26 seconds on hardware and
+            # caused the poller to finish before a new FITS appeared. Capture
+            # directory names end in a firmware timestamp, so inspect only the
+            # newest handful on each poll.
+            capture_dirs.sort(key=self._astro_directory_sort_key, reverse=True)
+            for subdir in capture_dirs[: max(1, self.max_astro_directories_per_scan)]:
                 full_dir = f"{root.rstrip('/')}/{subdir}"
                 try:
                     ftp.cwd(full_dir)
@@ -215,6 +224,18 @@ class DwarfFtpClient:
             except error_perm:
                 ftp.cwd("/")
         return entries
+
+    @staticmethod
+    def _astro_directory_sort_key(directory: str) -> int:
+        name = directory.rsplit("/", 1)[-1]
+        matches = re.findall(
+            r"20\d{2}(?:[-_]?\d{2}){5}(?:[-_]?\d{3})?",
+            name,
+        )
+        if not matches:
+            return 0
+        digits = re.sub(r"\D", "", matches[-1])
+        return int(digits.ljust(17, "0")[:17])
 
     def _photo_candidates(self, camera: str) -> Iterable[tuple[str, str]]:
         return (

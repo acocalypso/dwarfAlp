@@ -1325,7 +1325,9 @@ class DwarfSession:
             state.progress_target_name = target_name
 
         requested_frames = max(1, int(state.requested_frame_count or 1))
-        completed = state.progress_stacked_count >= requested_frames
+        raw_frames_ready = state.progress_current_count >= requested_frames
+        stack_complete = state.progress_stacked_count >= requested_frames
+        completed = raw_frames_ready or stack_complete
         logger.info(
             "dwarf.camera.astro_capture_progress",
             capture_id=state.capture_id,
@@ -1337,6 +1339,8 @@ class DwarfSession:
             exposure_index=state.progress_exposure_index,
             gain_index=state.progress_gain_index,
             target_name=state.progress_target_name,
+            raw_frames_ready=raw_frames_ready,
+            stack_complete=stack_complete,
             completed=completed,
         )
         self._capture_start_evidence_event.set()
@@ -5752,7 +5756,10 @@ class DwarfSession:
                 progress_task = asyncio.create_task(self._capture_frame_complete_event.wait())
                 trigger = "ftp"
                 try:
-                    deadline = time.monotonic() + max(state.duration + 45.0, 50.0)
+                    exposure_budget = state.duration * max(
+                        1, state.requested_frame_count
+                    )
+                    deadline = time.monotonic() + max(exposure_budget + 55.0, 58.0)
                     while True:
                         remaining = deadline - time.monotonic()
                         if remaining <= 0:
@@ -5818,7 +5825,8 @@ class DwarfSession:
 
     async def _attempt_ftp_capture(self, state: CameraState) -> bool:
         baseline = state.pending_ftp_baseline
-        timeout = max(state.duration + 25.0, 30.0)
+        exposure_budget = state.duration * max(1, state.requested_frame_count)
+        timeout = max(exposure_budget + 55.0, 58.0)
         try:
             capture = await self._ftp_client.wait_for_new_photo(
                 baseline,

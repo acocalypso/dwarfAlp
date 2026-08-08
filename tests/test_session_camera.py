@@ -553,7 +553,7 @@ async def test_v3_device_state_notification_updates_session_state() -> None:
 
 
 @pytest.mark.asyncio
-async def test_astro_progress_stops_at_requested_stacked_count() -> None:
+async def test_astro_progress_stops_when_requested_raw_frames_are_acquired() -> None:
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
     state = session.camera_state
     state.capture_id = "capture-1"
@@ -576,19 +576,20 @@ async def test_astro_progress_stops_at_requested_stacked_count() -> None:
         packet.data = message.SerializeToString()
         return packet
 
-    await session._handle_notification(progress_packet(current=20, stacked=1))
+    await session._handle_notification(progress_packet(current=1, stacked=1))
 
     assert state.progress_total_count == 20
-    assert state.progress_current_count == 20
+    assert state.progress_current_count == 1
     assert state.progress_stacked_count == 1
     assert state.progress_exposure_index == 42
     assert state.progress_gain_index == 3
     assert state.progress_target_name == "Sun"
     assert not session._capture_frame_complete_event.is_set()
 
-    await session._handle_notification(progress_packet(current=20, stacked=2))
+    await session._handle_notification(progress_packet(current=2, stacked=1))
 
-    assert state.progress_stacked_count == 2
+    assert state.progress_current_count == 2
+    assert state.progress_stacked_count == 1
     assert session._capture_frame_complete_event.is_set()
 
 
