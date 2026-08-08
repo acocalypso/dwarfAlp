@@ -37,7 +37,13 @@ sequenceDiagram
     A->>D: 16703 absolute frame count
     A->>D: 11005 ReqCaptureRawLiveStacking(ir_index=1 or 2)
     D-->>A: Capture state/progress notifications
-    A->>D: Retrieve newly created capture
+    Note over A,D: Delayed -11514 is nonfatal if shooting continues
+    A->>D: 11006 after requested stack completes
+    A->>D: FTP FITS, or album mediaType=4
+    D-->>A: astroImageDetails.srcDir
+    A->>D: POST /album/astro/fitsList {srcDir}
+    D-->>A: fitsInfo[{filePath,isFailed,url}]
+    A->>D: GET filePath on static port 80
     A-->>N: ImageReady + image array
 ```
 
@@ -59,8 +65,20 @@ quick-set string but progress later reported index `156`, which is 15 seconds.
 | Frame count | 16703 | 16703 |
 | Start | 11005 | 11005 |
 | Completion | stop when FTP polling times out | wait for progress/new file; FTP timeout alone is non-terminal |
-| Retrieval safety | changed album path could be accepted | require capture-time evidence and reject stale album media |
+| Start warning | delayed nonzero response failed the local capture task | keep retrieval alive for `-11514` when firmware progress/file creation shows shooting continues |
+| Retrieval | generic album item could return `stacked.jpg` | prefer FITS; resolve `astroImageDetails.srcDir` through `/album/astro/fitsList` and download `filePath` from port 80 |
+| Retrieval safety | changed album path could be accepted | baseline astronomy media type 4, require capture-time evidence, and reject stale album media |
 | NINA array | JPEG could remain RGB/3-D | JPEG fallback is converted to a 2-D array; FITS remains preferred |
+
+## Alpaca coordinate slew target names
+
+ASCOM Alpaca `SlewToCoordinatesAsync` defines right ascension and declination but
+does not transmit the selected atlas object's display name. Sending the DWARF
+request unchanged therefore labels the target `Custom`. DwarfAlp now checks NINA's
+local `NINA.sqlite` sky-atlas catalogue, comparing the supplied coordinates with
+both J2000 and current-epoch positions. The hardware-test coordinates for M11 resolve
+to `M11`, which is then placed in the V3 GoTo request. If no close catalogue match is
+available, the driver retains `Custom` rather than guessing.
 
 ## Mini dark/calibration frame
 

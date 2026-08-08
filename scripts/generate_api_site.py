@@ -54,6 +54,26 @@ def _dwarfalp_openapi() -> dict[str, Any]:
         "alpaca": "Generated from the FastAPI application routes",
         "deviceProtocol": "Derived from DWARFLAB APK 3.4.1 and hardware captures",
     }
+    slew_operation = specification["paths"][
+        "/api/v1/telescope/0/slewtocoordinatesasync"
+    ]["put"]
+    slew_operation["description"] = (
+        "Slew to right ascension and declination. ASCOM Alpaca does not define a "
+        "target-name parameter for this operation. When NINA's local sky-atlas "
+        "database is available, DwarfAlp matches both J2000 and current-epoch "
+        "coordinates and sends the resolved catalogue name (for example M11) to "
+        "the DWARF instead of Custom."
+    )
+    slew_operation["x-dwarfalp-target-name-source"] = "NINA/NINA.sqlite coordinate match"
+    exposure_operation = specification["paths"][
+        "/api/v1/camera/0/startexposure"
+    ]["put"]
+    exposure_operation["description"] = (
+        "Start a DWARF exposure. For V3 astronomy captures, delayed firmware code "
+        "-11514 is treated as a nonfatal warning when the device continues shooting. "
+        "The result is retrieved as FITS through FTP or through the app-equivalent "
+        "album mediaType=4, astroImageDetails.srcDir, /album/astro/fitsList sequence."
+    )
     return specification
 
 
@@ -83,7 +103,33 @@ def _device_openapi(inventory: dict[str, Any]) -> dict[str, Any]:
                 "data": {},
             },
             "required": ["code"],
-        }
+        },
+        "AstroFitsInfo": {
+            "type": "object",
+            "properties": {
+                "url": {"type": ["string", "null"]},
+                "isFailed": {"type": "boolean"},
+                "filePath": {"type": "string"},
+            },
+            "required": ["isFailed", "filePath"],
+            "x-apk-evidence": (
+                "com/convergence/dwarflab/data/bean/album/AstroFitsInfo.java"
+            ),
+        },
+        "AstroFitsResponseData": {
+            "type": "object",
+            "properties": {
+                "totalCount": {"type": "integer"},
+                "fitsInfo": {
+                    "type": "array",
+                    "items": {"$ref": "#/components/schemas/AstroFitsInfo"},
+                },
+            },
+            "required": ["totalCount", "fitsInfo"],
+            "x-apk-evidence": (
+                "com/convergence/dwarflab/data/http/response/AstroFitsResp.java"
+            ),
+        },
     }
     for model in inventory["http_request_models"]:
         schemas[model["name"]] = {
@@ -142,6 +188,28 @@ def _device_openapi(inventory: dict[str, Any]) -> dict[str, Any]:
             operation["parameters"] = [
                 {"name": "version", "in": "query", "required": False, "schema": {"type": "string"}}
             ]
+        if path == "/album/astro/fitsList":
+            operation["summary"] = "List FITS files for an astronomy capture"
+            operation["description"] = (
+                "Confirmed DWARFLAB app retrieval step. Read "
+                "astroImageDetails.srcDir from a mediaType=4 album entry, POST it "
+                "as srcDir, ignore records where isFailed is true, then download "
+                "the selected filePath from the device static server on port 80."
+            )
+            operation["responses"]["200"]["content"]["application/json"]["schema"] = {
+                "allOf": [
+                    {"$ref": "#/components/schemas/DeviceResponse"},
+                    {
+                        "type": "object",
+                        "properties": {
+                            "data": {
+                                "$ref": "#/components/schemas/AstroFitsResponseData"
+                            }
+                        },
+                    },
+                ]
+            }
+            operation["x-hardware-status"] = "capture-created FITS confirmed"
         # Retrofit exposes coroutine and Rx overloads for a few operations.
         # Preserve both evidence records without creating invalid duplicate methods.
         existing = paths.setdefault(path, {}).get(method)

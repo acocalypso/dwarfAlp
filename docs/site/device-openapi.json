@@ -19,8 +19,8 @@
     "/album/astro/fitsList": {
       "post": {
         "operationId": "astroFits",
-        "summary": "astroFits",
-        "description": "Registered by the DWARFLAB 3.4.1 device Retrofit interface. Availability and response fields can vary by model and firmware.",
+        "summary": "List FITS files for an astronomy capture",
+        "description": "Confirmed DWARFLAB app retrieval step. Read astroImageDetails.srcDir from a mediaType=4 album entry, POST it as srcDir, ignore records where isFailed is true, then download the selected filePath from the device static server on port 80.",
         "tags": [
           "album"
         ],
@@ -30,7 +30,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeviceResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/DeviceResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AstroFitsResponseData"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -50,7 +62,8 @@
               }
             }
           }
-        }
+        },
+        "x-hardware-status": "capture-created FITS confirmed"
       }
     },
     "/album/astro/deleteFits": {
@@ -858,6 +871,47 @@
         "required": [
           "code"
         ]
+      },
+      "AstroFitsInfo": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isFailed": {
+            "type": "boolean"
+          },
+          "filePath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "isFailed",
+          "filePath"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/bean/album/AstroFitsInfo.java"
+      },
+      "AstroFitsResponseData": {
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "type": "integer"
+          },
+          "fitsInfo": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AstroFitsInfo"
+            }
+          }
+        },
+        "required": [
+          "totalCount",
+          "fitsInfo"
+        ],
+        "x-apk-evidence": "com/convergence/dwarflab/data/http/response/AstroFitsResp.java"
       },
       "AstroFitsRequest": {
         "type": "object",

@@ -912,7 +912,9 @@
               }
             }
           }
-        }
+        },
+        "description": "Slew to right ascension and declination. ASCOM Alpaca does not define a target-name parameter for this operation. When NINA's local sky-atlas database is available, DwarfAlp matches both J2000 and current-epoch coordinates and sends the resolved catalogue name (for example M11) to the DWARF instead of Custom.",
+        "x-dwarfalp-target-name-source": "NINA/NINA.sqlite coordinate match"
       }
     },
     "/api/v1/telescope/0/abortslew": {
@@ -2632,7 +2634,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Start a DWARF exposure. For V3 astronomy captures, delayed firmware code -11514 is treated as a nonfatal warning when the device continues shooting. The result is retrieved as FITS through FTP or through the app-equivalent album mediaType=4, astroImageDetails.srcDir, /album/astro/fitsList sequence."
       }
     },
     "/api/v1/camera/0/stopexposure": {

@@ -16,6 +16,7 @@
           <span>DwarfAlp <b>API Observatory</b></span>
         </a>
         <div class="nav-links">
+          <a href="#verified-findings">Findings</a>
           <a href="#alpaca">Alpaca</a>
           <a href="#device-http">Device HTTP</a>
           <a href="#cloud-http">Cloud HTTP</a>
@@ -50,6 +51,25 @@
 
     <main class="shell">
       <section class="metrics" id="metrics" aria-label="API inventory totals"></section>
+
+      <section class="panel" id="verified-findings">
+        <div class="section-heading">
+          <div><p class="eyebrow">Hardware verified</p><h2>Latest integration findings</h2></div>
+          <span class="status-pill">DWARF V3 API</span>
+        </div>
+        <p class="section-copy">Results from NINA, DWARF storage, application logs, and the decompiled DWARFLAB 3.4.1 workflow.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Finding</th><th>Evidence</th><th>DwarfAlp behavior</th></tr></thead>
+            <tbody>
+              <tr><td>Final astronomy image</td><td>A requested exposure created one FITS plus <code>stacked.jpg</code> on the DWARF.</td><td>Prefer FITS. Use FTP, then album media type 4, <code>astroImageDetails.srcDir</code>, <code>POST /album/astro/fitsList</code>, and the port-80 file path.</td></tr>
+              <tr><td>Start response -11514</td><td>The delayed <code>CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM</code> response arrived while progress notifications and file creation proved shooting continued.</td><td>Treat it as a nonfatal warning and keep the retrieval task running.</td></tr>
+              <tr><td>Target name</td><td>Alpaca <code>SlewToCoordinatesAsync</code> carries coordinates but no object name, so the DWARF previously received <code>Custom</code>.</td><td>Resolve J2000/current-epoch coordinates against NINA's local sky-atlas database; the captured M11 request resolves to <code>M11</code>.</td></tr>
+              <tr><td>Model scope</td><td>DWARF 2, DWARF 3, and DWARF Mini use the shared V3 command surface.</td><td>The capture and naming corrections are not model-gated.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section class="panel" id="alpaca">
         <div class="section-heading">
