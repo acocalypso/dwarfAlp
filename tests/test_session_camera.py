@@ -1532,10 +1532,11 @@ def test_long_exposure_progress_records_firmware_duration_mismatch():
     )
 
     assert state.reported_duration == 15.0
+    assert state.applied_duration == 15.0
 
 
 @pytest.mark.asyncio
-async def test_fetch_does_not_fall_back_to_album_after_duration_mismatch(monkeypatch):
+async def test_fetch_falls_back_to_album_after_ftp_failure(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
     session.simulation = False
     state = session.camera_state
@@ -1546,7 +1547,7 @@ async def test_fetch_does_not_fall_back_to_album_after_duration_mismatch(monkeyp
     album_attempted = False
 
     async def fake_attempt_ftp(fetch_state) -> bool:
-        fetch_state.last_error = "firmware_exposure_duration_mismatch"
+        fetch_state.last_error = "ftp_timeout"
         session._capture_frame_complete_event.set()
         return False
 
@@ -1556,6 +1557,7 @@ async def test_fetch_does_not_fall_back_to_album_after_duration_mismatch(monkeyp
     async def fake_attempt_album(_fetch_state) -> None:
         nonlocal album_attempted
         album_attempted = True
+        _fetch_state.image = object()
 
     monkeypatch.setattr(session, "_attempt_ftp_capture", fake_attempt_ftp)
     monkeypatch.setattr(session, "_stop_astro_capture", fake_stop)
@@ -1563,5 +1565,5 @@ async def test_fetch_does_not_fall_back_to_album_after_duration_mismatch(monkeyp
 
     await session._fetch_capture(state)
 
-    assert album_attempted is False
-    assert state.capture_phase == CapturePhase.FAILED
+    assert album_attempted is True
+    assert state.capture_phase == CapturePhase.READY

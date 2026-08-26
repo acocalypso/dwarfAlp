@@ -1456,6 +1456,11 @@ class DwarfSession:
             CapturePhase.TRANSFERRING,
         } and total_time > 0:
             state.reported_duration = total_time
+            # This notification is the firmware's authoritative duration.
+            # Preserve the requested duration in ``state.duration`` for
+            # diagnostics, but expose the actual value through the Alpaca
+            # LastExposureDuration property.
+            state.applied_duration = total_time
             tolerance = max(0.001, state.duration * 0.02)
             if not math.isclose(total_time, state.duration, abs_tol=tolerance):
                 logger.warning(
@@ -6176,10 +6181,7 @@ class DwarfSession:
             if ftp_success:
                 image_captured = True
             else:
-                if (
-                    state.last_error != "firmware_exposure_duration_mismatch"
-                    and (not astro_mode or state.image is None)
-                ):
+                if not astro_mode or state.image is None:
                     await self._attempt_album_capture(state)
                 image_captured = state.image is not None
         else:
@@ -6223,25 +6225,6 @@ class DwarfSession:
             state.last_end_time = time.time()
             state.pending_ftp_baseline = state.last_ftp_entry
             return False
-        if state.reported_duration is not None:
-            tolerance = max(0.001, state.duration * 0.02)
-            if not math.isclose(
-                state.reported_duration,
-                state.duration,
-                abs_tol=tolerance,
-            ):
-                logger.error(
-                    "dwarf.camera.ftp_capture_rejected_duration_mismatch",
-                    capture_id=state.capture_id,
-                    path=capture.entry.path,
-                    requested_duration=state.duration,
-                    firmware_duration=state.reported_duration,
-                )
-                state.start_time = None
-                state.last_error = "firmware_exposure_duration_mismatch"
-                state.last_end_time = time.time()
-                state.pending_ftp_baseline = capture.entry
-                return False
         try:
             frame = self._decode_capture_content(capture.entry.path, capture.content)
         except Exception as exc:
@@ -6270,6 +6253,8 @@ class DwarfSession:
             size_bytes=len(capture.content),
             baseline=None if baseline is None else baseline.path,
             exposure_started_at=state.last_start_time,
+            requested_duration=state.duration,
+            firmware_duration=state.reported_duration,
         )
         return True
 

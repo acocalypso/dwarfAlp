@@ -59,14 +59,16 @@ arbitrary parameter setter. The failed driver run sent a 5-second-looking
 quick-set string but progress later reported index `156`, which is 15 seconds.
 A DWARF 3 live test confirmed that priming 11041 before the exact live writes
 preserves a 1-second request through 11005. Notification 15288 reports the
-firmware-selected duration and is checked before accepting the FITS.
+firmware-selected duration. The driver records that value and still returns the
+matching fresh FITS; discarding an exposure after StartExposure has returned
+would leave Alpaca clients polling ImageReady until their timeout.
 
 ### Driver versus APK 3.4.1
 
 | Stage | Old driver | Current APK workflow / corrected driver |
 |---|---|---|
 | Discover values | 11040 quick-set list only | HTTP mode-2 parameter catalogue |
-| Exposure | rewrite a 11041 string | prime 11041, then 16700 with catalogue exposure index; verify 15288 total time |
+| Exposure | rewrite a 11041 string | prime 11041, then 16700 with catalogue exposure index; use 15288 as the applied duration |
 | Gain | rewrite a 11041 string | 16701 with catalogue gain value |
 | Frame count | 16703 | 16703 |
 | Start | 11005 | 11005 |
