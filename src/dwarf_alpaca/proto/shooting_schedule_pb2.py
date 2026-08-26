@@ -24,23 +24,23 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17shooting_schedule.proto\"\xed\x01\n\x0fShootingTaskMsg\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x0e\n\x06params\x18\x02 \x01(\t\x12!\n\x05state\x18\x03 \x01(\x0e\x32\x12.ShootingTaskState\x12\x0c\n\x04\x63ode\x18\x04 \x01(\x05\x12\x14\n\x0c\x63reated_time\x18\x05 \x01(\x03\x12\x14\n\x0cupdated_time\x18\x06 \x01(\x03\x12\x18\n\x10schedule_task_id\x18\x07 \x01(\t\x12\x12\n\nparam_mode\x18\x08 \x01(\x05\x12\x15\n\rparam_version\x18\t \x01(\x05\x12\x13\n\x0b\x63reate_from\x18\n \x01(\x05\"\xd7\x03\n\x13ShootingScheduleMsg\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x15\n\rschedule_name\x18\x02 \x01(\t\x12\x11\n\tdevice_id\x18\x03 \x01(\x05\x12\x13\n\x0bmac_address\x18\x04 \x01(\t\x12\x12\n\nstart_time\x18\x05 \x01(\x03\x12\x10\n\x08\x65nd_time\x18\x06 \x01(\x03\x12\'\n\x06result\x18\x07 \x01(\x0e\x32\x17.ShootingScheduleResult\x12\x14\n\x0c\x63reated_time\x18\x08 \x01(\x03\x12\x14\n\x0cupdated_time\x18\t \x01(\x03\x12%\n\x05state\x18\n \x01(\x0e\x32\x16.ShootingScheduleState\x12\x0c\n\x04lock\x18\x0b \x01(\x05\x12\x10\n\x08password\x18\x0c \x01(\t\x12(\n\x0eshooting_tasks\x18\r \x03(\x0b\x32\x10.ShootingTaskMsg\x12\x12\n\nparam_mode\x18\x0e \x01(\x05\x12\x15\n\rparam_version\x18\x0f \x01(\x05\x12\x0e\n\x06params\x18\x10 \x01(\t\x12\x15\n\rschedule_time\x18\x11 \x01(\x03\x12.\n\nsync_state\x18\x12 \x01(\x0e\x32\x1a.ShootingScheduleSyncState\"J\n\x17ReqSyncShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\"\x91\x01\n\x17ResSyncShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\x12\"\n\x1atime_conflict_schedule_ids\x18\x02 \x03(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\x12\x13\n\x0b\x63\x61n_replace\x18\x04 \x01(\x08\"9\n\x19ReqCancelShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"5\n\x19ResCancelShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"\x1b\n\x19ReqGetAllShootingSchedule\"Z\n\x19ResGetAllShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x03(\x0b\x32\x14.ShootingScheduleMsg\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"(\n\x1aReqGetShootingScheduleById\x12\n\n\x02id\x18\x01 \x01(\t\"[\n\x1aResGetShootingScheduleById\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"$\n\x16ReqGetShootingTaskById\x12\n\n\x02id\x18\x01 \x01(\t\"O\n\x16ResGetShootingTaskById\x12\'\n\rshooting_task\x18\x01 \x01(\x0b\x32\x10.ShootingTaskMsg\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"M\n\x1aReqReplaceShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\"[\n\x1aResReplaceShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"9\n\x19ReqUnlockShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"5\n\x19ResUnlockShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"7\n\x17ReqLockShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"3\n\x17ResLockShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"9\n\x19ReqDeleteShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"5\n\x19ResDeleteShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05*\xdd\x01\n\x15ShootingScheduleState\x12\'\n#SHOOTING_SCHEDULE_STATE_INITIALIZED\x10\x00\x12)\n%SHOOTING_SCHEDULE_STATE_PENDING_SHOOT\x10\x01\x12$\n SHOOTING_SCHEDULE_STATE_SHOOTING\x10\x02\x12%\n!SHOOTING_SCHEDULE_STATE_COMPLETED\x10\x03\x12#\n\x1fSHOOTING_SCHEDULE_STATE_EXPIRED\x10\x04*s\n\x19ShootingScheduleSyncState\x12-\n)SHOOTING_SCHEDULE_SYNC_STATE_PENDING_SYNC\x10\x00\x12\'\n#SHOOTING_SCHEDULE_SYNC_STATE_SYNCED\x10\x01*\xcb\x01\n\x16ShootingScheduleResult\x12*\n&SHOOTING_SCHEDULE_RESULT_PENDING_START\x10\x00\x12*\n&SHOOTING_SCHEDULE_RESULT_ALL_COMPLETED\x10\x01\x12\x30\n,SHOOTING_SCHEDULE_RESULT_PARTIALLY_COMPLETED\x10\x02\x12\'\n#SHOOTING_SCHEDULE_RESULT_ALL_FAILED\x10\x03*\xbe\x01\n\x11ShootingTaskState\x12\x1d\n\x19SHOOTING_TASK_STATUS_IDLE\x10\x00\x12!\n\x1dSHOOTING_TASK_STATUS_SHOOTING\x10\x01\x12 \n\x1cSHOOTING_TASK_STATUS_SUCCESS\x10\x02\x12\x1f\n\x1bSHOOTING_TASK_STATUS_FAILED\x10\x03\x12$\n SHOOTING_TASK_STATUS_INTERRUPTED\x10\x04*A\n\x14ShootingScheduleMode\x12)\n%SHOOTING_SCHEDULE_MODE_ASTRO_DEEP_SKY\x10\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17shooting_schedule.proto\"\xed\x01\n\x0fShootingTaskMsg\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x0e\n\x06params\x18\x02 \x01(\t\x12!\n\x05state\x18\x03 \x01(\x0e\x32\x12.ShootingTaskState\x12\x0c\n\x04\x63ode\x18\x04 \x01(\x05\x12\x14\n\x0c\x63reated_time\x18\x05 \x01(\x03\x12\x14\n\x0cupdated_time\x18\x06 \x01(\x03\x12\x18\n\x10schedule_task_id\x18\x07 \x01(\t\x12\x12\n\nparam_mode\x18\x08 \x01(\x05\x12\x15\n\rparam_version\x18\t \x01(\x05\x12\x13\n\x0b\x63reate_from\x18\n \x01(\x05\"\xd7\x03\n\x13ShootingScheduleMsg\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x15\n\rschedule_name\x18\x02 \x01(\t\x12\x11\n\tdevice_id\x18\x03 \x01(\x05\x12\x13\n\x0bmac_address\x18\x04 \x01(\t\x12\x12\n\nstart_time\x18\x05 \x01(\x03\x12\x10\n\x08\x65nd_time\x18\x06 \x01(\x03\x12\'\n\x06result\x18\x07 \x01(\x0e\x32\x17.ShootingScheduleResult\x12\x14\n\x0c\x63reated_time\x18\x08 \x01(\x03\x12\x14\n\x0cupdated_time\x18\t \x01(\x03\x12%\n\x05state\x18\n \x01(\x0e\x32\x16.ShootingScheduleState\x12\x0c\n\x04lock\x18\x0b \x01(\x05\x12\x10\n\x08password\x18\x0c \x01(\t\x12(\n\x0eshooting_tasks\x18\r \x03(\x0b\x32\x10.ShootingTaskMsg\x12\x12\n\nparam_mode\x18\x0e \x01(\x05\x12\x15\n\rparam_version\x18\x0f \x01(\x05\x12\x0e\n\x06params\x18\x10 \x01(\t\x12\x15\n\rschedule_time\x18\x11 \x01(\x03\x12.\n\nsync_state\x18\x12 \x01(\x0e\x32\x1a.ShootingScheduleSyncState\"J\n\x17ReqSyncShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\"\x91\x01\n\x17ResSyncShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\x12\"\n\x1atime_conflict_schedule_ids\x18\x02 \x03(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\x12\x13\n\x0b\x63\x61n_replace\x18\x04 \x01(\x08\"9\n\x19ReqCancelShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"5\n\x19ResCancelShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"\x1b\n\x19ReqGetAllShootingSchedule\"Z\n\x19ResGetAllShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x03(\x0b\x32\x14.ShootingScheduleMsg\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"(\n\x1aReqGetShootingScheduleById\x12\n\n\x02id\x18\x01 \x01(\t\"[\n\x1aResGetShootingScheduleById\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"$\n\x16ReqGetShootingTaskById\x12\n\n\x02id\x18\x01 \x01(\t\"O\n\x16ResGetShootingTaskById\x12\'\n\rshooting_task\x18\x01 \x01(\x0b\x32\x10.ShootingTaskMsg\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"M\n\x1aReqReplaceShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\"\x95\x01\n\x1aResReplaceShootingSchedule\x12/\n\x11shooting_schedule\x18\x01 \x01(\x0b\x32\x14.ShootingScheduleMsg\x12\x38\n\x1areplaced_shooting_schedule\x18\x02 \x03(\x0b\x32\x14.ShootingScheduleMsg\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\"9\n\x19ReqUnlockShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"5\n\x19ResUnlockShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"7\n\x17ReqLockShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"E\n\x17ResLockShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\"9\n\x19ReqDeleteShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"5\n\x19ResDeleteShootingSchedule\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05*\xdd\x01\n\x15ShootingScheduleState\x12\'\n#SHOOTING_SCHEDULE_STATE_INITIALIZED\x10\x00\x12)\n%SHOOTING_SCHEDULE_STATE_PENDING_SHOOT\x10\x01\x12$\n SHOOTING_SCHEDULE_STATE_SHOOTING\x10\x02\x12%\n!SHOOTING_SCHEDULE_STATE_COMPLETED\x10\x03\x12#\n\x1fSHOOTING_SCHEDULE_STATE_EXPIRED\x10\x04*s\n\x19ShootingScheduleSyncState\x12-\n)SHOOTING_SCHEDULE_SYNC_STATE_PENDING_SYNC\x10\x00\x12\'\n#SHOOTING_SCHEDULE_SYNC_STATE_SYNCED\x10\x01*\xcb\x01\n\x16ShootingScheduleResult\x12*\n&SHOOTING_SCHEDULE_RESULT_PENDING_START\x10\x00\x12*\n&SHOOTING_SCHEDULE_RESULT_ALL_COMPLETED\x10\x01\x12\x30\n,SHOOTING_SCHEDULE_RESULT_PARTIALLY_COMPLETED\x10\x02\x12\'\n#SHOOTING_SCHEDULE_RESULT_ALL_FAILED\x10\x03*\xbe\x01\n\x11ShootingTaskState\x12\x1d\n\x19SHOOTING_TASK_STATUS_IDLE\x10\x00\x12!\n\x1dSHOOTING_TASK_STATUS_SHOOTING\x10\x01\x12 \n\x1cSHOOTING_TASK_STATUS_SUCCESS\x10\x02\x12\x1f\n\x1bSHOOTING_TASK_STATUS_FAILED\x10\x03\x12$\n SHOOTING_TASK_STATUS_INTERRUPTED\x10\x04*A\n\x14ShootingScheduleMode\x12)\n%SHOOTING_SCHEDULE_MODE_ASTRO_DEEP_SKY\x10\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'shooting_schedule_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_SHOOTINGSCHEDULESTATE']._serialized_start=1965
-  _globals['_SHOOTINGSCHEDULESTATE']._serialized_end=2186
-  _globals['_SHOOTINGSCHEDULESYNCSTATE']._serialized_start=2188
-  _globals['_SHOOTINGSCHEDULESYNCSTATE']._serialized_end=2303
-  _globals['_SHOOTINGSCHEDULERESULT']._serialized_start=2306
-  _globals['_SHOOTINGSCHEDULERESULT']._serialized_end=2509
-  _globals['_SHOOTINGTASKSTATE']._serialized_start=2512
-  _globals['_SHOOTINGTASKSTATE']._serialized_end=2702
-  _globals['_SHOOTINGSCHEDULEMODE']._serialized_start=2704
-  _globals['_SHOOTINGSCHEDULEMODE']._serialized_end=2769
+  _globals['_SHOOTINGSCHEDULESTATE']._serialized_start=2042
+  _globals['_SHOOTINGSCHEDULESTATE']._serialized_end=2263
+  _globals['_SHOOTINGSCHEDULESYNCSTATE']._serialized_start=2265
+  _globals['_SHOOTINGSCHEDULESYNCSTATE']._serialized_end=2380
+  _globals['_SHOOTINGSCHEDULERESULT']._serialized_start=2383
+  _globals['_SHOOTINGSCHEDULERESULT']._serialized_end=2586
+  _globals['_SHOOTINGTASKSTATE']._serialized_start=2589
+  _globals['_SHOOTINGTASKSTATE']._serialized_end=2779
+  _globals['_SHOOTINGSCHEDULEMODE']._serialized_start=2781
+  _globals['_SHOOTINGSCHEDULEMODE']._serialized_end=2846
   _globals['_SHOOTINGTASKMSG']._serialized_start=28
   _globals['_SHOOTINGTASKMSG']._serialized_end=265
   _globals['_SHOOTINGSCHEDULEMSG']._serialized_start=268
@@ -67,18 +67,18 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_RESGETSHOOTINGTASKBYID']._serialized_end=1452
   _globals['_REQREPLACESHOOTINGSCHEDULE']._serialized_start=1454
   _globals['_REQREPLACESHOOTINGSCHEDULE']._serialized_end=1531
-  _globals['_RESREPLACESHOOTINGSCHEDULE']._serialized_start=1533
-  _globals['_RESREPLACESHOOTINGSCHEDULE']._serialized_end=1624
-  _globals['_REQUNLOCKSHOOTINGSCHEDULE']._serialized_start=1626
-  _globals['_REQUNLOCKSHOOTINGSCHEDULE']._serialized_end=1683
-  _globals['_RESUNLOCKSHOOTINGSCHEDULE']._serialized_start=1685
-  _globals['_RESUNLOCKSHOOTINGSCHEDULE']._serialized_end=1738
-  _globals['_REQLOCKSHOOTINGSCHEDULE']._serialized_start=1740
-  _globals['_REQLOCKSHOOTINGSCHEDULE']._serialized_end=1795
-  _globals['_RESLOCKSHOOTINGSCHEDULE']._serialized_start=1797
-  _globals['_RESLOCKSHOOTINGSCHEDULE']._serialized_end=1848
-  _globals['_REQDELETESHOOTINGSCHEDULE']._serialized_start=1850
-  _globals['_REQDELETESHOOTINGSCHEDULE']._serialized_end=1907
-  _globals['_RESDELETESHOOTINGSCHEDULE']._serialized_start=1909
-  _globals['_RESDELETESHOOTINGSCHEDULE']._serialized_end=1962
+  _globals['_RESREPLACESHOOTINGSCHEDULE']._serialized_start=1534
+  _globals['_RESREPLACESHOOTINGSCHEDULE']._serialized_end=1683
+  _globals['_REQUNLOCKSHOOTINGSCHEDULE']._serialized_start=1685
+  _globals['_REQUNLOCKSHOOTINGSCHEDULE']._serialized_end=1742
+  _globals['_RESUNLOCKSHOOTINGSCHEDULE']._serialized_start=1744
+  _globals['_RESUNLOCKSHOOTINGSCHEDULE']._serialized_end=1797
+  _globals['_REQLOCKSHOOTINGSCHEDULE']._serialized_start=1799
+  _globals['_REQLOCKSHOOTINGSCHEDULE']._serialized_end=1854
+  _globals['_RESLOCKSHOOTINGSCHEDULE']._serialized_start=1856
+  _globals['_RESLOCKSHOOTINGSCHEDULE']._serialized_end=1925
+  _globals['_REQDELETESHOOTINGSCHEDULE']._serialized_start=1927
+  _globals['_REQDELETESHOOTINGSCHEDULE']._serialized_end=1984
+  _globals['_RESDELETESHOOTINGSCHEDULE']._serialized_start=1986
+  _globals['_RESDELETESHOOTINGSCHEDULE']._serialized_end=2039
 # @@protoc_insertion_point(module_scope)

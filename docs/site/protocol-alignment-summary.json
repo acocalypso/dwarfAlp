@@ -1,0 +1,53 @@
+{
+  "evidence": {
+    "firmwareDescriptorSet": "firmware-analysis/metadata/bilbo-protos.pb",
+    "firmwareDescriptorSetSha256": "4370a369cb1d151d052efbdaa8fd251658d3ced898dbe264aa01b612fa7aaf24",
+    "apkRegistry": "DWARFLAB 3.4.1"
+  },
+  "schemas": {
+    "canonicalFiles": 24,
+    "canonicalMessages": 429,
+    "canonicalFields": 959,
+    "firmwareFiles": 16,
+    "firmwareMessages": 448,
+    "firmwareFields": 1089,
+    "exactUniquelyNamedMessages": 420,
+    "nonExactUniquelyNamedSharedMessages": 0,
+    "intentionalEnumConflicts": [
+      "WsMajorVersion",
+      "WsMinorVersion"
+    ]
+  },
+  "registry": {
+    "apkCommands": 356,
+    "canonicalCorrectCommands": 238,
+    "deprecatedCompatibilityAliases": 44,
+    "legacyUnknownCommands": 6,
+    "apkResponseCodes": 123,
+    "matchingResponseCodes": 123
+  },
+  "liveValidation": {
+    "date": "2026-08-26",
+    "model": "DWARF Mini",
+    "stateQueryCode": 0,
+    "exposures": 2,
+    "exposureSeconds": 1,
+    "gain": 60,
+    "filter": "Astro",
+    "fitsBytes": 1846080,
+    "decodedShape": [720, 1280],
+    "decodedType": "uint16",
+    "notification15288": "LongExpPhotoProgress",
+    "v3CameraDisconnect": "local-only; command 10001 absent from V3 app captures and ignored by live Mini"
+  },
+  "transport": {
+    "framing": "one WsPacket protobuf per binary WebSocket frame",
+    "correlation": "module_id plus command_id",
+    "sequenceId": false
+  },
+  "unresolved": [
+    "Embedded WebSocket version 2.3 conflicts with working profile values 1.2 and 1.20.",
+    "Command 15255 payload semantics remain capture-derived.",
+    "Registry presence does not prove command availability on every model and firmware."
+  ]
+}

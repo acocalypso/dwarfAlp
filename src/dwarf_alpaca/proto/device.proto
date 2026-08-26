@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+import "base.proto";
+
+message ReqLensDefog {
+    int32 state = 1;
+}
+
+message ReqAutoCooling {
+    int32 state = 1;
+}
+
+message ReqAutoShutdown {
+    int32 state = 1;
+}

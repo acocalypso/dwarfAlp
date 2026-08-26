@@ -13,15 +13,15 @@ from dwarf_alpaca.dwarf.ws_client import DwarfCommandError
 from dwarf_alpaca.proto import astro_pb2, protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import (
     TYPE_NOTIFICATION,
-    V3ResModeSwitch,
     WsPacket,
 )
 from dwarf_alpaca.proto.notify_pb2 import (
+    AstroAutoFocusState,
     AstroCalibrationState,
     CalibrationResult,
-    ResNotifyOneClickGotoState,
+    OneClickGotoState,
 )
-from dwarf_alpaca.proto.v3_notify_pb2 import V3ResNotifyAutoFocusState
+from dwarf_alpaca.proto.task_center_pb2 import ResEnterCamera, ResSwitchShootingMode
 
 
 def _settings(**overrides: Any) -> Settings:
@@ -132,11 +132,13 @@ async def test_one_click_goto_notification_is_decoded() -> None:
     session._one_click_goto_active = True
     session._record_goto(5.5, 22.0)
     session._mark_goto_pending(kind="dso", target_name="M42")
+    notification = OneClickGotoState()
+    notification.astro_goto_state.state = 1
     packet = WsPacket(
         module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
         cmd=protocol_pb2.DwarfCMD.CMD_NOTIFY_STATE_ASTRO_ONE_CLICK_GOTO,
         type=TYPE_NOTIFICATION,
-        data=ResNotifyOneClickGotoState(state=1).SerializeToString(),
+        data=notification.SerializeToString(),
     )
 
     await session._handle_notification(packet)
@@ -243,8 +245,9 @@ async def test_one_click_goto_preparation_matches_captured_app_sequence() -> Non
         self, module_id, command_id, request, response_cls, **kwargs
     ):
         calls.append((module_id, command_id, request))
-        response = V3ResModeSwitch(code=protocol_pb2.OK, mode=8)
-        return response
+        if command_id == 16402:
+            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=8)
+        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=8)
 
     async def fake_send_and_check(
         self, module_id, command_id, request, **kwargs
@@ -257,10 +260,11 @@ async def test_one_click_goto_preparation_matches_captured_app_sequence() -> Non
 
     await session._prepare_one_click_goto_mode()
 
-    assert [command for _, command, _ in calls] == [16404, 10050, 12036]
-    assert calls[0][2].inner.value == 1
-    assert calls[1][2].action == 1
-    assert calls[2][2].action == 1
+    assert [command for _, command, _ in calls] == [16402, 16404, 10050, 12036]
+    assert calls[0][2].mode == 8
+    assert calls[1][2].client_param.encode_type == 1
+    assert calls[2][2].level == 1
+    assert calls[3][2].level == 1
 
 
 @pytest.mark.asyncio
@@ -314,14 +318,14 @@ async def test_calibration_trace_counts_known_and_unknown_notifications() -> Non
 @pytest.mark.parametrize(
     "command_id",
     [
-        protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE,
-        protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT,
+        protocol_pb2.DwarfCMD.CMD_NOTIFY_ASTRO_AUTO_FOCUS_STATE,
+        protocol_pb2.DwarfCMD.CMD_NOTIFY_ASTRO_AUTO_FOCUS_FAST_STATE,
     ],
 )
 async def test_autofocus_completion_notifications_are_shared_v3(command_id: int) -> None:
     session = DwarfSession(_settings(dwarf_device_model="dwarf2"))
     session.simulation = False
-    notification = V3ResNotifyAutoFocusState(state=3)
+    notification = AstroAutoFocusState(state=3)
     packet = WsPacket(
         module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
         cmd=command_id,
@@ -790,8 +794,8 @@ async def test_telescope_move_axis_sends_joystick_command(monkeypatch):
     assert entry["module_id"] == protocol_pb2.ModuleId.MODULE_MOTOR
     assert entry["command_id"] == protocol_pb2.DwarfCMD.CMD_STEP_MOTOR_SERVICE_JOYSTICK
     assert entry["vector_angle"] == pytest.approx(0.0)
-    assert entry["vector_length"] == pytest.approx(1.0)
-    assert entry["speed"] == pytest.approx(1.5)
+    assert entry["vector_length"] == pytest.approx(1.5 / 30.0)
+    assert entry["speed"] is None
     assert session._manual_axis_rates[0] == pytest.approx(1.5)
     assert session._joystick_active is True
 
@@ -828,7 +832,8 @@ async def test_telescope_move_axis_clamps_speed(monkeypatch):
 
     assert captured
     entry = captured[-1]
-    assert entry["speed"] == pytest.approx(30.0)
+    assert entry["vector_length"] == pytest.approx(1.0)
+    assert entry["speed"] is None
     assert entry["vector_length"] == pytest.approx(1.0)
 
 
@@ -866,8 +871,8 @@ async def test_telescope_move_axis_combines_axes(monkeypatch):
     assert len(captured) == 2
     angle = captured[-1]["vector_angle"]
     assert angle == pytest.approx(45.0)
-    assert captured[-1]["vector_length"] == pytest.approx(1.0)
-    assert captured[-1]["speed"] == pytest.approx(math.hypot(5.0, 5.0))
+    assert captured[-1]["vector_length"] == pytest.approx(math.hypot(5.0, 5.0) / 30.0)
+    assert captured[-1]["speed"] is None
 
 
 @pytest.mark.asyncio

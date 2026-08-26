@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0btrack.proto\";\n\rReqStartTrack\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\x12\t\n\x01w\x18\x03 \x01(\x05\x12\t\n\x01h\x18\x04 \x01(\x05\"\x0e\n\x0cReqStopTrack\"\x0f\n\rReqPauseTrack\"\x12\n\x10ReqContinueTrack\"\"\n\x12ReqStartSentryMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x13\n\x11ReqStopSentryModeb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0btrack.proto\"K\n\rReqStartTrack\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\x12\t\n\x01w\x18\x03 \x01(\x05\x12\t\n\x01h\x18\x04 \x01(\x05\x12\x0e\n\x06\x63\x61m_id\x18\x05 \x01(\x05\"\x0e\n\x0cReqStopTrack\"\x0f\n\rReqPauseTrack\"\x12\n\x10ReqContinueTrack\"\"\n\x12ReqStartSentryMode\x12\x0c\n\x04type\x18\x01 \x01(\x05\"\x13\n\x11ReqStopSentryMode\"\"\n\x12ReqUFOAutoHandMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\":\n\x12ReqStartTrackClick\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\x12\x0e\n\x06\x63\x61m_id\x18\x03 \x01(\x05\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,15 +32,19 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'track_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_REQSTARTTRACK']._serialized_start=15
-  _globals['_REQSTARTTRACK']._serialized_end=74
-  _globals['_REQSTOPTRACK']._serialized_start=76
-  _globals['_REQSTOPTRACK']._serialized_end=90
-  _globals['_REQPAUSETRACK']._serialized_start=92
-  _globals['_REQPAUSETRACK']._serialized_end=107
-  _globals['_REQCONTINUETRACK']._serialized_start=109
-  _globals['_REQCONTINUETRACK']._serialized_end=127
-  _globals['_REQSTARTSENTRYMODE']._serialized_start=129
-  _globals['_REQSTARTSENTRYMODE']._serialized_end=163
-  _globals['_REQSTOPSENTRYMODE']._serialized_start=165
-  _globals['_REQSTOPSENTRYMODE']._serialized_end=184
+  _globals['_REQSTARTTRACK']._serialized_end=90
+  _globals['_REQSTOPTRACK']._serialized_start=92
+  _globals['_REQSTOPTRACK']._serialized_end=106
+  _globals['_REQPAUSETRACK']._serialized_start=108
+  _globals['_REQPAUSETRACK']._serialized_end=123
+  _globals['_REQCONTINUETRACK']._serialized_start=125
+  _globals['_REQCONTINUETRACK']._serialized_end=143
+  _globals['_REQSTARTSENTRYMODE']._serialized_start=145
+  _globals['_REQSTARTSENTRYMODE']._serialized_end=179
+  _globals['_REQSTOPSENTRYMODE']._serialized_start=181
+  _globals['_REQSTOPSENTRYMODE']._serialized_end=200
+  _globals['_REQUFOAUTOHANDMODE']._serialized_start=202
+  _globals['_REQUFOAUTOHANDMODE']._serialized_end=236
+  _globals['_REQSTARTTRACKCLICK']._serialized_start=238
+  _globals['_REQSTARTTRACKCLICK']._serialized_end=296
 # @@protoc_insertion_point(module_scope)

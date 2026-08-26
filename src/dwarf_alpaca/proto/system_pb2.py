@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0csystem.proto\"8\n\nReqSetTime\x12\x11\n\ttimestamp\x18\x01 \x01(\x04\x12\x17\n\x0ftimezone_offset\x18\x02 \x01(\x01\"\"\n\x0eReqSetTimezone\x12\x10\n\x08timezone\x18\x01 \x01(\t\"\x1d\n\rReqSetMtpMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x1d\n\rReqSetCpuMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\" \n\x10ReqsetMasterLock\x12\x0c\n\x04lock\x18\x01 \x01(\x08\"*\n\x18ReqGetDeviceActivateInfo\x12\x0e\n\x06issuer\x18\x01 \x01(\x05\"f\n\x15ResDeviceActivateInfo\x12\x16\n\x0e\x61\x63tivate_state\x18\x01 \x01(\x05\x12\x1e\n\x16\x61\x63tivate_process_state\x18\x02 \x01(\x05\x12\x15\n\rrequest_param\x18\x03 \x01(\t\"3\n\x1aReqDeviceActivateWriteFile\x12\x15\n\rrequest_param\x18\x01 \x01(\t\"A\n\x1aResDeviceActivateWriteFile\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x15\n\rrequest_param\x18\x02 \x01(\t\"5\n\x1cReqDeviceActivateSuccessfull\x12\x15\n\rrequest_param\x18\x01 \x01(\t\"D\n\x1cResDeviceActivateSuccessfull\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x16\n\x0e\x61\x63tivate_state\x18\x02 \x01(\x05\"1\n\x18ReqDisableDeviceActivate\x12\x15\n\rrequest_param\x18\x01 \x01(\t\"@\n\x18ResDisableDeviceActivate\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x16\n\x0e\x61\x63tivate_state\x18\x02 \x01(\x05\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0csystem.proto\"8\n\nReqSetTime\x12\x11\n\ttimestamp\x18\x01 \x01(\x04\x12\x17\n\x0ftimezone_offset\x18\x02 \x01(\x01\"\"\n\x0eReqSetTimezone\x12\x10\n\x08timezone\x18\x01 \x01(\t\"\x1d\n\rReqSetMtpMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x1d\n\rReqSetCpuMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\" \n\x10ReqsetMasterLock\x12\x0c\n\x04lock\x18\x01 \x01(\x08\"+\n\x1bReqSetLowTempProtectionMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\xa1\x01\n\x0eReqSetLocation\x12\x10\n\x08latitude\x18\x01 \x01(\x01\x12\x11\n\tlongitude\x18\x02 \x01(\x01\x12\x10\n\x08\x61ltitude\x18\x03 \x01(\x01\x12\x16\n\x0e\x63ountry_region\x18\x04 \x01(\t\x12\x10\n\x08province\x18\x05 \x01(\t\x12\x0c\n\x04\x63ity\x18\x06 \x01(\t\x12\x10\n\x08\x64istrict\x18\x07 \x01(\t\x12\x0e\n\x06\x65nable\x18\x08 \x01(\x08\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,20 +41,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_REQSETCPUMODE']._serialized_end=170
   _globals['_REQSETMASTERLOCK']._serialized_start=172
   _globals['_REQSETMASTERLOCK']._serialized_end=204
-  _globals['_REQGETDEVICEACTIVATEINFO']._serialized_start=206
-  _globals['_REQGETDEVICEACTIVATEINFO']._serialized_end=248
-  _globals['_RESDEVICEACTIVATEINFO']._serialized_start=250
-  _globals['_RESDEVICEACTIVATEINFO']._serialized_end=352
-  _globals['_REQDEVICEACTIVATEWRITEFILE']._serialized_start=354
-  _globals['_REQDEVICEACTIVATEWRITEFILE']._serialized_end=405
-  _globals['_RESDEVICEACTIVATEWRITEFILE']._serialized_start=407
-  _globals['_RESDEVICEACTIVATEWRITEFILE']._serialized_end=472
-  _globals['_REQDEVICEACTIVATESUCCESSFULL']._serialized_start=474
-  _globals['_REQDEVICEACTIVATESUCCESSFULL']._serialized_end=527
-  _globals['_RESDEVICEACTIVATESUCCESSFULL']._serialized_start=529
-  _globals['_RESDEVICEACTIVATESUCCESSFULL']._serialized_end=597
-  _globals['_REQDISABLEDEVICEACTIVATE']._serialized_start=599
-  _globals['_REQDISABLEDEVICEACTIVATE']._serialized_end=648
-  _globals['_RESDISABLEDEVICEACTIVATE']._serialized_start=650
-  _globals['_RESDISABLEDEVICEACTIVATE']._serialized_end=714
+  _globals['_REQSETLOWTEMPPROTECTIONMODE']._serialized_start=206
+  _globals['_REQSETLOWTEMPPROTECTIONMODE']._serialized_end=249
+  _globals['_REQSETLOCATION']._serialized_start=252
+  _globals['_REQSETLOCATION']._serialized_end=413
 # @@protoc_insertion_point(module_scope)

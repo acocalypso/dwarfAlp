@@ -12,14 +12,12 @@ from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosedOK
 from websockets.protocol import State
 
-from ..proto.dwarf_messages import (
-    TYPE_NOTIFICATION,
-    TYPE_NOTIFICATION_RESPONSE,
-    TYPE_REQUEST,
-    TYPE_REQUEST_RESPONSE,
-    ComResponse,
-    WsPacket,
-)
+from ..proto.base_pb2 import ComResponse, WsPacket
+
+TYPE_REQUEST = 0
+TYPE_REQUEST_RESPONSE = 1
+TYPE_NOTIFICATION = 2
+TYPE_NOTIFICATION_RESPONSE = 3
 
 ResponseT = TypeVar("ResponseT", bound=Message)
 NotificationHandler = Callable[[WsPacket], Awaitable[None]]
@@ -119,7 +117,7 @@ class DwarfWsClient:
             await self._stop_ping_task()
             if self._reader_task:
                 self._reader_task.cancel()
-                with contextlib.suppress(Exception):
+                with contextlib.suppress(asyncio.CancelledError):
                     await self._reader_task
                 self._reader_task = None
             if self._conn:

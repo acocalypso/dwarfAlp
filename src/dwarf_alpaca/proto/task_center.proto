@@ -1,0 +1,208 @@
+syntax = "proto3";
+
+import "notify.proto";
+import "panorama.proto";
+import "astro.proto";
+
+enum TaskId {
+    TASK_ID_IDLE = 0;
+    TASK_ID_PANORAMA_UPLOAD = 1;
+    TASK_ID_ASTRO_MULTI_STACK_THUMBNAIL_GENERATION = 2;
+    TASK_ID_ASTRO_MULTI_STACK = 3;
+    TASK_ID_CAPTURE_CALI_FRAME = 4;
+}
+
+enum ExclusiveTaskType {
+    EXCLUSIVE_TYPE_NONE = 0;
+    EXCLUSIVE_TYPE_CAMERA = 1;
+    EXCLUSIVE_TYPE_MOTOR = 2;
+    EXCLUSIVE_TYPE_FOCUS_MOTOR = 4;
+    EXCLUSIVE_TYPE_SYSTEM_IO = 8;
+    EXCLUSIVE_TYPE_SYSTEM_WIFI = 16;
+}
+
+message TaskAttr {
+    int32 exclusive_mask = 1;
+    int32 priority = 2;
+}
+
+message TaskState {
+    notify.OperationState base_state = 1;
+    oneof extendedState {
+        notify.AstroState astro_extended_state = 2;
+    }
+}
+
+message TaskParam {
+    oneof param {
+        PanoramaUploadParam panorama_upload = 1;
+        MakeFitsThumbTaskParam make_fits_thumb_task_param = 2;
+        RepostprocessTaskParam repostprocess_task_param = 3;
+        CaptureCaliFrameTaskParam capture_cali_frame_task_param = 4;
+    }
+}
+
+message ResNotifyTaskState {
+    TaskId task_id = 1;
+    TaskAttr task_attr = 2;
+    TaskState state = 3;
+    TaskParam param = 4;
+}
+
+message ReqStartTask {
+    TaskId task_id = 1;
+    oneof param {
+        ReqStartMakeFitsThumb req_make_fits_thumb_param = 2;
+        ReqStartRepostprocess req_repostprocess_param = 3;
+    }
+}
+
+message ReqStopTask {
+    TaskId task_id = 1;
+}
+
+message ResTaskCenter {
+    int32 code = 1;
+    TaskId task_id = 2;
+}
+
+message ClientParams {
+    int32 encode_type = 1;
+}
+
+message ReqEnterCamera {
+    ClientParams client_param = 3;
+}
+
+message ResEnterCamera {
+    int32 code = 1;
+    int32 shooting_mode_id = 2;
+}
+
+message ReqSwitchShootingMode {
+    int32 mode = 1;
+}
+
+message ResSwitchShootingMode {
+    int32 code = 1;
+    int32 shooting_mode_id = 2;
+}
+
+message ReqSwitchShootingTech {
+    int32 tech = 1;
+}
+
+message ResSwitchShootingTech {
+    int32 code = 1;
+    int32 shooting_tech_id = 2;
+}
+
+message ReqGetDeviceStateInfo {
+}
+
+message ExclusiveCameraState {
+    oneof current_state {
+        notify.CaptureRawState capture_raw_state = 1;
+        notify.PhotoState photo_state = 2;
+        notify.BurstState burst_state = 3;
+        notify.RecordState record_state = 4;
+        notify.TimeLapseState timelapse_state = 5;
+        notify.CaptureCaliFrameState capture_cali_frame_state = 6;
+        notify.PanoramaState panorama_state = 7;
+        notify.SentryState sentry_state = 8;
+    }
+}
+
+message TeleCameraStateInfo {
+    ExclusiveCameraState exclusive_state = 1;
+    notify.StreamType stream_type = 2;
+    double h_fov = 3;
+    double v_fov = 4;
+    uint32 resolution_width = 5;
+    uint32 resolution_height = 6;
+    optional notify.CmosTemperature cmos_temperature = 7;
+}
+
+message WideCameraStateInfo {
+    ExclusiveCameraState exclusive_state = 1;
+    notify.StreamType stream_type = 2;
+    double h_fov = 3;
+    double v_fov = 4;
+    uint32 resolution_width = 5;
+    uint32 resolution_height = 6;
+    optional notify.CmosTemperature cmos_temperature = 7;
+}
+
+message ExclusiveFocusMotorState {
+    oneof current_state {
+        notify.AstroAutoFocusState astro_auto_focus_state = 1;
+        notify.NormalAutoFocusState normal_auto_focus_state = 2;
+        notify.AstroAutoFocusFastState astro_auto_focus_fast_state = 3;
+        notify.AreaAutoFocusState area_auto_focus_state = 4;
+    }
+}
+
+message FocusMotorStateInfo {
+    ExclusiveFocusMotorState exclusive_state = 1;
+    optional notify.FocusPosition focus_position = 2;
+}
+
+message ExclusiveMotionMotorState {
+    oneof current_state {
+        notify.AstroCalibrationState astro_calibration_state = 1;
+        notify.AstroGotoState astro_goto_state = 2;
+        notify.AstroTrackingState astro_tracking_state = 3;
+        notify.NormalTrackState normal_track_state = 4;
+        notify.OneClickGotoState one_click_goto_state = 5;
+        notify.EqSolvingState eq_state = 6;
+        notify.SentryState sentry_state = 7;
+        notify.SkyTargetFinderState sky_target_finder_state = 8;
+    }
+}
+
+message MotionMotorStateInfo {
+    ExclusiveMotionMotorState exclusive_state = 1;
+    notify.SentryAutoHand sentry_auto_hand = 2;
+    optional notify.RollLevelCalibrationAngle roll_level_calibration_angle = 3;
+}
+
+message DeviceStateInfo {
+    notify.RgbState rgb_state = 1;
+    notify.PowerIndState power_ind_state = 2;
+    notify.ChargingState charging_state = 3;
+    notify.StorageInfo storage_info = 4;
+    notify.MTPState mtp_state = 5;
+    notify.CPUMode cpu_mode = 6;
+    notify.Temperature temperature = 7;
+    notify.BodyStatus body_status = 8;
+    notify.BatteryInfo battery_info = 9;
+    notify.CalibrationResult calibration_result = 10;
+    notify.PictureMatching picture_matching = 11;
+    notify.AutoShutdown auto_shutdown = 12;
+    notify.LensDefog lens_defog = 13;
+    notify.AutoCooling auto_cooling = 14;
+}
+
+message ConnectionStateInfo {
+    notify.HostSlaveMode host_slave_mode = 1;
+}
+
+message ShootingModeAndTech {
+    int32 shooting_mode = 1;
+    int32 parent_shooting_mode = 2;
+    repeated int32 shooting_techs = 3;
+}
+
+message ResGetDeviceStateInfo {
+    int32 shooting_mode = 1;
+    TeleCameraStateInfo tele_camera_state_info = 2;
+    WideCameraStateInfo wide_camera_state_info = 3;
+    FocusMotorStateInfo focus_motor_state_info = 4;
+    MotionMotorStateInfo motion_motor_state_info = 5;
+    DeviceStateInfo device_state_info = 6;
+    int32 code = 7;
+    ConnectionStateInfo connection_state_info = 8;
+    repeated ShootingModeAndTech shooting_mode_and_techs = 9;
+    FocusMotorStateInfo wide_focus_motor_state_info = 10;
+    FocusMotorStateInfo guide_focus_motor_state_info = 11;
+}

@@ -1,33 +1,55 @@
 syntax = "proto3";
 
-// 手动单次对焦
 message ReqManualSingleStepFocus {
     uint32 direction = 1;
 }
 
-// 手动连续对焦
 message ReqManualContinuFocus {
     uint32 direction = 1;
-} 
-
-// 停止手动连续对焦
-message ReqStopManualContinuFocus {
-
 }
 
-// 普通模式自动对焦
+message ReqStopManualContinuFocus {
+}
+
 message ReqNormalAutoFocus {
     uint32 mode = 1;
     uint32 center_x = 2;
     uint32 center_y = 3;
 }
 
-// 开始天文自动对焦
 message ReqAstroAutoFocus {
     uint32 mode = 1;
 }
 
-// 停止天文自动对焦
 message ReqStopAstroAutoFocus {
+}
 
+message ReqManualSingleStepFocusForFactory {
+    uint32 direction = 1;
+    uint32 resolution_level = 2;
+}
+
+message ReqGetUserInfinityPos {
+}
+
+message ReqSetUserInfinityPos {
+    int32 pos = 1;
+}
+
+message ResUserInfinityPos {
+    int32 code = 1;
+    int32 pos = 2;
+}
+
+message ReqSfrAutoFocusForFactory {
+    uint32 mode = 1;
+    optional int32 fast_spos = 2;
+    optional int32 fast_pulse = 3;
+    optional int32 fast_scope = 4;
+    optional int32 slow_pulse = 5;
+    optional int32 slow_scope = 6;
+}
+
+message ReqSetVcmCode {
+    int32 code_value = 1;
 }

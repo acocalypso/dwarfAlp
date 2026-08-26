@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0b\x66ocus.proto\"-\n\x18ReqManualSingleStepFocus\x12\x11\n\tdirection\x18\x01 \x01(\r\"*\n\x15ReqManualContinuFocus\x12\x11\n\tdirection\x18\x01 \x01(\r\"\x1b\n\x19ReqStopManualContinuFocus\"F\n\x12ReqNormalAutoFocus\x12\x0c\n\x04mode\x18\x01 \x01(\r\x12\x10\n\x08\x63\x65nter_x\x18\x02 \x01(\r\x12\x10\n\x08\x63\x65nter_y\x18\x03 \x01(\r\"!\n\x11ReqAstroAutoFocus\x12\x0c\n\x04mode\x18\x01 \x01(\r\"\x17\n\x15ReqStopAstroAutoFocusb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0b\x66ocus.proto\"-\n\x18ReqManualSingleStepFocus\x12\x11\n\tdirection\x18\x01 \x01(\r\"*\n\x15ReqManualContinuFocus\x12\x11\n\tdirection\x18\x01 \x01(\r\"\x1b\n\x19ReqStopManualContinuFocus\"F\n\x12ReqNormalAutoFocus\x12\x0c\n\x04mode\x18\x01 \x01(\r\x12\x10\n\x08\x63\x65nter_x\x18\x02 \x01(\r\x12\x10\n\x08\x63\x65nter_y\x18\x03 \x01(\r\"!\n\x11ReqAstroAutoFocus\x12\x0c\n\x04mode\x18\x01 \x01(\r\"\x17\n\x15ReqStopAstroAutoFocus\"Q\n\"ReqManualSingleStepFocusForFactory\x12\x11\n\tdirection\x18\x01 \x01(\r\x12\x18\n\x10resolution_level\x18\x02 \x01(\r\"\x17\n\x15ReqGetUserInfinityPos\"$\n\x15ReqSetUserInfinityPos\x12\x0b\n\x03pos\x18\x01 \x01(\x05\"/\n\x12ResUserInfinityPos\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0b\n\x03pos\x18\x02 \x01(\x05\"\xef\x01\n\x19ReqSfrAutoFocusForFactory\x12\x0c\n\x04mode\x18\x01 \x01(\r\x12\x16\n\tfast_spos\x18\x02 \x01(\x05H\x00\x88\x01\x01\x12\x17\n\nfast_pulse\x18\x03 \x01(\x05H\x01\x88\x01\x01\x12\x17\n\nfast_scope\x18\x04 \x01(\x05H\x02\x88\x01\x01\x12\x17\n\nslow_pulse\x18\x05 \x01(\x05H\x03\x88\x01\x01\x12\x17\n\nslow_scope\x18\x06 \x01(\x05H\x04\x88\x01\x01\x42\x0c\n\n_fast_sposB\r\n\x0b_fast_pulseB\r\n\x0b_fast_scopeB\r\n\x0b_slow_pulseB\r\n\x0b_slow_scope\"#\n\rReqSetVcmCode\x12\x12\n\ncode_value\x18\x01 \x01(\x05\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -43,4 +43,16 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_REQASTROAUTOFOCUS']._serialized_end=240
   _globals['_REQSTOPASTROAUTOFOCUS']._serialized_start=242
   _globals['_REQSTOPASTROAUTOFOCUS']._serialized_end=265
+  _globals['_REQMANUALSINGLESTEPFOCUSFORFACTORY']._serialized_start=267
+  _globals['_REQMANUALSINGLESTEPFOCUSFORFACTORY']._serialized_end=348
+  _globals['_REQGETUSERINFINITYPOS']._serialized_start=350
+  _globals['_REQGETUSERINFINITYPOS']._serialized_end=373
+  _globals['_REQSETUSERINFINITYPOS']._serialized_start=375
+  _globals['_REQSETUSERINFINITYPOS']._serialized_end=411
+  _globals['_RESUSERINFINITYPOS']._serialized_start=413
+  _globals['_RESUSERINFINITYPOS']._serialized_end=460
+  _globals['_REQSFRAUTOFOCUSFORFACTORY']._serialized_start=463
+  _globals['_REQSFRAUTOFOCUSFORFACTORY']._serialized_end=702
+  _globals['_REQSETVCMCODE']._serialized_start=704
+  _globals['_REQSETVCMCODE']._serialized_end=739
 # @@protoc_insertion_point(module_scope)

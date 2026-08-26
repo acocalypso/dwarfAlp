@@ -27,18 +27,12 @@ from ..astronomy.target_names import resolve_nina_target_name
 from ..config.settings import Settings
 from ..device_profile import DeviceProfile, get_device_profile
 from ..proto import astro_pb2, protocol_pb2
-from ..proto.dwarf_messages import (
-    CommonParam,
-    ComResponse,
+from ..proto.astro_pb2 import ReqGotoDSO, ReqStopGoto
+from ..proto.base_pb2 import CommonParam, ComResponse
+from ..proto.camera_pb2 import (
     ReqCloseCamera,
     ReqGetAllFeatureParams,
-    ReqGetDeviceStateInfo,
     ReqGetSystemWorkingState,
-    ReqGotoDSO,
-    ReqManualContinuFocus,
-    ReqManualSingleStepFocus,
-    ReqMotorServiceJoystick,
-    ReqMotorServiceJoystickStop,
     ReqOpenCamera,
     ReqPhoto,
     ReqPhotoRaw,
@@ -48,51 +42,56 @@ from ..proto.dwarf_messages import (
     ReqSetGain,
     ReqSetGainMode,
     ReqSetIrCut,
-    ReqsetMasterLock,
-    ReqSetTime,
-    ReqSetTimezone,
-    ReqStopGoto,
-    ReqStopManualContinuFocus,
+    ReqSetPreviewQuality,
     ResGetAllFeatureParams,
-    ResGetDeviceStateInfo,
+)
+from ..proto.dwarf_messages import (
     ResNotifyFocus,
     ResNotifyHostSlaveMode,
     ResNotifyParam,
     ResNotifyStateAstroGoto,
     ResNotifyStateAstroTracking,
     ResNotifyTemperature,
-    V3ReqAdjustParam,
-    V3ReqFocusInit,
-    V3ReqModeQuery,
-    V3ReqModeSwitch,
-    V3ReqOpenTeleCamera,
-    V3ReqOpenWideCamera,
-    V3ReqSetCameraParam,
-    V3ReqSetExposureGain,
-    V3ReqShootingModeSwitch,
-    V3ResFocusInit,
-    V3ResModeQuery,
-    V3ResModeSwitch,
-    V3ResNotifyCameraParamState,
-    V3ResNotifyDeviceState,
     V3ResNotifyExposureProgress,
-    V3ResNotifyModeChange,
-    V3ResNotifyObservationState,
-    V3ResNotifyTemperature2,
-    V3ResShootingModeSwitch,
 )
-from ..proto.focus_pb2 import ReqAstroAutoFocus
+from ..proto.focus_pb2 import (
+    ReqAstroAutoFocus,
+    ReqGetUserInfinityPos,
+    ReqManualContinuFocus,
+    ReqManualSingleStepFocus,
+    ReqStopManualContinuFocus,
+    ResUserInfinityPos,
+)
+from ..proto.motor_control_pb2 import (
+    ReqMotorServiceJoystick,
+    ReqMotorServiceJoystickStop,
+)
 from ..proto.notify_pb2 import (
+    AstroAutoFocusFastState,
+    AstroAutoFocusState,
     AstroCalibrationState,
     CalibrationResult,
-    ResNotifyOneClickGotoState,
-    ResNotifyProgressCaptureRawLiveStacking,
+    CmosTemperature,
+    GeneralIntParam,
+    LongExpPhotoProgress,
+    OneClickGotoState,
+    ProgressCaptureRawLiveStacking,
+    SkyTargetFinderState,
+    SwitchShootingMode,
 )
-from ..proto.v3_astro_pb2 import (
-    V3ReqGetAstroParams,
-    V3ResGetAstroParams,
+from ..proto.param_pb2 import ReqSetExposure, ReqSetGeneralIntParam
+from ..proto.system_pb2 import ReqsetMasterLock, ReqSetTime, ReqSetTimezone
+from ..proto.task_center_pb2 import (
+    ReqEnterCamera,
+    ReqGetDeviceStateInfo,
+    ReqSwitchShootingMode,
+    ReqSwitchShootingTech,
+    ResEnterCamera,
+    ResGetDeviceStateInfo,
+    ResNotifyTaskState,
+    ResSwitchShootingMode,
+    ResSwitchShootingTech,
 )
-from ..proto.v3_notify_pb2 import V3ResNotifyAutoFocusState
 from . import exposure
 from .ftp_client import DwarfFtpClient, FtpPhotoEntry
 from .http_client import DwarfHttpClient
@@ -306,31 +305,43 @@ _MIN_JOYSTICK_SPEED = 0.1
 
 _GOTO_KIND_DSO = "dso"
 
-_MODULE_CAMERA_PARAMS = 15
-_MODULE_DEVICE_CONFIG = 14
-_CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700
-_CMD_V3_CAMERA_PARAMS_SET_GAIN = 16701
-_CMD_V3_CAMERA_PARAMS_ADJUST_PARAM = 16703
+_MODULE_CAMERA_PARAMS = int(protocol_pb2.ModuleId.MODULE_CAMERA_PARAMS)
+_MODULE_DEVICE_CONFIG = int(protocol_pb2.ModuleId.MODULE_DEVICE_CONFIG)
+_CMD_PARAM_SET_EXPOSURE = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_EXPOSURE)
+_CMD_PARAM_SET_GAIN = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_GAIN)
+_CMD_PARAM_SET_GENERAL_INT = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_GENERAL_INT_PARAM)
 _V3_ASTRO_MODE_ID = 2
 _V3_ASTRO_EXPOSURE_PARAM_ID = 0x0201000000000001
 _V3_ASTRO_GAIN_PARAM_ID = 0x0201000000000002
-_CMD_V3_DEVICE_CONFIG_MODE_QUERY = 16402
-_CMD_V3_DEVICE_CONFIG_SHOOTING_MODE = 16403
-_CMD_V3_DEVICE_CONFIG_MODE_SWITCH = 16404
-_CMD_V3_DEVICE_CONFIG_GET_CONFIG = 16405
-_CMD_V3_FOCUS_INIT = 15011
-_CMD_NOTIFY_V3_EXPOSURE_PROGRESS = 15255
-_CMD_NOTIFY_V3_DEVICE_STATE = 15261
-_CMD_NOTIFY_V3_CAMERA_PARAM_STATE = 15264
-_CMD_NOTIFY_V3_MODE_CHANGE = 15267
-_CMD_NOTIFY_V3_TEMPERATURE2 = 15292
-_CMD_NOTIFY_V3_OBSERVATION_STATE = 15296
+_CMD_TASK_SWITCH_SHOOTING_MODE = int(
+    protocol_pb2.DwarfCMD.CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE
+)
+_CMD_TASK_SWITCH_SHOOTING_TECH = int(
+    protocol_pb2.DwarfCMD.CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH
+)
+_CMD_TASK_ENTER_CAMERA = int(protocol_pb2.DwarfCMD.CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA)
+_CMD_TASK_GET_DEVICE_STATE = int(protocol_pb2.DwarfCMD.CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO)
+_CMD_FOCUS_GET_USER_INFINITY_POS = int(protocol_pb2.DwarfCMD.CMD_FOCUS_GET_USER_INFINITY_POS)
+_CMD_NOTIFY_WAIT_SHOOTING_PROGRESS = int(
+    protocol_pb2.DwarfCMD.CMD_NOTIFY_WAIT_SHOOTING_PROGRESS
+)
+_CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE = int(
+    protocol_pb2.DwarfCMD.CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE
+)
+_CMD_NOTIFY_GENERAL_INT_PARAM = int(protocol_pb2.DwarfCMD.CMD_NOTIFY_GENERAL_INT_PARAM)
+_CMD_NOTIFY_SWITCH_SHOOTING_MODE = int(
+    protocol_pb2.DwarfCMD.CMD_NOTIFY_SWITCH_SHOOTING_MODE
+)
+_CMD_NOTIFY_CMOS_TEMPERATURE = int(protocol_pb2.DwarfCMD.CMD_NOTIFY_CMOS_TEMPERATURE)
+_CMD_NOTIFY_SKY_TARGET_FINDER_STATE = int(
+    protocol_pb2.DwarfCMD.CMD_NOTIFY_SKY_TARGET_FINDER_STATE
+)
 # Observed on mini firmware captures for V3 filterwheel adjust writes.
 _MINI_DEFAULT_FILTER_PARAM_ID = 0x20100000000000D
 _MINI_ALT_FILTER_PARAM_ID = 0x100000000000D
-# Captured from the DWARF 3 app immediately after CMD_V3_ASTRO_SET_PARAMS.
+# Captured from the DWARF 3 app immediately after setting astronomy parameters.
 # Without this dedicated write the firmware can retain an earlier value (for
-# example 999) even though command 11041 echoes the requested frame count.
+# example 999) from a previous capture workflow.
 _V3_ASTRO_FRAME_COUNT_PARAM_ID = 0x202000000000010
 _ASTRO_FORCE_START_DARK_WARNING_CODES = frozenset(
     {
@@ -985,42 +996,11 @@ class DwarfSession:
         if self.simulation or not self._uses_v3_protocol() or not self._ws_client.connected:
             return
 
-        mode_expected_responses = {
-            (
-                protocol_pb2.ModuleId.MODULE_NOTIFY,
-                _CMD_NOTIFY_V3_DEVICE_STATE,
-            ): V3ResNotifyDeviceState,
-            (
-                protocol_pb2.ModuleId.MODULE_NOTIFY,
-                _CMD_NOTIFY_V3_MODE_CHANGE,
-            ): V3ResNotifyModeChange,
-        }
-
-        mode_query = V3ReqModeQuery()
-        mode_query.target_mode = 8
-        try:
-            response = await self._send_request(
-                _MODULE_DEVICE_CONFIG,
-                _CMD_V3_DEVICE_CONFIG_MODE_QUERY,
-                mode_query,
-                V3ResModeQuery,
-                timeout=5.0,
-                expected_responses=mode_expected_responses,
-                suppress_timeout_warning=True,
-                close_ws_on_timeout=False,
-            )
-            if isinstance(response, V3ResModeQuery):
-                code = int(getattr(response, "code", protocol_pb2.OK))
-                if code == protocol_pb2.OK:
-                    self._v3_device_state_mode = int(getattr(response, "mode", 0))
-        except Exception as exc:  # pragma: no cover - hardware dependent
-            logger.debug("dwarf.system.v3_mode_query_failed", error=str(exc))
-
         config_request = ReqGetDeviceStateInfo()
         try:
             response = await self._send_request(
                 _MODULE_DEVICE_CONFIG,
-                _CMD_V3_DEVICE_CONFIG_GET_CONFIG,
+                _CMD_TASK_GET_DEVICE_STATE,
                 config_request,
                 ResGetDeviceStateInfo,
                 timeout=5.0,
@@ -1046,55 +1026,68 @@ class DwarfSession:
         if self.simulation or not self._uses_v3_protocol():
             return
 
-        mode_switch = V3ReqModeSwitch()
-        mode_switch.inner.value = 1
+        mode_switch = ReqSwitchShootingMode(mode=8)
         mode_response = await self._send_request(
             _MODULE_DEVICE_CONFIG,
-            _CMD_V3_DEVICE_CONFIG_MODE_SWITCH,
+            _CMD_TASK_SWITCH_SHOOTING_MODE,
             mode_switch,
-            V3ResModeSwitch,
+            ResSwitchShootingMode,
             timeout=8.0,
         )
         mode_code = int(getattr(mode_response, "code", protocol_pb2.OK))
-        mode = int(getattr(mode_response, "mode", 0))
-        # Current DWARF 3 firmware reports the documented astronomy mode as 8.
-        # Earlier V3 captures reported 2 for the same 16404 transition, so both
-        # confirmations are accepted while other modes still fail closed.
-        if mode_code != protocol_pb2.OK or mode not in {2, 8}:
+        mode = int(getattr(mode_response, "shooting_mode_id", 0))
+        if mode_code != protocol_pb2.OK or mode != 8:
             raise CaptureConfigurationError(
-                f"{self.profile.display_name} did not enter astronomy mode "
+                f"{self.profile.display_name} did not select astronomy mode "
                 f"(code {mode_code}, mode {mode})"
             )
 
-        shooting_switch = V3ReqShootingModeSwitch()
-        shooting_switch.mode_id = 2
-        shooting_response = await self._send_request(
+        enter_request = ReqEnterCamera()
+        enter_request.client_param.encode_type = 1
+        enter_response = await self._send_request(
             _MODULE_DEVICE_CONFIG,
-            _CMD_V3_DEVICE_CONFIG_SHOOTING_MODE,
-            shooting_switch,
-            V3ResShootingModeSwitch,
+            _CMD_TASK_ENTER_CAMERA,
+            enter_request,
+            ResEnterCamera,
             timeout=8.0,
         )
-        shooting_code = int(getattr(shooting_response, "code", protocol_pb2.OK))
-        shooting_mode = int(getattr(shooting_response, "mode_id", 0))
-        if shooting_code != protocol_pb2.OK or shooting_mode != 2:
+        enter_code = int(getattr(enter_response, "code", protocol_pb2.OK))
+        entered_mode = int(getattr(enter_response, "shooting_mode_id", 0))
+        # Current hardware reports 8; earlier V3 captures returned 2 for this
+        # same enter-camera transition. Both are direct device evidence.
+        if enter_code != protocol_pb2.OK or entered_mode not in {2, 8}:
             raise CaptureConfigurationError(
-                f"{self.profile.display_name} did not enter Deep Sky shooting mode "
-                f"(code {shooting_code}, mode {shooting_mode})"
+                f"{self.profile.display_name} did not enter the astronomy camera "
+                f"(code {enter_code}, mode {entered_mode})"
             )
 
-        open_tele = V3ReqOpenTeleCamera()
-        open_tele.action = 1
+        tech_request = ReqSwitchShootingTech(tech=2)
+        tech_response = await self._send_request(
+            _MODULE_DEVICE_CONFIG,
+            _CMD_TASK_SWITCH_SHOOTING_TECH,
+            tech_request,
+            ResSwitchShootingTech,
+            timeout=8.0,
+        )
+        tech_code = int(getattr(tech_response, "code", protocol_pb2.OK))
+        technique = int(getattr(tech_response, "shooting_tech_id", 0))
+        if tech_code != protocol_pb2.OK or technique != 2:
+            raise CaptureConfigurationError(
+                f"{self.profile.display_name} did not select Deep Sky stacking "
+                f"(code {tech_code}, technique {technique})"
+            )
+
+        preview = ReqSetPreviewQuality(level=1)
         await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
-            10050,
-            open_tele,
+            protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_PREVIEW_QUALITY,
+            preview,
             timeout=8.0,
         )
         logger.info(
             "dwarf.camera.v3_astro_mode_ready",
             device_mode=mode,
-            shooting_mode=shooting_mode,
+            shooting_technique=technique,
         )
 
     async def _handle_notification(self, packet: Message) -> None:
@@ -1119,7 +1112,7 @@ class DwarfSession:
         if module_id != protocol_pb2.ModuleId.MODULE_NOTIFY:
             return
         command_id = getattr(packet, "cmd", None)
-        if command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_FOCUS:
+        if command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_FOCUS_POSITION:
             self._handle_focus_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_TEMPERATURE:
             self._handle_temperature_notification(packet)
@@ -1139,22 +1132,24 @@ class DwarfSession:
             self._handle_astro_capture_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING:
             self._handle_astro_capture_progress_notification(packet)
-        elif command_id == _CMD_NOTIFY_V3_EXPOSURE_PROGRESS:
+        elif command_id == _CMD_NOTIFY_WAIT_SHOOTING_PROGRESS:
             self._handle_v3_exposure_progress_notification(packet)
-        elif command_id == _CMD_NOTIFY_V3_DEVICE_STATE:
+        elif command_id == _CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE:
             self._handle_v3_device_state_notification(packet)
-        elif command_id == _CMD_NOTIFY_V3_CAMERA_PARAM_STATE:
+        elif command_id == _CMD_NOTIFY_GENERAL_INT_PARAM:
             self._handle_v3_camera_param_state_notification(packet)
-        elif command_id == _CMD_NOTIFY_V3_MODE_CHANGE:
+        elif command_id == _CMD_NOTIFY_SWITCH_SHOOTING_MODE:
             self._handle_v3_mode_change_notification(packet)
         elif command_id in {
-            protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE,
-            protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT,
+            protocol_pb2.DwarfCMD.CMD_NOTIFY_ASTRO_AUTO_FOCUS_STATE,
+            protocol_pb2.DwarfCMD.CMD_NOTIFY_ASTRO_AUTO_FOCUS_FAST_STATE,
         }:
             self._handle_v3_autofocus_state_notification(packet)
-        elif command_id == _CMD_NOTIFY_V3_TEMPERATURE2:
+        elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_LONG_EXP_PROGRESS:
+            self._handle_long_exposure_progress_notification(packet)
+        elif command_id == _CMD_NOTIFY_CMOS_TEMPERATURE:
             self._handle_v3_temperature2_notification(packet)
-        elif command_id == _CMD_NOTIFY_V3_OBSERVATION_STATE:
+        elif command_id == _CMD_NOTIFY_SKY_TARGET_FINDER_STATE:
             self._handle_v3_observation_state_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_ELE:
             self._handle_battery_notification(packet)
@@ -1363,7 +1358,7 @@ class DwarfSession:
         raw_data = getattr(packet, "data", b"") or b""
         if not raw_data:
             return
-        message = ResNotifyProgressCaptureRawLiveStacking()
+        message = ProgressCaptureRawLiveStacking()
         try:
             message.ParseFromString(raw_data)
         except Exception as exc:  # pragma: no cover - defensive logging helper
@@ -1377,42 +1372,29 @@ class DwarfSession:
         state = self.camera_state
         total_count = int(message.total_count)
         current_count = int(message.current_count)
-        stacked_count = int(message.stacked_count)
-        update_count_type = int(message.update_count_type)
-        exp_index = int(message.exp_index)
-        gain_index = int(message.gain_index)
-        target_name = str(message.target_name).strip()
+        update_type = int(message.update_type)
+        camera_type = int(message.camera_type)
+        shooting_time = int(message.shooting_time) if message.HasField("shooting_time") else None
+        stacked_time = int(message.stacked_time) if message.HasField("stacked_time") else None
 
         if total_count > 0:
             state.progress_total_count = total_count
         if current_count > 0:
             state.progress_current_count = max(state.progress_current_count, current_count)
-        if stacked_count > 0:
-            state.progress_stacked_count = max(state.progress_stacked_count, stacked_count)
-        if exp_index > 0:
-            state.progress_exposure_index = exp_index
-        if gain_index > 0:
-            state.progress_gain_index = gain_index
-        if target_name:
-            state.progress_target_name = target_name
-
         requested_frames = max(1, int(state.requested_frame_count or 1))
         raw_frames_ready = state.progress_current_count >= requested_frames
-        stack_complete = state.progress_stacked_count >= requested_frames
-        completed = raw_frames_ready or stack_complete
+        completed = raw_frames_ready
         logger.info(
             "dwarf.camera.astro_capture_progress",
             capture_id=state.capture_id,
             total_count=state.progress_total_count,
             current_count=state.progress_current_count,
-            stacked_count=state.progress_stacked_count,
-            update_count_type=update_count_type,
+            update_type=update_type,
+            camera_type=camera_type,
+            shooting_time=shooting_time,
+            stacked_time=stacked_time,
             requested_frames=requested_frames,
-            exposure_index=state.progress_exposure_index,
-            gain_index=state.progress_gain_index,
-            target_name=state.progress_target_name,
             raw_frames_ready=raw_frames_ready,
-            stack_complete=stack_complete,
             completed=completed,
         )
         self._capture_start_evidence_event.set()
@@ -1420,10 +1402,21 @@ class DwarfSession:
             self._capture_frame_complete_event.set()
 
     def _handle_v3_camera_param_state_notification(self, packet: Message) -> None:
-        # Command 15264 reports general camera parameters. Treating parameter
-        # 13 as a wheel position was an unverified inference and is incorrect
-        # for the Mini Deep Sky filter selector.
-        return
+        raw_data = bytes(getattr(packet, "data", b"") or b"")
+        if not raw_data:
+            return
+        message = GeneralIntParam()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug("dwarf.camera.general_int_param_decode_failed", error=str(exc))
+            return
+        logger.debug(
+            "dwarf.camera.general_int_param",
+            param_id=int(message.param_id),
+            mode=int(message.mode),
+            value=int(message.value),
+        )
 
     def _handle_v3_exposure_progress_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -1443,55 +1436,78 @@ class DwarfSession:
         self._v3_exposure_progress = (elapsed, total)
         self._capture_start_evidence_event.set()
 
+    def _handle_long_exposure_progress_notification(self, packet: Message) -> None:
+        raw_data = bytes(getattr(packet, "data", b"") or b"")
+        if not raw_data:
+            return
+        message = LongExpPhotoProgress()
+        try:
+            message.ParseFromString(raw_data)
+        except Exception as exc:  # pragma: no cover - defensive logging helper
+            logger.debug("dwarf.camera.long_exposure_progress_decode_failed", error=str(exc))
+            return
+        logger.info(
+            "dwarf.camera.long_exposure_progress",
+            total_time=float(message.total_time),
+            exposed_time=float(message.exposured_time),
+            camera_type=int(message.camera_type),
+        )
+
     def _handle_v3_device_state_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
         if not raw_data:
             return
-        message = V3ResNotifyDeviceState()
+        message = ResNotifyTaskState()
         try:
             message.ParseFromString(raw_data)
         except Exception as exc:  # pragma: no cover - defensive logging helper
             logger.debug("dwarf.system.v3_device_state_decode_failed", error=str(exc))
             return
 
-        self._v3_device_state_event = int(getattr(message, "event", 0))
-
-        mode_obj = getattr(message, "mode", None)
-        self._v3_device_state_mode = int(getattr(mode_obj, "mode", 0)) if mode_obj else None
-
-        state_obj = getattr(message, "state", None)
-        self._v3_device_state_detail = int(getattr(state_obj, "state", 0)) if state_obj else None
-
-        path_obj = getattr(message, "path", None)
-        path_value = str(getattr(path_obj, "path", "")).strip() if path_obj else ""
-        self._v3_device_state_path = path_value or None
-        self._capture_start_evidence_event.set()
+        self._v3_device_state_event = int(message.task_id)
+        self._v3_device_state_mode = int(message.task_attr.exclusive_mask)
+        self._v3_device_state_detail = int(message.state.base_state)
+        self._v3_device_state_path = None
+        logger.info(
+            "dwarf.system.task_state",
+            task_id=int(message.task_id),
+            exclusive_mask=int(message.task_attr.exclusive_mask),
+            priority=int(message.task_attr.priority),
+            base_state=int(message.state.base_state),
+            astro_extended_state=int(message.state.astro_extended_state),
+        )
 
     def _handle_v3_mode_change_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
         if not raw_data:
             return
-        message = V3ResNotifyModeChange()
+        message = SwitchShootingMode()
         try:
             message.ParseFromString(raw_data)
         except Exception as exc:  # pragma: no cover - defensive logging helper
             logger.debug("dwarf.system.v3_mode_change_decode_failed", error=str(exc))
             return
         try:
-            changing = int(getattr(message, "changing", 0))
-            mode = int(getattr(message, "mode", 0))
-            sub_mode = int(getattr(message, "sub_mode", 0))
+            state = int(message.state)
+            source_mode = int(message.source_mode)
+            destination_mode = int(message.dst_mode)
         except (TypeError, ValueError):
             return
-        self._v3_mode_change = (changing, mode, sub_mode)
-        self._v3_device_state_mode = mode
+        self._v3_mode_change = (state, source_mode, destination_mode)
+        self._v3_device_state_mode = destination_mode
 
     def _handle_v3_autofocus_state_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
         if not raw_data:
             logger.warning("dwarf.focus.autofocus.notification.empty")
             return
-        message = V3ResNotifyAutoFocusState()
+        message_cls = (
+            AstroAutoFocusFastState
+            if int(getattr(packet, "cmd", 0))
+            == int(protocol_pb2.DwarfCMD.CMD_NOTIFY_ASTRO_AUTO_FOCUS_FAST_STATE)
+            else AstroAutoFocusState
+        )
+        message = message_cls()
         try:
             message.ParseFromString(raw_data)
         except Exception as exc:  # pragma: no cover - defensive logging helper
@@ -1523,19 +1539,15 @@ class DwarfSession:
         raw_data = getattr(packet, "data", b"") or b""
         if not raw_data:
             return
-        message = V3ResNotifyTemperature2()
+        message = CmosTemperature()
         try:
             message.ParseFromString(raw_data)
         except Exception as exc:  # pragma: no cover - defensive logging helper
             logger.debug("dwarf.camera.v3_temperature2_decode_failed", error=str(exc))
             return
-        temp_raw = getattr(message, "temperature", None)
-        if temp_raw is None:
+        if not message.HasField("temperature"):
             return
-        try:
-            self.camera_state.temperature_c = float(temp_raw)
-        except (TypeError, ValueError):
-            return
+        self.camera_state.temperature_c = float(message.temperature)
         self.camera_state.last_temperature_time = time.time()
         # V3 temperature2 notification does not include a response code.
         self.camera_state.last_temperature_code = protocol_pb2.OK
@@ -1544,17 +1556,21 @@ class DwarfSession:
         raw_data = getattr(packet, "data", b"") or b""
         if not raw_data:
             return
-        message = V3ResNotifyObservationState()
+        message = SkyTargetFinderState()
         try:
             message.ParseFromString(raw_data)
         except Exception as exc:  # pragma: no cover - defensive logging helper
             logger.debug("dwarf.astro.v3_observation_state_decode_failed", error=str(exc))
             return
         try:
-            self._v3_observation_state = int(getattr(message, "state", 0))
+            self._v3_observation_state = int(message.state)
         except (TypeError, ValueError):
             return
-        self._capture_start_evidence_event.set()
+        logger.info(
+            "dwarf.astro.sky_target_finder_state",
+            state=self._v3_observation_state,
+            scene_type=int(message.scene_type),
+        )
 
     def _handle_focus_notification(self, packet: Message) -> None:
         raw_data = getattr(packet, "data", b"") or b""
@@ -1569,10 +1585,7 @@ class DwarfSession:
                 error=str(exc),
             )
             return
-        focus_value = getattr(message, "focus", None)
-        if focus_value is None:
-            return
-        position = max(0, min(int(focus_value), 20000))
+        position = max(0, min(int(message.pos), 20000))
         state = self.focuser_state
         if state.position != position:
             logger.info("dwarf.focus.notification", position=position)
@@ -1655,7 +1668,7 @@ class DwarfSession:
         if not raw_data:
             logger.warning("dwarf.goto.one_click.notification.empty", command_id=15233)
             return
-        message = ResNotifyOneClickGotoState()
+        message = OneClickGotoState()
         try:
             message.ParseFromString(raw_data)
         except Exception as exc:  # pragma: no cover - defensive logging helper
@@ -1666,21 +1679,24 @@ class DwarfSession:
                 error=str(exc),
             )
             return
-        phase = "legacy"
-        state_value = int(message.state)
+        current_state = message.WhichOneof("current_state")
+        if current_state is None:
+            logger.warning(
+                "dwarf.goto.one_click.notification.missing_state",
+                payload_hex=raw_data.hex(),
+            )
+            return
+        phase = {
+            "astro_auto_focus_state": "autofocus",
+            "astro_calibration_state": "calibration",
+            "astro_goto_state": "goto",
+            "astro_tracking_state": "tracking",
+        }[current_state]
+        phase_state = getattr(message, current_state)
+        state_value = int(phase_state.state)
         target_name = self._goto_target_name
-        if message.HasField("phase_2"):
-            phase = "phase_2"
-            state_value = int(message.phase_2.state)
-            target_name = str(message.phase_2.target_name).strip() or target_name
-        if message.HasField("goto_state"):
-            phase = "goto"
-            state_value = int(message.goto_state.state)
-            target_name = str(message.goto_state.target_name).strip() or target_name
-        if message.HasField("tracking_state"):
-            phase = "tracking"
-            state_value = int(message.tracking_state.state)
-            target_name = str(message.tracking_state.target_name).strip() or target_name
+        if current_state in {"astro_goto_state", "astro_tracking_state"}:
+            target_name = str(phase_state.target_name).strip() or target_name
 
         state_name = {
             0: "idle",
@@ -1699,7 +1715,7 @@ class DwarfSession:
         )
         if not self._goto_pending or not self._one_click_goto_active:
             return
-        if phase in {"phase_2", "goto", "legacy"} and state_value in {1, 2, 3, 4}:
+        if phase in {"autofocus", "calibration", "goto"} and state_value in {1, 2, 3, 4}:
             self._goto_waiting_for_tracking = True
         if phase == "tracking" and state_value == 1:
             reason = "one_click_tracking_running"
@@ -2015,7 +2031,7 @@ class DwarfSession:
             try:
                 response = await self._ws_client.send_request(
                     protocol_pb2.ModuleId.MODULE_SYSTEM,
-                    protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTERLOCK,
+                    protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTER,
                     request,
                     ComResponse,
                     timeout=15.0,
@@ -2026,7 +2042,7 @@ class DwarfSession:
                     if response.code != protocol_pb2.OK:
                         raise DwarfCommandError(
                             protocol_pb2.ModuleId.MODULE_SYSTEM,
-                            protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTERLOCK,
+                            protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTER,
                             response.code,
                         )
                     self._master_lock_acquired = True
@@ -2116,7 +2132,7 @@ class DwarfSession:
             try:
                 response = await self._ws_client.send_request(
                     protocol_pb2.ModuleId.MODULE_SYSTEM,
-                    protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTERLOCK,
+                    protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTER,
                     request,
                     ComResponse,
                     timeout=10.0,
@@ -2512,7 +2528,10 @@ class DwarfSession:
             return
 
         speed = max(min(magnitude, _MAX_JOYSTICK_SPEED), _MIN_JOYSTICK_SPEED)
-        vector_length = min(1.0, magnitude / speed) if speed > 1e-6 else 0.0
+        # Firmware defines vector_length as the 0..1 joystick speed scale. The
+        # former field-3 speed value doesn't exist in the descriptor and was
+        # ignored by current firmware.
+        vector_length = min(1.0, speed / _MAX_JOYSTICK_SPEED)
         angle = math.degrees(math.atan2(rate_y, rate_x))
         if angle < 0.0:
             angle += 360.0
@@ -2520,7 +2539,6 @@ class DwarfSession:
         request = ReqMotorServiceJoystick()
         request.vector_angle = angle
         request.vector_length = vector_length
-        request.speed = speed
 
         try:
             await self._send_and_check(
@@ -2751,19 +2769,19 @@ class DwarfSession:
             expected_responses={
                 (
                     protocol_pb2.ModuleId.MODULE_NOTIFY,
-                    protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE,
-                ): V3ResNotifyAutoFocusState,
+                    protocol_pb2.DwarfCMD.CMD_NOTIFY_ASTRO_AUTO_FOCUS_STATE,
+                ): AstroAutoFocusState,
                 (
                     protocol_pb2.ModuleId.MODULE_NOTIFY,
-                    protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT,
-                ): V3ResNotifyAutoFocusState,
+                    protocol_pb2.DwarfCMD.CMD_NOTIFY_ASTRO_AUTO_FOCUS_FAST_STATE,
+                ): AstroAutoFocusFastState,
             },
         )
         # A normal command response is only an acknowledgement. Notification
         # state=3 is the shared V3 evidence that autofocus actually completed.
         # Older test doubles return None and represent a completed call.
         completed_in_response = isinstance(
-            response, V3ResNotifyAutoFocusState
+            response, (AstroAutoFocusState, AstroAutoFocusFastState)
         ) and int(response.state) == 3
         if response is not None and not completed_in_response:
             remaining = max(0.0, deadline - time.monotonic())
@@ -2804,35 +2822,50 @@ class DwarfSession:
     async def _prepare_one_click_goto_mode(self) -> None:
         """Mirror the app's V3 mode/camera setup immediately before command 11013."""
 
-        mode_switch = V3ReqModeSwitch()
-        mode_switch.inner.value = 1
+        mode_switch = ReqSwitchShootingMode(mode=8)
         response = await self._send_request(
             _MODULE_DEVICE_CONFIG,
-            _CMD_V3_DEVICE_CONFIG_MODE_SWITCH,
+            _CMD_TASK_SWITCH_SHOOTING_MODE,
             mode_switch,
-            V3ResModeSwitch,
+            ResSwitchShootingMode,
             timeout=8.0,
         )
         code = int(getattr(response, "code", protocol_pb2.OK))
-        mode = int(getattr(response, "mode", 0))
-        if code != protocol_pb2.OK or mode not in {2, 8}:
+        mode = int(getattr(response, "shooting_mode_id", 0))
+        if code != protocol_pb2.OK or mode != 8:
             raise CaptureConfigurationError(
-                f"{self.profile.display_name} did not enter astronomy mode "
+                f"{self.profile.display_name} did not select astronomy mode "
                 f"(code {code}, mode {mode})"
             )
 
-        open_tele = V3ReqOpenTeleCamera(action=1)
-        await self._send_and_check(
-            protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
-            10050,
-            open_tele,
+        enter_request = ReqEnterCamera()
+        enter_request.client_param.encode_type = 1
+        enter_response = await self._send_request(
+            _MODULE_DEVICE_CONFIG,
+            _CMD_TASK_ENTER_CAMERA,
+            enter_request,
+            ResEnterCamera,
             timeout=8.0,
         )
-        open_wide = V3ReqOpenWideCamera(action=1)
+        enter_code = int(getattr(enter_response, "code", protocol_pb2.OK))
+        if enter_code != protocol_pb2.OK:
+            raise CaptureConfigurationError(
+                f"{self.profile.display_name} did not enter the astronomy camera "
+                f"(code {enter_code})"
+            )
+
+        tele_preview = ReqSetPreviewQuality(level=1)
+        await self._send_and_check(
+            protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
+            protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_PREVIEW_QUALITY,
+            tele_preview,
+            timeout=8.0,
+        )
+        wide_preview = ReqSetPreviewQuality(level=1)
         await self._send_and_check(
             protocol_pb2.ModuleId.MODULE_CAMERA_WIDE,
-            12036,
-            open_wide,
+            protocol_pb2.DwarfCMD.CMD_CAMERA_WIDE_SET_PREVIEW_QUALITY,
+            wide_preview,
             timeout=8.0,
         )
         logger.info("dwarf.telescope.goto.one_click.mode_ready", mode=mode)
@@ -3148,12 +3181,24 @@ class DwarfSession:
             return
         await self._ensure_ws()
         if self._uses_v3_protocol():
-            request = V3ReqOpenTeleCamera()
-            request.action = 1
+            request = ReqEnterCamera()
+            request.client_param.encode_type = 1
+            response = await self._send_request(
+                _MODULE_DEVICE_CONFIG,
+                _CMD_TASK_ENTER_CAMERA,
+                request,
+                ResEnterCamera,
+            )
+            if int(response.code) != protocol_pb2.OK:
+                raise DwarfCommandError(
+                    _MODULE_DEVICE_CONFIG,
+                    _CMD_TASK_ENTER_CAMERA,
+                    int(response.code),
+                )
             await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
-                10050,
-                request,
+                protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_PREVIEW_QUALITY,
+                ReqSetPreviewQuality(level=1),
             )
             self.camera_state.connected = True
             return
@@ -3179,43 +3224,14 @@ class DwarfSession:
         self.camera_state.start_time = None
         if self.simulation:
             return
-        await self._ensure_ws()
         if self._uses_v3_protocol():
-            request = V3ReqOpenTeleCamera()
-            timeout_value = max(float(self.settings.camera_disconnect_timeout_seconds), 0.5)
-            try:
-                await self._send_and_check(
-                    protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
-                    10050,
-                    request,
-                    timeout=timeout_value,
-                )
-            except asyncio.TimeoutError:
-                logger.warning(
-                    "dwarf.camera.disconnect.timeout",
-                    timeout=timeout_value,
-                )
-            except DwarfCommandError as exc:
-                logger.warning(
-                    "dwarf.camera.disconnect.command_failed",
-                    code=exc.code,
-                    module_id=exc.module_id,
-                    command_id=exc.command_id,
-                )
-            except (ConnectionClosed, ConnectionClosedOK) as exc:
-                logger.info(
-                    "dwarf.camera.disconnect.socket_closed",
-                    error=str(exc),
-                    error_type=type(exc).__name__,
-                )
-            except Exception as exc:  # pragma: no cover - defensive logging helper
-                logger.warning(
-                    "dwarf.camera.disconnect.error",
-                    error=str(exc),
-                    error_type=type(exc).__name__,
-                )
+            # The V3 app captures do not send the legacy camera command 10001;
+            # it leaves shared mode/stream ownership to the global task manager.
+            # A Camera-only Alpaca disconnect must not disturb a connected mount.
+            logger.info("dwarf.camera.disconnect.local_only", protocol_family="v3")
             return
 
+        await self._ensure_ws()
         request = ReqCloseCamera()
         timeout_value = max(float(self.settings.camera_disconnect_timeout_seconds), 0.5)
         try:
@@ -3509,18 +3525,20 @@ class DwarfSession:
         state.capture_phase = CapturePhase.IDLE
 
     async def camera_readout(self) -> Optional[np.ndarray]:
-        return self.camera_state.image
+        state = self.camera_state
+        if state.capture_phase != CapturePhase.READY:
+            return None
+        return state.image
 
     async def _get_v3_astro_presets(self) -> list[V3AstroPreset]:
         if self._v3_astro_presets is not None:
             return self._v3_astro_presets
-        request = V3ReqGetAstroParams()
-        request.mode = 0
+        request = astro_pb2.ReqGetQuickSetList(camera_type=0)
         response = await self._send_request(
             protocol_pb2.ModuleId.MODULE_ASTRO,
-            protocol_pb2.DwarfCMD.CMD_V3_ASTRO_GET_PARAMS,
+            protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST,
             request,
-            V3ResGetAstroParams,
+            astro_pb2.ResGetQuickSetList,
             timeout=8.0,
         )
         code = int(getattr(response, "code", protocol_pb2.OK))
@@ -3530,15 +3548,16 @@ class DwarfSession:
             )
 
         presets: list[V3AstroPreset] = []
-        for entry in response.params:
-            parts = tuple(str(entry.pipe_params).split("|"))
+        for entry in response.quick_set_list:
+            parts = tuple(str(entry.info_id).split("|"))
             if len(parts) < 6:
                 continue
             try:
                 exposure_s = float(parts[2])
                 gain = int(parts[3])
                 # DWARF 3 reports 0 here as a firmware/default placeholder.
-                # The requested count is written explicitly by 11041 before capture.
+                # The requested count is written through the verified 16703
+                # general-integer parameter immediately before capture.
                 frame_count = max(1, int(parts[4]))
             except (TypeError, ValueError):
                 continue
@@ -3681,26 +3700,26 @@ class DwarfSession:
             await self._resolve_v3_astro_controls(duration, gain)
         )
         expected = {
-            (protocol_pb2.ModuleId.MODULE_NOTIFY, protocol_pb2.DwarfCMD.CMD_V3_NOTIFY_CAMERA_PARAM_STATE):
-                V3ResNotifyCameraParamState
+            (protocol_pb2.ModuleId.MODULE_NOTIFY, protocol_pb2.DwarfCMD.CMD_NOTIFY_GENERAL_INT_PARAM):
+                GeneralIntParam
         }
-        exp_request = V3ReqSetCameraParam()
+        exp_request = ReqSetExposure()
         exp_request.param_id = exposure_param_id
-        exp_request.flag = 1  # manual
+        exp_request.mode = 1  # manual
         exp_request.value = exposure_index
         await self._send_and_check(
             _MODULE_CAMERA_PARAMS,
-            _CMD_V3_CAMERA_PARAMS_SET_PARAM,
+            _CMD_PARAM_SET_EXPOSURE,
             exp_request,
             expected_responses=expected,
         )
-        gain_request = V3ReqSetExposureGain()
+        gain_request = ReqSetExposure()
         gain_request.param_id = gain_param_id
-        gain_request.flag = 1  # manual
+        gain_request.mode = 1  # manual
         gain_request.value = gain_value
         await self._send_and_check(
             _MODULE_CAMERA_PARAMS,
-            _CMD_V3_CAMERA_PARAMS_SET_GAIN,
+            _CMD_PARAM_SET_GAIN,
             gain_request,
             expected_responses=expected,
         )
@@ -4406,8 +4425,8 @@ class DwarfSession:
         expected = {
             (
                 protocol_pb2.ModuleId.MODULE_NOTIFY,
-                _CMD_NOTIFY_V3_CAMERA_PARAM_STATE,
-            ): V3ResNotifyCameraParamState,
+                _CMD_NOTIFY_GENERAL_INT_PARAM,
+            ): GeneralIntParam,
             (
                 protocol_pb2.ModuleId.MODULE_NOTIFY,
                 protocol_pb2.DwarfCMD.CMD_NOTIFY_SET_FEATURE_PARAM,
@@ -4439,13 +4458,13 @@ class DwarfSession:
             selected_candidate = int(candidate_ids[0]) if candidate_ids else int(param_id)
             filter_timeout_s = 1.0
             for candidate in candidate_ids:
-                adjust_request = V3ReqAdjustParam()
+                adjust_request = ReqSetGeneralIntParam()
                 adjust_request.param_id = int(candidate)
                 adjust_request.value = int(value)
                 try:
                     await self._send_and_check(
                         _MODULE_CAMERA_PARAMS,
-                        _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM,
+                        _CMD_PARAM_SET_GENERAL_INT,
                         adjust_request,
                         timeout=filter_timeout_s,
                         expected_responses=expected,
@@ -4479,14 +4498,14 @@ class DwarfSession:
                     f"Filter write was not confirmed for parameter {selected_candidate}"
                 ) from last_error
 
-        request = V3ReqSetCameraParam()
+        request = ReqSetExposure()
         request.param_id = int(param_id)
-        request.flag = int(flag)
+        request.mode = int(flag)
         request.value = int(value)
         try:
             await self._send_and_check(
                 _MODULE_CAMERA_PARAMS,
-                _CMD_V3_CAMERA_PARAMS_SET_PARAM,
+                _CMD_PARAM_SET_EXPOSURE,
                 request,
                 expected_responses=expected,
             )
@@ -4501,12 +4520,12 @@ class DwarfSession:
                 error_type=type(exc).__name__,
             )
 
-        adjust_request = V3ReqAdjustParam()
+        adjust_request = ReqSetGeneralIntParam()
         adjust_request.param_id = int(param_id)
         adjust_request.value = int(value)
         await self._send_and_check(
             _MODULE_CAMERA_PARAMS,
-            _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM,
+            _CMD_PARAM_SET_GENERAL_INT,
             adjust_request,
             expected_responses=expected,
         )
@@ -4833,19 +4852,19 @@ class DwarfSession:
     async def _set_v3_astro_frame_count(self, frames: int) -> None:
         """Apply the authoritative frame count used by the shared V3 API."""
 
-        request = V3ReqAdjustParam()
+        request = ReqSetGeneralIntParam()
         request.param_id = _V3_ASTRO_FRAME_COUNT_PARAM_ID
         request.value = max(1, int(frames))
         await self._send_and_check(
             _MODULE_CAMERA_PARAMS,
-            _CMD_V3_CAMERA_PARAMS_ADJUST_PARAM,
+            _CMD_PARAM_SET_GENERAL_INT,
             request,
             timeout=3.0,
             expected_responses={
                 (
                     protocol_pb2.ModuleId.MODULE_NOTIFY,
-                    _CMD_NOTIFY_V3_CAMERA_PARAM_STATE,
-                ): V3ResNotifyCameraParamState,
+                    _CMD_NOTIFY_GENERAL_INT_PARAM,
+                ): GeneralIntParam,
             },
             close_ws_on_timeout=False,
         )
@@ -5328,9 +5347,6 @@ class DwarfSession:
 
     async def _start_photo_capture_fallback(self, *, timeout: float) -> bool:
         request = ReqPhoto()
-        request.x = 0
-        request.y = 0
-        request.ratio = 0.0
         try:
             await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
@@ -5422,7 +5438,9 @@ class DwarfSession:
             if v_fov:
                 self.camera_state.reported_fv_height = v_fov
                 parsed["v_fov"] = v_fov
-            if tele.HasField("cmos_temperature"):
+            if tele.HasField("cmos_temperature") and tele.cmos_temperature.HasField(
+                "temperature"
+            ):
                 cmos_temperature = tele.cmos_temperature
                 temperature = int(cmos_temperature.temperature)
                 self.camera_state.temperature_c = float(temperature)
@@ -5472,7 +5490,7 @@ class DwarfSession:
         try:
             response = await self._send_request(
                 _MODULE_DEVICE_CONFIG,
-                _CMD_V3_DEVICE_CONFIG_GET_CONFIG,
+                _CMD_TASK_GET_DEVICE_STATE,
                 ReqGetDeviceStateInfo(),
                 ResGetDeviceStateInfo,
                 timeout=5.0,
@@ -6390,19 +6408,19 @@ class DwarfSession:
             return
         await self._ensure_ws()
         if self._uses_v3_protocol():
-            request = V3ReqFocusInit()
+            request = ReqGetUserInfinityPos()
             try:
                 response = await self._send_request(
                     protocol_pb2.ModuleId.MODULE_FOCUS,
-                    _CMD_V3_FOCUS_INIT,
+                    _CMD_FOCUS_GET_USER_INFINITY_POS,
                     request,
-                    V3ResFocusInit,
+                    ResUserInfinityPos,
                     timeout=3.0,
                     suppress_timeout_warning=True,
                     close_ws_on_timeout=False,
                 )
-                if isinstance(response, V3ResFocusInit):
-                    focus_position = int(getattr(response, "focus_position", state.position))
+                if isinstance(response, ResUserInfinityPos):
+                    focus_position = int(getattr(response, "pos", state.position))
                     state.position = max(0, min(focus_position, 20000))
                     state.last_update = time.time()
             except Exception as exc:  # pragma: no cover - hardware dependent

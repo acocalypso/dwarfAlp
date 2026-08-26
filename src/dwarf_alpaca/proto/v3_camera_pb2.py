@@ -24,15 +24,11 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fv3_camera.proto\"%\n\x13V3ReqOpenTeleCamera\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\x05\"%\n\x13V3ReqOpenWideCamera\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\x05\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fv3_camera.protob\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'v3_camera_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_V3REQOPENTELECAMERA']._serialized_start=19
-  _globals['_V3REQOPENTELECAMERA']._serialized_end=56
-  _globals['_V3REQOPENWIDECAMERA']._serialized_start=58
-  _globals['_V3REQOPENWIDECAMERA']._serialized_end=95
 # @@protoc_insertion_point(module_scope)

@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+message ReqStartPanoramaByGrid {
+}
+
+message ReqStartPanoramaByEulerRange {
+    float yaw_range = 1;
+    float pitch_range = 2;
+}
+
+message ReqStartPanoramaStitchUpload {
+    uint64 resource_id = 1;
+    string user_id = 2;
+    int32 app_platform = 3;
+    string panorama_name = 4;
+    string ak = 5;
+    string sk = 6;
+    string token = 7;
+    string bucket = 8;
+    string bucket_prefix = 9;
+    string from = 10;
+    string env_type = 11;
+}
+
+message ResStartPanoramaStitchUpload {
+    int32 code = 1;
+    string current_panorama_name = 2;
+    string current_user_id = 3;
+}
+
+message ResStopPanoramaStitchUpload {
+    int32 code = 1;
+    string current_panorama_name = 2;
+    string current_user_id = 3;
+}
+
+message ReqStopPanorama {
+}
+
+message ReqStopPanoramaStitchUpload {
+    string user_id = 1;
+}
+
+message ReqGetPanoramaCurrentUploadState {
+}
+
+message ResGetPanoramaCurrentUploadState {
+    int32 code = 1;
+    string user_id = 2;
+    string busi_no = 3;
+    string panorama_name = 4;
+    string mac = 5;
+    uint32 total_files_num = 6;
+    uint32 compressed_files_num = 7;
+    uint64 total_size = 8;
+    uint64 uploaded_size = 9;
+    uint32 step = 10;
+}
+
+message ReqGetUploadPredict {
+    string panorama_name = 1;
+}
+
+message ResGetUploadPredict {
+    int32 code = 1;
+    string panorama_name = 2;
+    uint32 file_nums = 3;
+    string resolution = 4;
+    uint64 cloud_data_size = 5;
+    uint64 zip_data_size = 6;
+    uint64 app_zip_data_size = 7;
+}
+
+message PanoramaUploadParam {
+    string user_id = 1;
+    string busi_no = 2;
+    string panorama_name = 3;
+    string mac = 4;
+    uint32 total_files_num = 5;
+    uint32 compressed_files_num = 6;
+    uint64 total_size = 7;
+    uint64 uploaded_size = 8;
+    uint32 step = 9;
+}
+
+message ReqCompressPanorama {
+    string panorama_name = 1;
+}
+
+message ReqStopCompressPanorama {
+}
+
+message ReqStartPanoramaFraming {
+}
+
+message ReqResetPanoramaFraming {
+}
+
+message ReqStopPanoramaFraming {
+}
+
+message ReqStopPanoramaFramingAndStartGrid {
+}
+
+message ReqUpdatePanoramaFramingRect {
+    double norm_x_tl = 1;
+    double norm_y_tl = 2;
+    double norm_x_br = 3;
+    double norm_y_br = 4;
+}
+
+message ReqNotifyPanoramaFraming {
+}

@@ -25,6 +25,8 @@ enum MessageTypeId {
 }
 
 enum DwarfCMD {
+    option allow_alias = true;
+
     NO_CMD = 0; // No Cmd
 
     CMD_CAMERA_TELE_OPEN_CAMERA = 10000; // Turn on the camera
@@ -72,7 +74,8 @@ enum DwarfCMD {
     CMD_CAMERA_TELE_PHOTO_RAW = 10041; // Shoot RAW image
     CMD_CAMERA_TELE_SET_RTSP_BITRATE_TYPE = 10042; // Set rtsp preview bit rate type
 
-    CMD_V3_CAMERA_TELE_OPEN_CAMERA = 10050; // V3: Open/close tele camera
+    CMD_CAMERA_TELE_SET_PREVIEW_QUALITY = 10050;
+    CMD_V3_CAMERA_TELE_OPEN_CAMERA = 10050; // Deprecated compatibility alias.
 
     CMD_ASTRO_START_CALIBRATION = 11000; // Start calibration
     CMD_ASTRO_STOP_CALIBRATION = 11001; // Stop calibration
@@ -106,15 +109,24 @@ enum DwarfCMD {
     CMD_ASTRO_GET_WIDE_DARK_FRAME_LIST = 11027; // Query the list of wide-angle dark scenes taken
     CMD_ASTRO_DEL_WIDE_DARK_FRAME_LIST = 11028; // Delete the specified wide-angle dark field list
 
-    CMD_V3_ASTRO_SAVE_STACKED_IMAGE = 11033; // V3: Save stacked image
-    CMD_V3_ASTRO_LIST_SAVED_IMAGES = 11034; // V3: List saved images
-    CMD_V3_ASTRO_SAVE_COMPLETE = 11036; // V3: Save complete notification response
-    CMD_V3_ASTRO_STATUS_POLLING = 11039; // V3: Status polling
-    CMD_V3_ASTRO_GET_PARAMS = 11040; // V3: Get astro parameters
-    CMD_V3_ASTRO_SET_PARAMS = 11041; // V3: Set astro parameters
-    CMD_V3_ASTRO_GET_PRESETS = 11043; // V3: Get exposure presets
-    CMD_V3_ASTRO_SET_LOCATION = 11047; // V3: Set observation location
-    CMD_V3_ASTRO_CONFIRM = 11048; // V3: Confirm observation
+    CMD_ASTRO_START_MAKE_FITS_THUMB = 11033;
+    CMD_V3_ASTRO_SAVE_STACKED_IMAGE = 11033; // Deprecated compatibility alias.
+    CMD_ASTRO_STOP_MAKE_FITS_THUMB = 11034;
+    CMD_V3_ASTRO_LIST_SAVED_IMAGES = 11034; // Deprecated compatibility alias.
+    CMD_ASTRO_STOP_RESTACKED = 11036;
+    CMD_V3_ASTRO_SAVE_COMPLETE = 11036; // Deprecated compatibility alias.
+    CMD_ASTRO_GET_ASTRO_SHOOTING_TIME = 11039;
+    CMD_V3_ASTRO_STATUS_POLLING = 11039; // Deprecated compatibility alias.
+    CMD_ASTRO_GET_QUICK_SET_LIST = 11040;
+    CMD_V3_ASTRO_GET_PARAMS = 11040; // Deprecated compatibility alias.
+    CMD_ASTRO_SET_QUICK_SET = 11041;
+    CMD_V3_ASTRO_SET_PARAMS = 11041; // Deprecated compatibility alias.
+    CMD_ASTRO_GET_CALI_FRAME_LIST = 11043;
+    CMD_V3_ASTRO_GET_PRESETS = 11043; // Deprecated compatibility alias.
+    CMD_ASTRO_START_SKY_TARGET_FINDER = 11047;
+    CMD_V3_ASTRO_SET_LOCATION = 11047; // Deprecated compatibility alias.
+    CMD_ASTRO_STOP_SKY_TARGET_FINDER = 11048;
+    CMD_V3_ASTRO_CONFIRM = 11048; // Deprecated compatibility alias.
     CMD_ASTRO_CONTINUE_SHOOTING = 11050; // APK 3.4.1: continue after a recoverable shooting warning
 
     CMD_CAMERA_WIDE_OPEN_CAMERA = 12000; // Turn on the camera
@@ -150,14 +162,17 @@ enum DwarfCMD {
     CMD_CAMERA_WIDE_START_RECORD = 12030; // Start wide recording
     CMD_CAMERA_WIDE_STOP_RECORD = 12031; // Stop wide recording
 
-    CMD_V3_CAMERA_WIDE_OPEN_CAMERA = 12036; // V3: Open/close wide camera
+    CMD_CAMERA_WIDE_SET_PREVIEW_QUALITY = 12036;
+    CMD_V3_CAMERA_WIDE_OPEN_CAMERA = 12036; // Deprecated compatibility alias.
 
     CMD_SYSTEM_SET_TIME = 13000; // Set the system time
     CMD_SYSTEM_SET_TIME_ZONE = 13001; // Set the time zone
     CMD_SYSTEM_SET_MTP_MODE = 13002; // Set MTP mode
     CMD_SYSTEM_SET_CPU_MODE = 13003; // Set CPU mode
-    CMD_SYSTEM_SET_MASTERLOCK = 13004; // Set HOST mode
-    CMD_V3_SYSTEM_SET_GPS_LOCATION = 13010; // V3: Set GPS location
+    CMD_SYSTEM_SET_MASTER = 13004; // Set HOST mode
+    CMD_SYSTEM_SET_MASTERLOCK = 13004; // Deprecated compatibility alias.
+    CMD_SYSTEM_SET_LOCATION = 13010;
+    CMD_V3_SYSTEM_SET_GPS_LOCATION = 13010; // Deprecated compatibility alias.
 
     CMD_RGB_POWER_OPEN_RGB = 13500; // Turn on the ring light
     CMD_RGB_POWER_CLOSE_RGB = 13501; // Turn off the ring light
@@ -190,7 +205,8 @@ enum DwarfCMD {
     CMD_UFOTRACK_MODE_START = 14806; // Start sentinel UFO mode
     CMD_UFOTRACK_MODE_STOP = 14807; // Stop Sentinel UFO Mode
     CMD_MOT_WIDE_TRACK_ONE = 14808; // Wide-angle: "Multi-Object Tracking" starts tracking a specific target (firmware will return an identification box and ID, confirm tracking target based on user clicks)
-    CMD_WIDE_TELE_TRACK_SWITCH = 14809; // Object Detection with 30 classes for post-production non-sentinel mode. Choose between wide-angle and telephoto tracking button instructions
+    CMD_SWITCH_MAIN_PREVIEW = 14809;
+    CMD_WIDE_TELE_TRACK_SWITCH = 14809; // Deprecated compatibility alias.
     CMD_UFO_HAND_AOTO_MODE = 14810; // Used for post-UFO mode selection manual or automatic
 
     CMD_FOCUS_AUTO_FOCUS = 15000; // Normal mode autofocus
@@ -199,9 +215,11 @@ enum DwarfCMD {
     CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS = 15003; // Stop manual continuous focus
     CMD_FOCUS_START_ASTRO_AUTO_FOCUS = 15004; // Start astronomical autofocus
     CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS = 15005; // Stop astronomical autofocus
-    CMD_V3_FOCUS_INIT = 15011; // V3: Focus init
+    CMD_FOCUS_GET_USER_INFINITY_POS = 15011;
+    CMD_V3_FOCUS_INIT = 15011; // Deprecated compatibility alias.
 
-    CMD_NOTIFY_TELE_WIDI_PICTURE_MATCHING = 15200; // Telephoto wide-angle image matching
+    CMD_NOTIFY_TELE_WIDE_PICTURE_MATCHING = 15200;
+    CMD_NOTIFY_TELE_WIDI_PICTURE_MATCHING = 15200; // Deprecated misspelled alias.
     CMD_NOTIFY_ELE = 15201; // Battery Notification
     CMD_NOTIFY_CHARGE = 15202; // Charge status notification
     CMD_NOTIFY_SDCARD_INFO = 15203; // SD card capacity notification
@@ -247,8 +265,8 @@ enum DwarfCMD {
     CMD_NOTIFY_WIDE_LONG_EXP_PROGRESS = 15242; // Wide-angle long exposure progress
     CMD_NOTIFY_TEMPERATURE = 15243; // Movement temperature
     CMD_NOTIFY_PANORAMA_UPLOAD_COMPRESS_PROGRESS = 15244; // 
-    CMD_NOTIFY_PANORAMA_UPLOAD_UPLOAD_PROGRESS = 15245; // 
-    CMD_NOTIFY_PANORAMA_UPLOAD_COMPLETE = 15246; // 
+    CMD_NOTIFY_PANORAMA_UPLOAD_UPLOAD_PROGRESS = 15245;
+    CMD_NOTIFY_PANORAMA_UPLOAD_COMPLETE = 15245;
     CMD_NOTIFY_STATE_CAPTURE_WIDE_RAW_DARK = 15247; // Wide-angle dark field shooting state
     CMD_NOTIFY_SHOOTING_SCHEDULE_RESULT_AND_STATE = 15248; // 
     CMD_NOTIFY_SHOOTING_TASK_STATE = 15249; // 
@@ -257,42 +275,71 @@ enum DwarfCMD {
     CMD_NOTIFY_WIDE_TRACK_RESULT = 15252; // Wide-angle single target box result notification
 
     CMD_NOTIFY_CALIBRATION_RESULT = 15256; // Successful astronomical calibration result
-    CMD_NOTIFY_FOCUS = 15257; // Focus Position
+    CMD_NOTIFY_FOCUS_POSITION = 15257;
+    CMD_NOTIFY_FOCUS = 15257; // Deprecated compatibility alias.
 
-    CMD_V3_NOTIFY_EXPOSURE_PROGRESS = 15255; // V3: Per-frame exposure countdown
-    CMD_V3_NOTIFY_DEVICE_STATE = 15261; // V3: Device state notification
-    CMD_V3_NOTIFY_CAMERA_PARAM_STATE = 15264; // V3: Camera parameter state
-    CMD_V3_NOTIFY_MODE_CHANGE = 15267; // V3: Mode change notification
-    CMD_V3_NOTIFY_STACKING_DATA = 15270; // V3: Stacking data notification
-    CMD_V3_NOTIFY_PHOTO_STATE = 15273; // V3: Normal photo state
-    CMD_V3_NOTIFY_BURST_STATE = 15274; // V3: Burst capture state
-    CMD_V3_NOTIFY_VIDEO_STATE = 15275; // V3: Video recording state
-    CMD_V3_NOTIFY_TIMELAPSE_STATE = 15276; // V3: Timelapse state
-    CMD_V3_NOTIFY_AUTOFOCUS_STATE = 15278; // V3: AutoFocus state
-    CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT = 15280; // V3: alternate AutoFocus state
-    CMD_V3_NOTIFY_PHOTO_BURST_PROGRESS = 15285; // V3: Photo/burst progress
-    CMD_V3_NOTIFY_VIDEO_PROGRESS = 15286; // V3: Video recording progress
-    CMD_V3_NOTIFY_TIMELAPSE_PROGRESS = 15287; // V3: Timelapse progress
-    CMD_V3_NOTIFY_CALI_FRAME_STATE = 15290; // APK 3.4.1: calibration-frame state
-    CMD_V3_NOTIFY_CALI_FRAME_PROGRESS = 15291; // APK 3.4.1: calibration-frame progress
-    CMD_V3_NOTIFY_TEMPERATURE2 = 15292; // V3: Temperature2
-    CMD_V3_NOTIFY_OBSERVATION_STATE = 15296; // V3: Observation state
+    CMD_NOTIFY_WAIT_SHOOTING_PROGRESS = 15255;
+    CMD_V3_NOTIFY_EXPOSURE_PROGRESS = 15255; // Capture-derived compatibility alias.
+    CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE = 15261;
+    CMD_V3_NOTIFY_DEVICE_STATE = 15261; // Deprecated compatibility alias.
+    CMD_NOTIFY_GENERAL_INT_PARAM = 15264;
+    CMD_V3_NOTIFY_CAMERA_PARAM_STATE = 15264; // Deprecated compatibility alias.
+    CMD_NOTIFY_SWITCH_SHOOTING_MODE = 15267;
+    CMD_V3_NOTIFY_MODE_CHANGE = 15267; // Deprecated compatibility alias.
+    CMD_NOTIFY_WB = 15270;
+    CMD_V3_NOTIFY_STACKING_DATA = 15270; // Deprecated compatibility alias.
+    CMD_NOTIFY_PHOTO_STATE = 15273;
+    CMD_V3_NOTIFY_PHOTO_STATE = 15273; // Deprecated compatibility alias.
+    CMD_NOTIFY_BURST_STATE = 15274;
+    CMD_V3_NOTIFY_BURST_STATE = 15274; // Deprecated compatibility alias.
+    CMD_NOTIFY_RECORD_STATE = 15275;
+    CMD_V3_NOTIFY_VIDEO_STATE = 15275; // Deprecated compatibility alias.
+    CMD_NOTIFY_TIMELAPSE_STATE = 15276;
+    CMD_V3_NOTIFY_TIMELAPSE_STATE = 15276; // Deprecated compatibility alias.
+    CMD_NOTIFY_ASTRO_AUTO_FOCUS_STATE = 15278;
+    CMD_V3_NOTIFY_AUTOFOCUS_STATE = 15278; // Deprecated compatibility alias.
+    CMD_NOTIFY_ASTRO_AUTO_FOCUS_FAST_STATE = 15280;
+    CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT = 15280; // Deprecated compatibility alias.
+    CMD_NOTIFY_BURST_PROGRESS = 15285;
+    CMD_V3_NOTIFY_PHOTO_BURST_PROGRESS = 15285; // Deprecated compatibility alias.
+    CMD_NOTIFY_RECORD_TIME = 15286;
+    CMD_V3_NOTIFY_VIDEO_PROGRESS = 15286; // Deprecated compatibility alias.
+    CMD_NOTIFY_TIMELAPSE_OUT_TIME = 15287;
+    CMD_V3_NOTIFY_TIMELAPSE_PROGRESS = 15287; // Deprecated compatibility alias.
+    CMD_NOTIFY_LONG_EXP_PROGRESS = 15288;
+    CMD_NOTIFY_STATE_CAPTURE_CALI_FRAME = 15290;
+    CMD_V3_NOTIFY_CALI_FRAME_STATE = 15290; // Deprecated compatibility alias.
+    CMD_NOTIFY_PROGRESS_CAPTURE_CALI_FRAME = 15291;
+    CMD_V3_NOTIFY_CALI_FRAME_PROGRESS = 15291; // Deprecated compatibility alias.
+    CMD_NOTIFY_CMOS_TEMPERATURE = 15292;
+    CMD_V3_NOTIFY_TEMPERATURE2 = 15292; // Deprecated compatibility alias.
+    CMD_NOTIFY_SKY_TARGET_FINDER_STATE = 15296;
+    CMD_V3_NOTIFY_OBSERVATION_STATE = 15296; // Deprecated compatibility alias.
 
     CMD_PANORAMA_START_GRID = 15500; // Start panorama
     CMD_PANORAMA_STOP = 15501; // Stop panorama
     CMD_PANORAMA_START_EULER_RANGE = 15502; // Start panorama Euler Range
 
-    CMD_V3_SCHEDULE_GET = 16102; // V3: Get shooting schedule
+    CMD_GET_ALL_SHOOTING_SCHEDULE = 16102;
+    CMD_V3_SCHEDULE_GET = 16102; // Deprecated compatibility alias.
 
-    CMD_V3_DEVICE_CONFIG_MODE_QUERY = 16402; // V3: Mode query
-    CMD_V3_DEVICE_CONFIG_SHOOTING_MODE = 16403; // V3: Shooting mode switch
-    CMD_V3_DEVICE_CONFIG_MODE_SWITCH = 16404; // V3: Mode switch
-    CMD_V3_DEVICE_CONFIG_GET_CONFIG = 16405; // V3: Get device config
+    CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE = 16402;
+    CMD_V3_DEVICE_CONFIG_MODE_QUERY = 16402; // Deprecated compatibility alias.
+    CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH = 16403;
+    CMD_V3_DEVICE_CONFIG_SHOOTING_MODE = 16403; // Deprecated compatibility alias.
+    CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA = 16404;
+    CMD_V3_DEVICE_CONFIG_MODE_SWITCH = 16404; // Deprecated compatibility alias.
+    CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO = 16405;
+    CMD_V3_DEVICE_CONFIG_GET_CONFIG = 16405; // Deprecated compatibility alias.
 
-    CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700; // V3: Set camera param
-    CMD_V3_CAMERA_PARAMS_SET_EXP_GAIN = 16701; // V3: Set exposure/gain
-    CMD_V3_CAMERA_PARAMS_ADJUST = 16703; // V3: Adjust camera param
-    CMD_V3_CAMERA_PARAMS_STREAM_CTRL = 16706; // V3: Stream control
+    CMD_PARAM_SET_EXPOSURE = 16700;
+    CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700; // Deprecated compatibility alias.
+    CMD_PARAM_SET_GAIN = 16701;
+    CMD_V3_CAMERA_PARAMS_SET_EXP_GAIN = 16701; // Deprecated compatibility alias.
+    CMD_PARAM_SET_GENERAL_INT_PARAM = 16703;
+    CMD_V3_CAMERA_PARAMS_ADJUST = 16703; // Deprecated compatibility alias.
+    CMD_PARAM_SET_AUTO_PARAMS = 16706;
+    CMD_V3_CAMERA_PARAMS_STREAM_CTRL = 16706; // Deprecated compatibility alias.
 }
 
 enum DwarfErrorCode {

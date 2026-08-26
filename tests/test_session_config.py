@@ -15,7 +15,8 @@ from dwarf_alpaca.dwarf.session import (
     FilterOption,
 )
 from dwarf_alpaca.proto import protocol_pb2
-from dwarf_alpaca.proto.dwarf_messages import ComResponse, V3ResGetDeviceConfig, V3ResModeQuery
+from dwarf_alpaca.proto.dwarf_messages import ComResponse
+from dwarf_alpaca.proto.task_center_pb2 import ResGetDeviceStateInfo
 
 
 @pytest.fixture()
@@ -317,7 +318,7 @@ async def test_mini_filter_options_ignore_unverified_http_aliases() -> None:
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_v3_state_queries_mode_and_config() -> None:
+async def test_bootstrap_v3_state_queries_config_without_switching_mode() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
     session._ws_client._conn = types.SimpleNamespace(closed=False, close_code=None)
@@ -326,13 +327,8 @@ async def test_bootstrap_v3_state_queries_mode_and_config() -> None:
 
     async def fake_send_request(self, module_id, command_id, request, response_cls, **_kwargs):  # type: ignore[override]
         calls.append((module_id, command_id))
-        if command_id == 16402:
-            response = V3ResModeQuery()
-            response.code = protocol_pb2.OK
-            response.mode = 8
-            return response
         if command_id == 16405:
-            response = V3ResGetDeviceConfig()
+            response = ResGetDeviceStateInfo()
             response.code = protocol_pb2.OK
             response.shooting_mode = 8
             response.tele_camera_state_info.resolution_width = 1920
@@ -352,7 +348,7 @@ async def test_bootstrap_v3_state_queries_mode_and_config() -> None:
 
     await session._bootstrap_v3_state()
 
-    assert calls == [(14, 16402), (14, 16405)]
+    assert calls == [(14, 16405)]
     assert session._v3_device_state_mode == 8
     assert session._v3_device_config_bytes is not None
     assert session._v3_device_config_bytes > 3
@@ -376,7 +372,7 @@ async def test_ensure_master_lock_triggers_v3_bootstrap() -> None:
 
     async def fake_ws_send_request(self, module_id, command_id, request, response_cls, **_kwargs):  # type: ignore[override]
         assert module_id == protocol_pb2.ModuleId.MODULE_SYSTEM
-        assert command_id == protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTERLOCK
+        assert command_id == protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTER
         response = ComResponse()
         response.code = protocol_pb2.OK
         return response

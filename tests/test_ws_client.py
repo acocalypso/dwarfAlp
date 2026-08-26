@@ -114,7 +114,7 @@ async def test_ws_client_handles_master_lock_notification():
 
     response = await client.send_request(
         protocol_pb2.ModuleId.MODULE_SYSTEM,
-        protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTERLOCK,
+        protocol_pb2.DwarfCMD.CMD_SYSTEM_SET_MASTER,
         request,
         ComResponse,
         expected_responses=expected,
@@ -150,3 +150,22 @@ async def test_unexpected_same_command_notification_does_not_consume_response():
     response = await client.send_command(1, 42, ReqCloseCamera())
 
     assert response.code == 0
+
+
+@pytest.mark.asyncio
+async def test_close_suppresses_reader_task_cancellation():
+    client = DwarfWsClient("127.0.0.1")
+    dummy = DummyConnection(client)
+    client._conn = dummy  # type: ignore[attr-defined]
+
+    async def reader() -> None:
+        await asyncio.Event().wait()
+
+    client._reader_task = asyncio.create_task(reader())
+    await asyncio.sleep(0)
+
+    await client.close()
+
+    assert client._reader_task is None
+    assert client._conn is None
+    assert dummy.closed is True

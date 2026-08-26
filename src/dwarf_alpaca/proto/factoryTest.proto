@@ -1,0 +1,251 @@
+syntax = "proto3";
+
+message ReqSetSN {
+    string sn = 1;
+}
+
+message ReqGetSN {
+}
+
+message ReqGetNTCValue {
+}
+
+message ReqGetEMMCValue {
+}
+
+message ReqSetAUDSTART {
+}
+
+message ReqSetAUDSTOP {
+}
+
+message ReqSetAUDPLAYSTART {
+}
+
+message ReqSetAUDPLAYSTOP {
+}
+
+message ReqSetFatigueTestMode {
+    int32 mode = 1;
+}
+
+message ReqSetRgb {
+}
+
+message ReqGetELE {
+}
+
+message ReqGetFactoryTestState {
+}
+
+message ReqSetWiFiStartUpMode {
+    int32 mode = 1;
+}
+
+message ResGetFactoryTestState {
+    string sn = 1;
+    int32 fatigue_test_mode = 2;
+    bool wifi_start_up = 3;
+    string mac_address = 4;
+}
+
+message FatigueTestIrcutParam {
+    bool enable = 1;
+    int32 interval = 2;
+    int32 time = 3;
+}
+
+message FatigueTestMotorParam {
+    bool enable = 1;
+    int32 m_step = 2;
+    int32 speed = 3;
+    int32 time = 4;
+    int32 interval = 5;
+}
+
+message FatigueTestLightsParam {
+    bool enable = 1;
+    int32 interval = 2;
+    int32 time = 3;
+}
+
+message FatigueTestCameraParam {
+    bool enable = 1;
+}
+
+message FatigueTestParam {
+    FatigueTestIrcutParam ircut_param = 1;
+    FatigueTestMotorParam motor_rotate_param = 2;
+    FatigueTestMotorParam motor_pitch_param = 3;
+    FatigueTestMotorParam motor_af_param = 4;
+    FatigueTestLightsParam light_param = 5;
+    FatigueTestCameraParam camera_param = 6;
+}
+
+message ResEMMCInAadOutSpeed {
+    int32 cmd = 1;
+    int32 code = 2;
+    float readspeed = 3;
+    float writespeed = 4;
+}
+
+message ReqFocusMotorBacklashTest {
+    optional int32 motor_id = 1;
+}
+
+message ReqCaptureTeleDark {
+}
+
+message ReqCaptureTeleBias {
+}
+
+message ReqCaptureTeleFlat {
+}
+
+message ReqCaptureWideDark {
+}
+
+message ReqCaptureWideBias {
+}
+
+message ReqCaptureWideFlat {
+}
+
+message ReqCaptureGuideFlat {
+}
+
+message ReqCaptureGuideBias {
+}
+
+message ReqResetMotorMcu {
+}
+
+message ResErrorTeststart {
+}
+
+message ResErrorTestState {
+    int32 state = 1;
+    double angle = 2;
+    int32 dir = 3;
+}
+
+message ReqTestOpenAllCamera {
+}
+
+message ReqFactoryTestSuccess {
+}
+
+message ReqGetRssi {
+}
+
+message ReqGetMCUUART {
+}
+
+message ReqGetFIRMWAREVERISON {
+}
+
+message ReqTestRgbUart {
+    int32 count = 1;
+}
+
+message ReqPasswordEncryption {
+}
+
+message ReqPasswordEncryptionState {
+}
+
+message ReqRestPasswordEncryption {
+}
+
+message ReqFactoryTecState {
+    bool enable = 1;
+    int32 speed = 2;
+    int32 time = 3;
+}
+
+message ReqFactoryFanState {
+    bool enable = 1;
+    int32 speed = 2;
+    int32 time = 3;
+}
+
+message ReqFactoryHeadTapeState {
+    bool enable = 1;
+    int32 time = 2;
+}
+
+message ReqSetGyroCal {
+    bool enable = 1;
+}
+
+message ReqFactoryGyroAttitude {
+    int32 mode = 1;
+}
+
+message ResFactoryGyroAttitude {
+    int32 cmd = 1;
+    int32 code = 2;
+    double pitch = 3;
+    double yaw = 4;
+    double roll = 5;
+}
+
+message TemperatureItem {
+    int32 id = 1;
+    string name = 2;
+    double value = 3;
+}
+
+message ResAllTemperature {
+    repeated TemperatureItem temps = 1;
+    int32 code = 2;
+}
+
+message ReqFactoryMoveIrcutFloor {
+    int32 floor = 1;
+    int32 dir = 2;
+}
+
+message ResFactoryMicRms {
+    repeated double all_mic_rms = 1;
+    int32 code = 2;
+}
+
+message ReqSetVcmRom {
+    int32 addr = 1;
+    int32 value = 2;
+}
+
+message ResVcmK {
+    double value = 1;
+}
+
+message ReqFactorySetUsbMode {
+    int32 mode = 1;
+}
+
+message ReqFactoryDualPeSwitchState {
+    int32 motor_id = 1;
+}
+
+message ResFactoryDualPeSwitchState {
+    int32 motor_id = 1;
+    int32 state1 = 2;
+    int32 state2 = 3;
+}
+
+message ReqFactorySetRollHorizontalDegree {
+}
+
+message ReqFactoryGetRollHorizontalDegree {
+}
+
+message ResFactoryGetRollHorizontalDegree {
+    int32 code = 1;
+    double degree = 2;
+}
+
+message ReqFactorySetRollHorizontalPosition {
+    int32 offset_mode = 1;
+    int32 move_mode = 2;
+}

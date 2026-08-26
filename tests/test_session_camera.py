@@ -5,7 +5,6 @@ from datetime import datetime
 
 import numpy as np
 import pytest
-from websockets.exceptions import ConnectionClosedOK
 
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.dwarf.session import (
@@ -21,15 +20,19 @@ from dwarf_alpaca.proto.dwarf_messages import (
     TYPE_NOTIFICATION,
     ComResponse,
     ResNotifyTemperature,
-    V3ResModeSwitch,
-    V3ResNotifyDeviceState,
-    V3ResNotifyModeChange,
-    V3ResNotifyTemperature2,
-    V3ResShootingModeSwitch,
     WsPacket,
 )
-from dwarf_alpaca.proto.notify_pb2 import ResNotifyProgressCaptureRawLiveStacking
-from dwarf_alpaca.proto.v3_astro_pb2 import V3ResGetAstroParams, V3ResSetAstroParams
+from dwarf_alpaca.proto.notify_pb2 import (
+    CmosTemperature,
+    ProgressCaptureRawLiveStacking,
+    SwitchShootingMode,
+)
+from dwarf_alpaca.proto.task_center_pb2 import (
+    ResEnterCamera,
+    ResNotifyTaskState,
+    ResSwitchShootingMode,
+    ResSwitchShootingTech,
+)
 
 
 @pytest.mark.asyncio
@@ -40,15 +43,18 @@ async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch
 
     async def fake_send_request(module_id, command_id, request, _response_cls, **_kwargs):
         calls.append((module_id, command_id, request))
-        if command_id == protocol_pb2.DwarfCMD.CMD_V3_DEVICE_CONFIG_MODE_SWITCH:
-            response = V3ResModeSwitch()
+        if command_id == 16402:
+            response = ResSwitchShootingMode()
             response.code = protocol_pb2.OK
-            response.mode = 8
+            response.shooting_mode_id = 8
             return response
-        if command_id == protocol_pb2.DwarfCMD.CMD_V3_DEVICE_CONFIG_SHOOTING_MODE:
-            response = V3ResShootingModeSwitch()
+        if command_id == 16404:
+            response = ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=8)
+            return response
+        if command_id == 16403:
+            response = ResSwitchShootingTech()
             response.code = protocol_pb2.OK
-            response.mode_id = 2
+            response.shooting_tech_id = 2
             return response
         raise AssertionError(f"unexpected command {command_id}")
 
@@ -60,10 +66,11 @@ async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch
 
     await session._enter_v3_astro_mode()
 
-    assert [command for _, command, _ in calls] == [16404, 16403, 10050]
-    assert calls[0][2].inner.value == 1
-    assert calls[1][2].mode_id == 2
-    assert calls[2][2].action == 1
+    assert [command for _, command, _ in calls] == [16402, 16404, 16403, 10050]
+    assert calls[0][2].mode == 8
+    assert calls[1][2].client_param.encode_type == 1
+    assert calls[2][2].tech == 2
+    assert calls[3][2].level == 1
 
 
 @pytest.mark.asyncio
@@ -72,15 +79,11 @@ async def test_v3_capture_accepts_legacy_mode_two_confirmation(monkeypatch):
     session.simulation = False
 
     async def fake_send_request(_module_id, command_id, _request, _response_cls, **_kwargs):
-        if command_id == protocol_pb2.DwarfCMD.CMD_V3_DEVICE_CONFIG_MODE_SWITCH:
-            response = V3ResModeSwitch()
-            response.code = protocol_pb2.OK
-            response.mode = 2
-            return response
-        response = V3ResShootingModeSwitch()
-        response.code = protocol_pb2.OK
-        response.mode_id = 2
-        return response
+        if command_id == 16402:
+            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=8)
+        if command_id == 16404:
+            return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
+        return ResSwitchShootingTech(code=protocol_pb2.OK, shooting_tech_id=2)
 
     async def fake_send_and_check(*_args, **_kwargs):
         return None
@@ -97,14 +100,11 @@ async def test_v3_capture_rejects_failed_deep_sky_mode_confirmation(monkeypatch)
     session.simulation = False
 
     async def fake_send_request(_module_id, _command_id, _request, _response_cls, **_kwargs):
-        response = V3ResModeSwitch()
-        response.code = protocol_pb2.OK
-        response.mode = 1
-        return response
+        return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=1)
 
     monkeypatch.setattr(session, "_send_request", fake_send_request)
 
-    with pytest.raises(CaptureConfigurationError, match="did not enter astronomy mode"):
+    with pytest.raises(CaptureConfigurationError, match="did not select astronomy mode"):
         await session._enter_v3_astro_mode()
 
 
@@ -141,15 +141,10 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
     adjusted: list[tuple[int, int, int, int]] = []
 
     async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
-        if command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_GET_PARAMS:
-            response = V3ResGetAstroParams()
-            entry = response.params.add()
-            entry.pipe_params = "0|0|15|60|1|null"
-            return response
-        if command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_SET_PARAMS:
-            calls.append((command, request.params))
-            response = V3ResSetAstroParams()
-            response.pipe_params = request.params
+        if command == protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST:
+            response = astro_pb2.ResGetQuickSetList()
+            entry = response.quick_set_list.add()
+            entry.info_id = "0|0|15|60|1|null"
             return response
         raise AssertionError(f"unexpected command {command}")
 
@@ -191,14 +186,10 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
     adjusted: list[tuple[int, int, int, int]] = []
 
     async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
-        if command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_GET_PARAMS:
-            response = V3ResGetAstroParams()
-            entry = response.params.add()
-            entry.pipe_params = "0|0|1|60|999|null"
-            return response
-        if command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_SET_PARAMS:
-            response = V3ResSetAstroParams()
-            response.pipe_params = request.params
+        if command == protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST:
+            response = astro_pb2.ResGetQuickSetList()
+            entry = response.quick_set_list.add()
+            entry.info_id = "0|0|1|60|999|null"
             return response
         raise AssertionError(f"unexpected command {command}")
 
@@ -226,13 +217,12 @@ async def test_dwarf3_v3_astro_preset_accepts_firmware_zero_placeholder(monkeypa
     session.simulation = False
 
     async def fake_send_request(_module, command, _request, _response_cls, **_kwargs):
-        assert command == protocol_pb2.DwarfCMD.CMD_V3_ASTRO_GET_PARAMS
-        response = V3ResGetAstroParams()
-        entry = response.params.add()
-        entry.exposure = "1"
+        assert command == protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST
+        response = astro_pb2.ResGetQuickSetList()
+        entry = response.quick_set_list.add()
+        entry.exp_name = "1"
         entry.gain = 120
-        entry.total = 120
-        entry.pipe_params = "0|0|1|120|0|null"
+        entry.info_id = "0|0|1|120|0|null"
         return response
 
     monkeypatch.setattr(session, "_send_request", fake_send_request)
@@ -491,8 +481,7 @@ async def test_temperature_notification_updates_state():
 async def test_v3_temperature2_notification_updates_state() -> None:
     session = DwarfSession(Settings(force_simulation=True))
 
-    message = V3ResNotifyTemperature2()
-    message.temperature = 41
+    message = CmosTemperature(temperature=41, camera_type=0)
 
     packet = WsPacket()
     packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
@@ -511,10 +500,7 @@ async def test_v3_temperature2_notification_updates_state() -> None:
 async def test_v3_mode_change_notification_updates_session_state() -> None:
     session = DwarfSession(Settings(force_simulation=True))
 
-    message = V3ResNotifyModeChange()
-    message.changing = 0
-    message.mode = 8
-    message.sub_mode = 1
+    message = SwitchShootingMode(state=0, source_mode=8, dst_mode=1)
 
     packet = WsPacket()
     packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
@@ -531,12 +517,10 @@ async def test_v3_mode_change_notification_updates_session_state() -> None:
 async def test_v3_device_state_notification_updates_session_state() -> None:
     session = DwarfSession(Settings(force_simulation=True))
 
-    message = V3ResNotifyDeviceState()
-    message.event = 4
-    message.mode.mode = 8
-    message.mode.flags = 1
-    message.state.state = 2
-    message.path.path = "/data/stacked/result.fit"
+    message = ResNotifyTaskState(task_id=4)
+    message.task_attr.exclusive_mask = 8
+    message.task_attr.priority = 1
+    message.state.base_state = 2
 
     packet = WsPacket()
     packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
@@ -549,7 +533,7 @@ async def test_v3_device_state_notification_updates_session_state() -> None:
     assert session._v3_device_state_event == 4
     assert session._v3_device_state_mode == 8
     assert session._v3_device_state_detail == 2
-    assert session._v3_device_state_path == "/data/stacked/result.fit"
+    assert session._v3_device_state_path is None
 
 
 @pytest.mark.asyncio
@@ -560,14 +544,11 @@ async def test_astro_progress_stops_when_requested_raw_frames_are_acquired() -> 
     state.requested_frame_count = 2
 
     def progress_packet(*, current: int, stacked: int) -> WsPacket:
-        message = ResNotifyProgressCaptureRawLiveStacking(
+        message = ProgressCaptureRawLiveStacking(
             total_count=20,
-            update_count_type=1 if stacked else 0,
+            update_type=1 if stacked else 0,
             current_count=current,
-            stacked_count=stacked,
-            exp_index=42,
-            gain_index=3,
-            target_name="Sun",
+            camera_type=0,
         )
         packet = WsPacket()
         packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
@@ -580,16 +561,13 @@ async def test_astro_progress_stops_when_requested_raw_frames_are_acquired() -> 
 
     assert state.progress_total_count == 20
     assert state.progress_current_count == 1
-    assert state.progress_stacked_count == 1
-    assert state.progress_exposure_index == 42
-    assert state.progress_gain_index == 3
-    assert state.progress_target_name == "Sun"
+    assert state.progress_stacked_count == 0
     assert not session._capture_frame_complete_event.is_set()
 
     await session._handle_notification(progress_packet(current=2, stacked=1))
 
     assert state.progress_current_count == 2
-    assert state.progress_stacked_count == 1
+    assert state.progress_stacked_count == 0
     assert session._capture_frame_complete_event.is_set()
 
 
@@ -1250,29 +1228,34 @@ async def test_next_capture_waits_until_firmware_reports_stopped():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
-async def test_camera_connect_uses_v3_open_for_all_models(monkeypatch, model):
+async def test_camera_connect_uses_enter_camera_and_preview_quality_for_all_models(
+    monkeypatch, model
+):
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model=model))
     session.simulation = False
 
-    captured: dict[str, object] = {}
+    captured: list[tuple[int, int, object]] = []
 
     async def fake_ensure_ws(*_args, **_kwargs):
         return None
 
+    async def fake_send_request(module_id, command_id, request, _response_cls, **_kwargs):
+        captured.append((module_id, command_id, request))
+        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=8)
+
     async def fake_send_and_check(module_id, command_id, request, **_kwargs):
-        captured["module_id"] = module_id
-        captured["command_id"] = command_id
-        captured["action"] = getattr(request, "action", None)
+        captured.append((module_id, command_id, request))
         return None
 
     monkeypatch.setattr(session, "_ensure_ws", fake_ensure_ws)
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
     monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
 
     await session.camera_connect()
 
-    assert captured["module_id"] == protocol_pb2.ModuleId.MODULE_CAMERA_TELE
-    assert captured["command_id"] == 10050
-    assert captured["action"] == 1
+    assert [command for _, command, _ in captured] == [16404, 10050]
+    assert captured[0][2].client_param.encode_type == 1
+    assert captured[1][2].level == 1
     assert session.camera_state.connected is True
 
 
@@ -1284,11 +1267,11 @@ async def test_camera_connect_failure_does_not_claim_connected(monkeypatch):
     async def fake_ensure_ws(*_args, **_kwargs):
         return None
 
-    async def fake_send_and_check(*_args, **_kwargs):
+    async def fake_send_request(*_args, **_kwargs):
         raise RuntimeError("camera open rejected")
 
     monkeypatch.setattr(session, "_ensure_ws", fake_ensure_ws)
-    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
 
     with pytest.raises(RuntimeError, match="camera open rejected"):
         await session.camera_connect()
@@ -1297,20 +1280,16 @@ async def test_camera_connect_failure_does_not_claim_connected(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_camera_disconnect_handles_closed_socket(monkeypatch):
-    session = DwarfSession(Settings())
+async def test_v3_camera_disconnect_is_local_only(monkeypatch):
+    session = DwarfSession(Settings(dwarf_device_model="dwarfmini"))
     session.simulation = False
     session.camera_state.capture_task = None
     session.camera_state.connected = True
 
     async def fake_ensure_ws(self):
-        return None
-
-    async def failing_send(self, *_args, **_kwargs):
-        raise ConnectionClosedOK(None, None)
+        raise AssertionError("V3 camera disconnect must not reopen the WebSocket")
 
     session._ensure_ws = types.MethodType(fake_ensure_ws, session)
-    session._send_and_check = types.MethodType(failing_send, session)
 
     await session.camera_disconnect()
 

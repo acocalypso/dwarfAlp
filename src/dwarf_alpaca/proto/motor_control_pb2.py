@@ -24,39 +24,51 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13motor_control.proto\"U\n\x17ReqMotorServiceJoystick\x12\x14\n\x0cvector_angle\x18\x01 \x01(\x01\x12\x15\n\rvector_length\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\"_\n!ReqMotorServiceJoystickFixedAngle\x12\x14\n\x0cvector_angle\x18\x01 \x01(\x01\x12\x15\n\rvector_length\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\"\x1d\n\x1bReqMotorServiceJoystickStop\"l\n\x0bReqMotorRun\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05speed\x18\x02 \x01(\x01\x12\x11\n\tdirection\x18\x03 \x01(\x08\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x18\n\x10resolution_level\x18\x05 \x01(\x05\"\x8e\x01\n\x12ReqMotorRunInPulse\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tfrequency\x18\x02 \x01(\x05\x12\x11\n\tdirection\x18\x03 \x01(\x08\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x12\n\nresolution\x18\x05 \x01(\x05\x12\r\n\x05pulse\x18\x06 \x01(\x05\x12\x0c\n\x04mode\x18\x07 \x01(\x08\"q\n\rReqMotorRunTo\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x14\n\x0c\x65nd_position\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x18\n\x10resolution_level\x18\x05 \x01(\x05\"!\n\x13ReqMotorGetPosition\x12\n\n\x02id\x18\x01 \x01(\x05\"\x1a\n\x0cReqMotorStop\x12\n\n\x02id\x18\x01 \x01(\x05\".\n\rReqMotorReset\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tdirection\x18\x02 \x01(\x08\"0\n\x13ReqMotorChangeSpeed\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05speed\x18\x02 \x01(\x01\"8\n\x17ReqMotorChangeDirection\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tdirection\x18\x02 \x01(\x08\"$\n\x08ResMotor\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\">\n\x10ResMotorPosition\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\x12\x10\n\x08position\x18\x03 \x01(\x01\",\n\x14ReqDualCameraLinkage\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13motor_control.proto\"F\n\x17ReqMotorServiceJoystick\x12\x14\n\x0cvector_angle\x18\x01 \x01(\x01\x12\x15\n\rvector_length\x18\x02 \x01(\x01\"P\n!ReqMotorServiceJoystickFixedAngle\x12\x14\n\x0cvector_angle\x18\x01 \x01(\x01\x12\x15\n\rvector_length\x18\x02 \x01(\x01\"\x1d\n\x1bReqMotorServiceJoystickStop\"l\n\x0bReqMotorRun\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05speed\x18\x02 \x01(\x01\x12\x11\n\tdirection\x18\x03 \x01(\x08\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x18\n\x10resolution_level\x18\x05 \x01(\x05\"\x8e\x01\n\x12ReqMotorRunInPulse\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tfrequency\x18\x02 \x01(\x05\x12\x11\n\tdirection\x18\x03 \x01(\x08\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x12\n\nresolution\x18\x05 \x01(\x05\x12\r\n\x05pulse\x18\x06 \x01(\x05\x12\x0c\n\x04mode\x18\x07 \x01(\x08\"q\n\rReqMotorRunTo\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x14\n\x0c\x65nd_position\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x18\n\x10resolution_level\x18\x05 \x01(\x05\"!\n\x13ReqMotorGetPosition\x12\n\n\x02id\x18\x01 \x01(\x05\"\x1a\n\x0cReqMotorStop\x12\n\n\x02id\x18\x01 \x01(\x05\".\n\rReqMotorReset\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tdirection\x18\x02 \x01(\x08\"0\n\x13ReqMotorChangeSpeed\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05speed\x18\x02 \x01(\x01\"8\n\x17ReqMotorChangeDirection\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tdirection\x18\x02 \x01(\x08\"$\n\x08ResMotor\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\">\n\x10ResMotorPosition\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\x12\x10\n\x08position\x18\x03 \x01(\x01\"R\n\x1cReqMotorLevelCalibrationMove\x12\x32\n\tdirection\x18\x01 \x01(\x0e\x32\x1f.MotorLevelCalibrationDirection\"\x1e\n\x1cReqMotorLevelCalibrationSave\"&\n$ReqMotorLevelCalibrationResetDefault\",\n\x14ReqDualCameraLinkage\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"#\n!ReqMotorStartDeviceAttitudeNotify\"\"\n ReqMotorStopDeviceAttitudeNotify*u\n\x1eMotorLevelCalibrationDirection\x12(\n$MOTOR_LEVEL_CALIBRATION_DIRECTION_CW\x10\x00\x12)\n%MOTOR_LEVEL_CALIBRATION_DIRECTION_CCW\x10\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'motor_control_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_MOTORLEVELCALIBRATIONDIRECTION']._serialized_start=1174
+  _globals['_MOTORLEVELCALIBRATIONDIRECTION']._serialized_end=1291
   _globals['_REQMOTORSERVICEJOYSTICK']._serialized_start=23
-  _globals['_REQMOTORSERVICEJOYSTICK']._serialized_end=108
-  _globals['_REQMOTORSERVICEJOYSTICKFIXEDANGLE']._serialized_start=110
-  _globals['_REQMOTORSERVICEJOYSTICKFIXEDANGLE']._serialized_end=205
-  _globals['_REQMOTORSERVICEJOYSTICKSTOP']._serialized_start=207
-  _globals['_REQMOTORSERVICEJOYSTICKSTOP']._serialized_end=236
-  _globals['_REQMOTORRUN']._serialized_start=238
-  _globals['_REQMOTORRUN']._serialized_end=346
-  _globals['_REQMOTORRUNINPULSE']._serialized_start=349
-  _globals['_REQMOTORRUNINPULSE']._serialized_end=491
-  _globals['_REQMOTORRUNTO']._serialized_start=493
-  _globals['_REQMOTORRUNTO']._serialized_end=606
-  _globals['_REQMOTORGETPOSITION']._serialized_start=608
-  _globals['_REQMOTORGETPOSITION']._serialized_end=641
-  _globals['_REQMOTORSTOP']._serialized_start=643
-  _globals['_REQMOTORSTOP']._serialized_end=669
-  _globals['_REQMOTORRESET']._serialized_start=671
-  _globals['_REQMOTORRESET']._serialized_end=717
-  _globals['_REQMOTORCHANGESPEED']._serialized_start=719
-  _globals['_REQMOTORCHANGESPEED']._serialized_end=767
-  _globals['_REQMOTORCHANGEDIRECTION']._serialized_start=769
-  _globals['_REQMOTORCHANGEDIRECTION']._serialized_end=825
-  _globals['_RESMOTOR']._serialized_start=827
-  _globals['_RESMOTOR']._serialized_end=863
-  _globals['_RESMOTORPOSITION']._serialized_start=865
-  _globals['_RESMOTORPOSITION']._serialized_end=927
-  _globals['_REQDUALCAMERALINKAGE']._serialized_start=929
-  _globals['_REQDUALCAMERALINKAGE']._serialized_end=973
+  _globals['_REQMOTORSERVICEJOYSTICK']._serialized_end=93
+  _globals['_REQMOTORSERVICEJOYSTICKFIXEDANGLE']._serialized_start=95
+  _globals['_REQMOTORSERVICEJOYSTICKFIXEDANGLE']._serialized_end=175
+  _globals['_REQMOTORSERVICEJOYSTICKSTOP']._serialized_start=177
+  _globals['_REQMOTORSERVICEJOYSTICKSTOP']._serialized_end=206
+  _globals['_REQMOTORRUN']._serialized_start=208
+  _globals['_REQMOTORRUN']._serialized_end=316
+  _globals['_REQMOTORRUNINPULSE']._serialized_start=319
+  _globals['_REQMOTORRUNINPULSE']._serialized_end=461
+  _globals['_REQMOTORRUNTO']._serialized_start=463
+  _globals['_REQMOTORRUNTO']._serialized_end=576
+  _globals['_REQMOTORGETPOSITION']._serialized_start=578
+  _globals['_REQMOTORGETPOSITION']._serialized_end=611
+  _globals['_REQMOTORSTOP']._serialized_start=613
+  _globals['_REQMOTORSTOP']._serialized_end=639
+  _globals['_REQMOTORRESET']._serialized_start=641
+  _globals['_REQMOTORRESET']._serialized_end=687
+  _globals['_REQMOTORCHANGESPEED']._serialized_start=689
+  _globals['_REQMOTORCHANGESPEED']._serialized_end=737
+  _globals['_REQMOTORCHANGEDIRECTION']._serialized_start=739
+  _globals['_REQMOTORCHANGEDIRECTION']._serialized_end=795
+  _globals['_RESMOTOR']._serialized_start=797
+  _globals['_RESMOTOR']._serialized_end=833
+  _globals['_RESMOTORPOSITION']._serialized_start=835
+  _globals['_RESMOTORPOSITION']._serialized_end=897
+  _globals['_REQMOTORLEVELCALIBRATIONMOVE']._serialized_start=899
+  _globals['_REQMOTORLEVELCALIBRATIONMOVE']._serialized_end=981
+  _globals['_REQMOTORLEVELCALIBRATIONSAVE']._serialized_start=983
+  _globals['_REQMOTORLEVELCALIBRATIONSAVE']._serialized_end=1013
+  _globals['_REQMOTORLEVELCALIBRATIONRESETDEFAULT']._serialized_start=1015
+  _globals['_REQMOTORLEVELCALIBRATIONRESETDEFAULT']._serialized_end=1053
+  _globals['_REQDUALCAMERALINKAGE']._serialized_start=1055
+  _globals['_REQDUALCAMERALINKAGE']._serialized_end=1099
+  _globals['_REQMOTORSTARTDEVICEATTITUDENOTIFY']._serialized_start=1101
+  _globals['_REQMOTORSTARTDEVICEATTITUDENOTIFY']._serialized_end=1136
+  _globals['_REQMOTORSTOPDEVICEATTITUDENOTIFY']._serialized_start=1138
+  _globals['_REQMOTORSTOPDEVICEATTITUDENOTIFY']._serialized_end=1172
 # @@protoc_insertion_point(module_scope)

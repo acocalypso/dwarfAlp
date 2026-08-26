@@ -1,5 +1,9 @@
 syntax = "proto3";
 
+package notify;
+
+import "base.proto";
+
 enum OperationState {
     OPERATION_STATE_IDLE = 0;
     OPERATION_STATE_RUNNING = 1;
@@ -7,7 +11,6 @@ enum OperationState {
     OPERATION_STATE_STOPPED = 3;
 }
 
-// Mount-calibration progress notification: CMD 15210.
 enum AstroState {
     ASTRO_STATE_IDLE = 0;
     ASTRO_STATE_RUNNING = 1;
@@ -16,43 +19,501 @@ enum AstroState {
     ASTRO_STATE_PLATE_SOLVING = 4;
 }
 
+enum SentryModeState {
+    SENTRY_MODE_STATE_IDLE = 0;
+    SENTRY_MODE_STATE_INIT = 1;
+    SENTRY_MODE_STATE_DETECT = 2;
+    SENTRY_MODE_STATE_TRACK = 3;
+    SENTRY_MODE_STATE_TRACK_FINISH = 4;
+    SENTRY_MODE_STATE_STOPPING = 5;
+}
+
+enum SentryObjectType {
+    SENTRY_OBJECT_TYPE_UNKNOWN = 0;
+    SENTRY_OBJECT_TYPE_UFO = 1;
+    SENTRY_OBJECT_TYPE_BIRD = 2;
+    SENTRY_OBJECT_TYPE_PERSON = 3;
+    SENTRY_OBJECT_TYPE_ANIMAL = 4;
+    SENTRY_OBJECT_TYPE_VEHICLE = 5;
+    SENTRY_OBJECT_TYPE_FLYING = 6;
+    SENTRY_OBJECT_TYPE_BOAT = 7;
+}
+
+message PictureMatching {
+    uint32 x = 1;
+    uint32 y = 2;
+    uint32 width = 3;
+    uint32 height = 4;
+}
+
+message StorageInfo {
+    uint32 available_size = 1;
+    uint32 total_size = 2;
+    int32 storage_type = 3;
+    bool is_valid = 4;
+}
+
+message Temperature {
+    int32 code = 1;
+    int32 temperature = 2;
+}
+
+message CmosTemperature {
+    optional int32 temperature = 1;
+    int32 camera_type = 2;
+}
+
+message RecordTime {
+    uint32 record_time = 1;
+    uint32 camera_type = 2;
+}
+
+message TimeLapseOutTime {
+    uint32 interval = 1;
+    uint32 out_time = 2;
+    uint32 total_time = 3;
+    uint32 camera_type = 4;
+}
+
+message OperationStateNotify {
+    notify.OperationState state = 1;
+}
+
 message AstroCalibrationState {
-    AstroState state = 1;
+    notify.AstroState state = 1;
     int32 plate_solving_times = 2;
 }
 
-// Successful V3 mount-calibration result for all DWARF models: CMD 15256.
-// Recovered from the DWARFLAB 3.4.1 embedded notify.proto descriptor.
-message CalibrationResult {
-    double azi = 1;
-    double alt = 2;
-}
-
-// A phase embedded in the V3 one-click calibration + GoTo envelope.
-message OneClickGotoPhaseState {
-    int32 state = 1;
+message AstroGotoState {
+    notify.AstroState state = 1;
     string target_name = 2;
 }
 
-// V3 one-click calibration + GoTo state: CMD 15233. Field 1 is retained for
-// legacy firmware. V3 firmware reports the slew in field 3 and tracking in
-// field 4; tracking state 1 is the terminal success condition for Alpaca slew.
-message ResNotifyOneClickGotoState {
-    OperationState state = 1;
-    OneClickGotoPhaseState phase_2 = 2;
-    OneClickGotoPhaseState goto_state = 3;
-    OneClickGotoPhaseState tracking_state = 4;
+message AstroTrackingState {
+    notify.OperationState state = 1;
+    string target_name = 2;
 }
 
-// Astronomy live-stacking progress: CMD 15209.
-// `stacked_count` is the number of completed, accepted stack frames and is the
-// safe boundary for stopping a finite Alpaca exposure sequence.
-message ResNotifyProgressCaptureRawLiveStacking {
+message ProgressCaptureRawDark {
+    int32 progress = 1;
+    int32 remaining_time = 2;
+    int32 camera_type = 3;
+}
+
+message ProgressCaptureRawLiveStacking {
     int32 total_count = 1;
-    int32 update_count_type = 2;
+    int32 update_type = 2;
     int32 current_count = 3;
     int32 stacked_count = 4;
     int32 exp_index = 5;
     int32 gain_index = 6;
     string target_name = 7;
+    int32 camera_type = 8;
+    optional int32 shooting_time = 9;
+    optional int32 stacked_time = 10;
+}
+
+message Param {
+    repeated CommonParam param = 1;
+}
+
+message BurstProgress {
+    uint32 total_count = 1;
+    uint32 completed_count = 2;
+    uint32 camera_type = 3;
+}
+
+message PanoramaProgress {
+    int32 total_count = 1;
+    int32 completed_count = 2;
+    uint32 camera_type = 3;
+}
+
+message RgbState {
+    int32 state = 1;
+}
+
+message PowerIndState {
+    int32 state = 1;
+}
+
+message ChargingState {
+    int32 state = 1;
+}
+
+message BatteryInfo {
+    int32 percentage = 1;
+    optional int32 cycle_count = 2;
+    optional int32 soh = 3;
+}
+
+message HostSlaveMode {
+    int32 mode = 1;
+    bool lock = 2;
+}
+
+message MTPState {
+    int32 mode = 1;
+}
+
+message TrackResult {
+    int32 x = 1;
+    int32 y = 2;
+    int32 w = 3;
+    int32 h = 4;
+}
+
+message CPUMode {
+    int32 mode = 1;
+}
+
+message AstroTrackingSpecialState {
+    notify.OperationState state = 1;
+    string target_name = 2;
+    int32 index = 3;
+}
+
+message PowerOff {
+}
+
+message AlbumUpdate {
+    int32 media_type = 1;
+}
+
+message SentryState {
+    notify.SentryModeState state = 1;
+    notify.SentryObjectType object_type = 2;
+}
+
+message OneClickGotoState {
+    oneof current_state {
+        notify.AstroAutoFocusState astro_auto_focus_state = 1;
+        notify.AstroCalibrationState astro_calibration_state = 2;
+        notify.AstroGotoState astro_goto_state = 3;
+        notify.AstroTrackingState astro_tracking_state = 4;
+    }
+}
+
+message StreamType {
+    int32 stream_type = 1;
+    int32 cam_id = 2;
+}
+
+message EqSolvingState {
+    notify.OperationState state = 1;
+}
+
+message LongExpPhotoProgress {
+    double total_time = 1;
+    double exposured_time = 2;
+    uint32 camera_type = 3;
+}
+
+message ShootingScheduleResultAndState {
+    string schedule_id = 1;
+    int32 result = 2;
+    int32 state = 3;
+}
+
+message ShootingTaskState {
+    string schedule_task_id = 1;
+    int32 state = 2;
+    int32 code = 3;
+}
+
+message SkySeacherState {
+    notify.OperationState state = 1;
+}
+
+message ProgressAiEnhance {
+    int32 progress = 1;
+    int32 total_time = 2;
+}
+
+message CommonProgress {
+    enum ProgressType {
+        PROGRESS_TYPE_INITING = 0;
+        PROGRESS_TYPE_MOSAIC_MOVING = 1;
+    }
+
+    int32 current = 1;
+    int32 total = 2;
+    notify.CommonProgress.ProgressType progress_type = 3;
+}
+
+message CalibrationResult {
+    double azi = 1;
+    double alt = 2;
+}
+
+message FocusPosition {
+    int32 pos = 1;
+}
+
+message RollLevelCalibrationAngle {
+    double offset_degree = 1;
+}
+
+message SentryAutoHand {
+    int32 mode = 1;
+}
+
+message PanoramaStitchUploadComplete {
+    int32 code = 1;
+    string user_id = 2;
+    string busi_no = 3;
+    string panorama_name = 4;
+    string mac = 5;
+}
+
+message PanoramaCompressionComplete {
+    int32 code = 1;
+    string panorama_name = 2;
+    string zip_file_path = 3;
+    string zip_file_md5 = 4;
+    uint64 zip_file_size = 5;
+    string stitch_param = 6;
+}
+
+message PanoramaCompressionProgress {
+    string panorama_name = 1;
+    uint32 total_files_num = 2;
+    uint32 compressed_files_num = 3;
+}
+
+message PanoramaUploadCompressionProgress {
+    string user_id = 1;
+    string busi_no = 2;
+    string panorama_name = 3;
+    string mac = 4;
+    uint32 total_files_num = 5;
+    uint32 compressed_files_num = 6;
+    double speed = 7;
+}
+
+message PanoramaUploadProgress {
+    string user_id = 1;
+    string busi_no = 2;
+    string panorama_name = 3;
+    string mac = 4;
+    uint64 total_size = 5;
+    uint64 uploaded_size = 6;
+    double speed = 7;
+}
+
+message PanoramaCurrentUploadState {
+    int32 code = 1;
+    string user_id = 2;
+    string busi_no = 3;
+    string panorama_name = 4;
+    string mac = 5;
+    uint32 total_files_num = 6;
+    uint32 compressed_files_num = 7;
+    uint64 total_size = 8;
+    uint64 uploaded_size = 9;
+    uint32 step = 10;
+}
+
+message LowTempProtectionMode {
+    int32 mode = 1;
+}
+
+message StateSystemResourceOccupation {
+    enum TaskId {
+        IDLE = 0;
+        PANORAMA_UPLOAD = 1;
+        ASTRO_MULTI_STACK = 2;
+    }
+
+    notify.StateSystemResourceOccupation.TaskId task_id = 1;
+    notify.OperationState state = 2;
+}
+
+message BodyStatus {
+    enum BodyStatusEnum {
+        UNKNOWN = 0;
+        EQ_MODE = 1;
+        AZI_MODE = 2;
+    }
+
+    notify.BodyStatus.BodyStatusEnum body_status = 1;
+}
+
+message ProgressCaptureMosaic {
+    int32 total_count = 1;
+    int32 update_type = 2;
+    int32 current_count = 3;
+    int32 stacked_count = 4;
+    int32 exp_index = 5;
+    int32 gain_index = 6;
+    string target_name = 7;
+    int32 horizontal_scale = 8;
+    int32 vertical_scale = 9;
+    int32 rotation = 10;
+    int32 fov_id = 11;
+    int32 fov_total = 12;
+}
+
+message Wb {
+    uint64 mode = 1;
+    int32 ct = 2;
+    int32 scene = 3;
+    int32 camera_type = 4;
+}
+
+message GeneralIntParam {
+    uint64 param_id = 1;
+    int32 mode = 2;
+    int32 value = 3;
+}
+
+message GeneralFloatParam {
+    uint64 param_id = 1;
+    float value = 2;
+}
+
+message GeneralBoolParams {
+    uint64 param_id = 1;
+    bool value = 2;
+}
+
+message SwitchShootingMode {
+    int32 state = 1;
+    int32 source_mode = 2;
+    int32 dst_mode = 3;
+}
+
+message SwitchCropRatioState {
+    int32 state = 1;
+    int32 crop_ratio = 2;
+}
+
+message ResolutionParam {
+    uint64 param_id = 1;
+    int32 current_res_value = 2;
+    int32 current_fps_value = 3;
+    repeated int32 supported_fps_list = 4;
+    repeated int32 supported_resolution_list = 5;
+}
+
+message CaptureRawState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+}
+
+message PhotoState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+}
+
+message BurstState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+}
+
+message RecordState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+}
+
+message TimeLapseState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+}
+
+message CaptureRawDarkState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+}
+
+message PanoramaState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+}
+
+message AstroAutoFocusState {
+    notify.OperationState state = 1;
+}
+
+message NormalAutoFocusState {
+    notify.OperationState state = 1;
+}
+
+message AstroAutoFocusFastState {
+    notify.OperationState state = 1;
+}
+
+message AreaAutoFocusState {
+    notify.OperationState state = 1;
+}
+
+message DualCameraLinkageState {
+    notify.OperationState state = 1;
+}
+
+message NormalTrackState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+}
+
+message SwitchResolutionFpsState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+}
+
+message CaptureCaliFrameState {
+    notify.OperationState state = 1;
+    int32 camera_type = 2;
+    int32 cali_frame_type = 3;
+}
+
+message CaptureCaliFrameProgress {
+    int32 progress = 1;
+    int32 camera_type = 2;
+    int32 cali_frame_type = 3;
+}
+
+message DeviceAttitude {
+    double pitch = 1;
+    double yaw = 2;
+    double roll = 3;
+}
+
+message SkyTargetFinderState {
+    notify.OperationState state = 1;
+    int32 scene_type = 2;
+}
+
+message PanoFramingThumbnailUpdateNotify {
+    bytes webp_data = 1;
+}
+
+message PanoFramingRectUpdateNotify {
+    double norm_x_tl = 1;
+    double norm_y_tl = 2;
+    double norm_x_br = 3;
+    double norm_y_br = 4;
+    double norm_limit_x_left = 5;
+    double norm_limit_y_top = 6;
+    double norm_limit_x_right = 7;
+    double norm_limit_y_bottom = 8;
+    double rect_hor_fov = 9;
+    double rect_ver_fov = 10;
+    int32 error_code = 11;
+}
+
+message PanoFramingStateNotify {
+    int32 state = 1;
+}
+
+message AutoShutdown {
+    int32 state = 1;
+}
+
+message LensDefog {
+    int32 state = 1;
+}
+
+message AutoCooling {
+    int32 state = 1;
 }

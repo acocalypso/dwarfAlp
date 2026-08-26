@@ -20,6 +20,9 @@ def test_published_openapi_and_protocol_inventory_are_complete() -> None:
     firmware_protobuf = json.loads(
         (ROOT / "docs/site/firmware-protobuf.json").read_text(encoding="utf-8")
     )
+    alignment = json.loads(
+        (ROOT / "docs/site/protocol-alignment-summary.json").read_text(encoding="utf-8")
+    )
 
     assert alpaca["openapi"].startswith("3.")
     assert "/api/v1/camera/0/startexposure" in alpaca["paths"]
@@ -55,3 +58,9 @@ def test_published_openapi_and_protocol_inventory_are_complete() -> None:
     assert firmware["extractedFiles"] == 43
     assert firmware["descriptorCount"] == 16
     assert firmware_protobuf["source_binary"] == "dwarf_mini_v1.1.3.2/bin/bilbo"
+    assert alignment["schemas"]["exactUniquelyNamedMessages"] == 420
+    assert alignment["schemas"]["nonExactUniquelyNamedSharedMessages"] == 0
+    assert alignment["registry"]["canonicalCorrectCommands"] == 238
+    assert alignment["registry"]["matchingResponseCodes"] == 123
+    assert alignment["liveValidation"]["exposures"] == 2
+    assert alignment["liveValidation"]["notification15288"] == "LongExpPhotoProgress"

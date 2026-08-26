@@ -1,12 +1,13 @@
 import asyncio
 import types
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.devices.camera import state as camera_state
-from dwarf_alpaca.dwarf.session import get_session
+from dwarf_alpaca.dwarf.session import CapturePhase, get_session
 from dwarf_alpaca.server import build_app
 
 client = TestClient(build_app(Settings(force_simulation=True)))
@@ -86,6 +87,22 @@ def test_camera_capture_and_metadata():
     assert variant_response["TypeName"] == "Int32"
     assert variant_response["Rank"] == 2
     assert isinstance(variant_response["Dimensions"], list)
+
+
+def test_camera_does_not_publish_image_until_capture_cleanup_is_complete():
+    _connect_camera()
+    session = asyncio.run(get_session())
+    session.camera_state.image = np.zeros((2, 2), dtype=np.uint16)
+    session.camera_state.capture_phase = CapturePhase.TRANSFERRING
+
+    ready = client.get("/api/v1/camera/0/imageready")
+    image = client.get("/api/v1/camera/0/imagearray")
+
+    assert ready.status_code == 200 and _value(ready) is False
+    assert image.status_code == 400
+    assert image.json()["detail"] == "Image not ready"
+    session.camera_state.image = None
+    session.camera_state.capture_phase = CapturePhase.IDLE
 
 
 def test_camera_startexposure_frame_count_and_bin():

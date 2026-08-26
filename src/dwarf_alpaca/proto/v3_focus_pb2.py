@@ -24,15 +24,11 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0ev3_focus.proto\"\x10\n\x0eV3ReqFocusInit\"6\n\x0eV3ResFocusInit\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x16\n\x0e\x66ocus_position\x18\x02 \x01(\x05\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0ev3_focus.protob\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'v3_focus_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_V3REQFOCUSINIT']._serialized_start=18
-  _globals['_V3REQFOCUSINIT']._serialized_end=34
-  _globals['_V3RESFOCUSINIT']._serialized_start=36
-  _globals['_V3RESFOCUSINIT']._serialized_end=90
 # @@protoc_insertion_point(module_scope)

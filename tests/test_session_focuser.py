@@ -9,10 +9,10 @@ from dwarf_alpaca.proto import protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import (
     TYPE_NOTIFICATION,
     ResNotifyFocus,
-    V3ResFocusInit,
-    V3ResNotifyCameraParamState,
     WsPacket,
 )
+from dwarf_alpaca.proto.focus_pb2 import ResUserInfinityPos
+from dwarf_alpaca.proto.notify_pb2 import GeneralIntParam
 
 
 @pytest.mark.asyncio
@@ -20,10 +20,10 @@ async def test_focus_notification_updates_state():
     session = DwarfSession(Settings(force_simulation=True))
 
     message = ResNotifyFocus()
-    message.focus = 4321
+    message.pos = 4321
     packet = WsPacket()
     packet.module_id = protocol_pb2.ModuleId.MODULE_NOTIFY
-    packet.cmd = protocol_pb2.DwarfCMD.CMD_NOTIFY_FOCUS
+    packet.cmd = protocol_pb2.DwarfCMD.CMD_NOTIFY_FOCUS_POSITION
     packet.type = TYPE_NOTIFICATION
     packet.data = message.SerializeToString()
 
@@ -70,9 +70,9 @@ async def test_focuser_connect_initializes_position_from_v3_for_all_models(model
     async def _fake_send_request(self, module_id, command_id, request, response_cls, **kwargs):  # type: ignore[override]
         assert module_id == protocol_pb2.ModuleId.MODULE_FOCUS
         assert command_id == 15011
-        response = V3ResFocusInit()
+        response = ResUserInfinityPos()
         response.code = protocol_pb2.OK
-        response.focus_position = 712
+        response.pos = 712
         return response
 
     session._ensure_ws = types.MethodType(_noop, session)
@@ -99,9 +99,9 @@ async def test_v3_camera_param_notification_is_not_treated_as_filter_readback() 
         ),
     ]
 
-    message = V3ResNotifyCameraParamState()
+    message = GeneralIntParam()
     message.param_id = 0x20100000000000D
-    message.flag = 1
+    message.mode = 1
     message.value = 2
 
     packet = WsPacket()

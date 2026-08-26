@@ -716,7 +716,15 @@ async def abort_exposure():
 @router.get("/imageready")
 async def get_image_ready():
     session = await get_session()
-    return alpaca_response(value=session.camera_state.image is not None)
+    runtime = session.camera_state
+    # A frame can be downloaded from the DWARF before the firmware has fully
+    # stopped the live-stacking workflow and returned to its live/idle state.
+    # Advertising ImageReady at that point lets clients consume the image and
+    # immediately request another exposure while the capture task is still
+    # cleaning up, which produces a misleading 409 "capture in progress".
+    return alpaca_response(
+        value=runtime.capture_phase == CapturePhase.READY and runtime.image is not None
+    )
 
 
 @router.get("/percentcompleted")
