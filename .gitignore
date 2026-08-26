@@ -19,3 +19,13 @@ logs/
 dwarfii_api/
 apk/DWARFLAB_3.4.1_apkcube.apks
 .vscode/settings.json
+
+# Disposable firmware extraction and decompiler output. Keep only curated
+# metadata, scripts, and documentation under version control.
+firmware-analysis/extracted/
+firmware-analysis/work/
+firmware-analysis/ghidra-projects/
+
+# Original vendor firmware may contain embedded network credentials and is
+# retained locally only. Commit hashes, inventories, and redacted metadata.
+firmware/*.zip

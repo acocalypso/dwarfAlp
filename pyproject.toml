@@ -60,6 +60,7 @@ extend-exclude = ["src/dwarf_alpaca/proto/*_pb2.py"]
 select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 markers = [
   "hardware: opt-in tests that communicate with a physical DWARF device",
 ]

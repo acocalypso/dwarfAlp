@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x64\x65vice_config.proto\"%\n\x0eV3ReqModeQuery\x12\x13\n\x0btarget_mode\x18\x01 \x01(\x05\",\n\x0eV3ResModeQuery\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0c\n\x04mode\x18\x02 \x01(\x05\"*\n\x17V3ReqShootingModeSwitch\x12\x0f\n\x07mode_id\x18\x01 \x01(\x05\"8\n\x17V3ResShootingModeSwitch\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0f\n\x07mode_id\x18\x02 \x01(\x05\"T\n\x0fV3ReqModeSwitch\x12\x0e\n\x06\x66ield1\x18\x01 \x01(\x05\x12\x0e\n\x06\x66ield2\x18\x02 \x01(\x05\x12!\n\x05inner\x18\x03 \x01(\x0b\x32\x12.V3ModeSwitchInner\"\"\n\x11V3ModeSwitchInner\x12\r\n\x05value\x18\x01 \x01(\x05\"-\n\x0fV3ResModeSwitch\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0c\n\x04mode\x18\x02 \x01(\x05\"\x16\n\x14V3ReqGetDeviceConfig\"9\n\x14V3ResGetDeviceConfig\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x13\n\x0b\x63onfig_data\x18\x02 \x01(\x0c\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x64\x65vice_config.proto\"%\n\x0eV3ReqModeQuery\x12\x13\n\x0btarget_mode\x18\x01 \x01(\x05\",\n\x0eV3ResModeQuery\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0c\n\x04mode\x18\x02 \x01(\x05\"*\n\x17V3ReqShootingModeSwitch\x12\x0f\n\x07mode_id\x18\x01 \x01(\x05\"8\n\x17V3ResShootingModeSwitch\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0f\n\x07mode_id\x18\x02 \x01(\x05\"T\n\x0fV3ReqModeSwitch\x12\x0e\n\x06\x66ield1\x18\x01 \x01(\x05\x12\x0e\n\x06\x66ield2\x18\x02 \x01(\x05\x12!\n\x05inner\x18\x03 \x01(\x0b\x32\x12.V3ModeSwitchInner\"\"\n\x11V3ModeSwitchInner\x12\r\n\x05value\x18\x01 \x01(\x05\"-\n\x0fV3ResModeSwitch\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0c\n\x04mode\x18\x02 \x01(\x05\"\x17\n\x15ReqGetDeviceStateInfo\"=\n\x17\x43\x61ptureRawStateSnapshot\x12\r\n\x05state\x18\x01 \x01(\x05\x12\x13\n\x0b\x63\x61mera_type\x18\x02 \x01(\x05\"S\n\x1c\x45xclusiveCameraStateSnapshot\x12\x33\n\x11\x63\x61pture_raw_state\x18\x01 \x01(\x0b\x32\x18.CaptureRawStateSnapshot\"\xdc\x01\n\x1bTeleCameraStateInfoSnapshot\x12\x36\n\x0f\x65xclusive_state\x18\x01 \x01(\x0b\x32\x1d.ExclusiveCameraStateSnapshot\x12\r\n\x05h_fov\x18\x03 \x01(\x01\x12\r\n\x05v_fov\x18\x04 \x01(\x01\x12\x18\n\x10resolution_width\x18\x05 \x01(\r\x12\x19\n\x11resolution_height\x18\x06 \x01(\r\x12\x32\n\x10\x63mos_temperature\x18\x07 \x01(\x0b\x32\x18.CmosTemperatureSnapshot\"X\n\x17\x43mosTemperatureSnapshot\x12\x18\n\x0btemperature\x18\x01 \x01(\x05H\x00\x88\x01\x01\x12\x13\n\x0b\x63\x61mera_type\x18\x02 \x01(\x05\x42\x0e\n\x0c_temperature\";\n\x1f\x44\x65viceCalibrationResultSnapshot\x12\x0b\n\x03\x61zi\x18\x01 \x01(\x01\x12\x0b\n\x03\x61lt\x18\x02 \x01(\x01\"W\n\x17\x44\x65viceStateInfoSnapshot\x12<\n\x12\x63\x61libration_result\x18\n \x01(\x0b\x32 .DeviceCalibrationResultSnapshot\"\xaf\x01\n\x15ResGetDeviceStateInfo\x12\x15\n\rshooting_mode\x18\x01 \x01(\x05\x12<\n\x16tele_camera_state_info\x18\x02 \x01(\x0b\x32\x1c.TeleCameraStateInfoSnapshot\x12\x33\n\x11\x64\x65vice_state_info\x18\x06 \x01(\x0b\x32\x18.DeviceStateInfoSnapshot\x12\x0c\n\x04\x63ode\x18\x07 \x01(\x05\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -45,8 +45,20 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_V3MODESWITCHINNER']._serialized_end=330
   _globals['_V3RESMODESWITCH']._serialized_start=332
   _globals['_V3RESMODESWITCH']._serialized_end=377
-  _globals['_V3REQGETDEVICECONFIG']._serialized_start=379
-  _globals['_V3REQGETDEVICECONFIG']._serialized_end=401
-  _globals['_V3RESGETDEVICECONFIG']._serialized_start=403
-  _globals['_V3RESGETDEVICECONFIG']._serialized_end=460
+  _globals['_REQGETDEVICESTATEINFO']._serialized_start=379
+  _globals['_REQGETDEVICESTATEINFO']._serialized_end=402
+  _globals['_CAPTURERAWSTATESNAPSHOT']._serialized_start=404
+  _globals['_CAPTURERAWSTATESNAPSHOT']._serialized_end=465
+  _globals['_EXCLUSIVECAMERASTATESNAPSHOT']._serialized_start=467
+  _globals['_EXCLUSIVECAMERASTATESNAPSHOT']._serialized_end=550
+  _globals['_TELECAMERASTATEINFOSNAPSHOT']._serialized_start=553
+  _globals['_TELECAMERASTATEINFOSNAPSHOT']._serialized_end=773
+  _globals['_CMOSTEMPERATURESNAPSHOT']._serialized_start=775
+  _globals['_CMOSTEMPERATURESNAPSHOT']._serialized_end=863
+  _globals['_DEVICECALIBRATIONRESULTSNAPSHOT']._serialized_start=865
+  _globals['_DEVICECALIBRATIONRESULTSNAPSHOT']._serialized_end=924
+  _globals['_DEVICESTATEINFOSNAPSHOT']._serialized_start=926
+  _globals['_DEVICESTATEINFOSNAPSHOT']._serialized_end=1013
+  _globals['_RESGETDEVICESTATEINFO']._serialized_start=1016
+  _globals['_RESGETDEVICESTATEINFO']._serialized_end=1191
 # @@protoc_insertion_point(module_scope)

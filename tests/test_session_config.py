@@ -334,7 +334,17 @@ async def test_bootstrap_v3_state_queries_mode_and_config() -> None:
         if command_id == 16405:
             response = V3ResGetDeviceConfig()
             response.code = protocol_pb2.OK
-            response.config_data = b"abc"
+            response.shooting_mode = 8
+            response.tele_camera_state_info.resolution_width = 1920
+            response.tele_camera_state_info.resolution_height = 1080
+            response.tele_camera_state_info.h_fov = 2.14
+            response.tele_camera_state_info.v_fov = 1.2
+            response.tele_camera_state_info.cmos_temperature.temperature = 18
+            response.tele_camera_state_info.cmos_temperature.camera_type = 0
+            response.tele_camera_state_info.exclusive_state.capture_raw_state.state = 3
+            response.tele_camera_state_info.exclusive_state.capture_raw_state.camera_type = 0
+            response.device_state_info.calibration_result.azi = 181.25
+            response.device_state_info.calibration_result.alt = 47.5
             return response
         raise AssertionError(f"unexpected command {command_id}")
 
@@ -344,7 +354,16 @@ async def test_bootstrap_v3_state_queries_mode_and_config() -> None:
 
     assert calls == [(14, 16402), (14, 16405)]
     assert session._v3_device_state_mode == 8
-    assert session._v3_device_config_bytes == 3
+    assert session._v3_device_config_bytes is not None
+    assert session._v3_device_config_bytes > 3
+    assert session._astro_capture_operation_state == 3
+    assert session.camera_state.reported_preview_width == 1920
+    assert session.camera_state.reported_preview_height == 1080
+    assert session.camera_state.reported_fv_width == pytest.approx(2.14)
+    assert session.camera_state.reported_fv_height == pytest.approx(1.2)
+    assert session.camera_state.temperature_c == pytest.approx(18.0)
+    assert session._calibration_azimuth == pytest.approx(181.25)
+    assert session._calibration_altitude == pytest.approx(47.5)
 
 
 @pytest.mark.asyncio

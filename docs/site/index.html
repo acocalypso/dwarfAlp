@@ -17,6 +17,7 @@
         </a>
         <div class="nav-links">
           <a href="#verified-findings">Findings</a>
+          <a href="#firmware">Firmware</a>
           <a href="#alpaca">Alpaca</a>
           <a href="#device-http">Device HTTP</a>
           <a href="#cloud-http">Cloud HTTP</a>
@@ -51,6 +52,29 @@
 
     <main class="shell">
       <section class="metrics" id="metrics" aria-label="API inventory totals"></section>
+
+      <section class="panel" id="firmware">
+        <div class="section-heading">
+          <div><p class="eyebrow">Static firmware analysis · Mini 1.1.3.2</p><h2>Inside the DWARF Linux stack</h2></div>
+          <a class="text-link" href="firmware-summary.json">Machine-readable summary ↗</a>
+        </div>
+        <p class="section-copy">The analyzed artifact is an application/update ZIP—not a complete flash image. It supplies the central service, updater, camera drivers and tuning, service configuration, MCU payloads, and an RKNN sky model. Bootloader, kernel image, DTB, and the base root filesystem are not present.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Layer</th><th>Evidence-backed finding</th><th>Confidence</th></tr></thead>
+            <tbody>
+              <tr><td>Platform</td><td>ARMv7-A hard-float/uClibc on a Rockchip RV1106-family media platform; camera modules target Linux 5.10.160.</td><td>Verified / High</td></tr>
+              <tr><td>Control</td><td><code>bilbo</code> combines WebSocket protobuf control, device HTTP, camera, motion, astronomy, persistence, and media services.</td><td>High</td></tr>
+              <tr><td>Protocol</td><td>Sixteen exact protobuf file descriptors were recovered from the ELF, including astro, focus, motor, task-center, notification, schedule, and factory schemas.</td><td>Verified</td></tr>
+              <tr><td>Imaging</td><td>IMX662 and OS02K10 12-bit drivers, Rockchip media/AIQ, CFITSIO, OpenCV, astrometry.net/WCS, RKNN sky segmentation, dark calibration, and live stacking are present.</td><td>Verified</td></tr>
+              <tr><td>State query</td><td>Command <code>16405</code> is the whole-device state query. Its exact schema exposes shooting mode, capture lifecycle, geometry, focus/motion/device state, and calibration result.</td><td>Verified</td></tr>
+              <tr><td>Safety boundary</td><td>Factory tests, direct motor primitives, reset, firmware/MCU update, and dormant USB modes are documented but intentionally not exposed through DwarfAlp.</td><td>Verified</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="notice warning"><strong>Reverse-engineered documentation.</strong> Secret values are redacted, model-wide behavior is not inferred from a Mini-only bundle, and unresolved facts remain explicitly marked rather than guessed.</div>
+        <p><a class="button" href="firmware-protobuf.json" download>Download recovered protobuf metadata</a></p>
+      </section>
 
       <section class="panel" id="verified-findings">
         <div class="section-heading">

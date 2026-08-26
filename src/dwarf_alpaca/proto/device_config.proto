@@ -38,11 +38,47 @@ message V3ResModeSwitch {
     int32 mode = 2;
 }
 
-// Get device config: CMD 16405
-message V3ReqGetDeviceConfig {
+// Whole-device state query: CMD 16405. This is a wire-compatible subset of
+// task_center.proto recovered from DWARF Mini firmware 1.1.3.2. Unknown fields
+// in the full firmware response are intentionally ignored by protobuf.
+message ReqGetDeviceStateInfo {
 }
 
-message V3ResGetDeviceConfig {
-    int32 code = 1;
-    bytes config_data = 2;
+message CaptureRawStateSnapshot {
+    int32 state = 1;
+    int32 camera_type = 2;
+}
+
+message ExclusiveCameraStateSnapshot {
+    CaptureRawStateSnapshot capture_raw_state = 1;
+}
+
+message TeleCameraStateInfoSnapshot {
+    ExclusiveCameraStateSnapshot exclusive_state = 1;
+    double h_fov = 3;
+    double v_fov = 4;
+    uint32 resolution_width = 5;
+    uint32 resolution_height = 6;
+    CmosTemperatureSnapshot cmos_temperature = 7;
+}
+
+message CmosTemperatureSnapshot {
+    optional int32 temperature = 1;
+    int32 camera_type = 2;
+}
+
+message DeviceCalibrationResultSnapshot {
+    double azi = 1;
+    double alt = 2;
+}
+
+message DeviceStateInfoSnapshot {
+    DeviceCalibrationResultSnapshot calibration_result = 10;
+}
+
+message ResGetDeviceStateInfo {
+    int32 shooting_mode = 1;
+    TeleCameraStateInfoSnapshot tele_camera_state_info = 2;
+    DeviceStateInfoSnapshot device_state_info = 6;
+    int32 code = 7;
 }

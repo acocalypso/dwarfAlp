@@ -14,6 +14,12 @@ def test_published_openapi_and_protocol_inventory_are_complete() -> None:
     inventory = json.loads(
         (ROOT / "docs/site/protocol-inventory.json").read_text(encoding="utf-8")
     )
+    firmware = json.loads(
+        (ROOT / "docs/site/firmware-summary.json").read_text(encoding="utf-8")
+    )
+    firmware_protobuf = json.loads(
+        (ROOT / "docs/site/firmware-protobuf.json").read_text(encoding="utf-8")
+    )
 
     assert alpaca["openapi"].startswith("3.")
     assert "/api/v1/camera/0/startexposure" in alpaca["paths"]
@@ -36,9 +42,16 @@ def test_published_openapi_and_protocol_inventory_are_complete() -> None:
     assert "CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM" in index
     assert "Raw-frame completion" in index
     assert "Repeated exposures" in index
+    assert "Inside the DWARF Linux stack" in index
     assert device["paths"]["/resetDeviceInfo"]["post"]["x-dangerous-operation"]
     assert len(inventory["commands"]) == 356
     assert len(inventory["response_codes"]) == 123
     assert len(inventory["http_endpoints"]) == 50
     assert len(inventory["ble"]["commands"]) == 8
     assert all(item["command_id"] is not None for item in inventory["commands"])
+    assert firmware["artifact"]["sha256"] == (
+        "fe858626c2b13ef007983fa0171b49b4bb87e05fbd78fdf62fd9693c0809504d"
+    )
+    assert firmware["extractedFiles"] == 43
+    assert firmware["descriptorCount"] == 16
+    assert firmware_protobuf["source_binary"] == "dwarf_mini_v1.1.3.2/bin/bilbo"

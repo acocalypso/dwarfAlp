@@ -27,8 +27,12 @@ evidence and limitations.
 
 The publishable [API Observatory](docs/site/index.html) combines the generated
 ASCOM Alpaca OpenAPI 3.1 specification with the reconstructed DWARFLAB local
-HTTP API, all 356 APK WebSocket registrations, 123 response/error codes, and
-the BLE provisioning registry. Regenerate its machine-readable data with:
+HTTP API, all 356 APK WebSocket registrations, 123 response/error codes, the
+BLE provisioning registry, and the static firmware findings. The full
+[firmware analysis](docs/firmware/README.md) provides evidence tables,
+architecture diagrams, protocol schemas, the DwarfAlp gap analysis, and an
+explicit unresolved-questions register. Regenerate the site's machine-readable
+data with:
 
 ```powershell
 uv run python scripts/extract_apk_api_inventory.py build/apk-audit-3.4.1/decompiled/sources docs/apk-analysis/api-inventory.json --markdown-output docs/apk-analysis/websocket-code-registry.md

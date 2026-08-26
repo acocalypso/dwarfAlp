@@ -9,6 +9,8 @@ from dwarf_alpaca.server import build_app
 
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_PATH = ROOT / "docs" / "apk-analysis" / "api-inventory.json"
+FIRMWARE_INVENTORY_PATH = ROOT / "firmware-analysis" / "metadata" / "inventory.json"
+FIRMWARE_PROTO_PATH = ROOT / "firmware-analysis" / "metadata" / "bilbo-protos.json"
 SITE_DIR = ROOT / "docs" / "site"
 
 
@@ -288,6 +290,31 @@ def main() -> int:
     _write_json(SITE_DIR / "openapi.json", alpaca)
     _write_json(SITE_DIR / "device-openapi.json", device)
     _write_json(SITE_DIR / "protocol-inventory.json", inventory)
+    if FIRMWARE_INVENTORY_PATH.exists() and FIRMWARE_PROTO_PATH.exists():
+        firmware_inventory = json.loads(FIRMWARE_INVENTORY_PATH.read_text(encoding="utf-8"))
+        firmware_protos = json.loads(FIRMWARE_PROTO_PATH.read_text(encoding="utf-8"))
+        _write_json(SITE_DIR / "firmware-protobuf.json", firmware_protos)
+        _write_json(
+            SITE_DIR / "firmware-summary.json",
+            {
+                "artifact": {
+                    "name": "dwarf_mini_upgrade_firmware_v1.1.3.2.zip",
+                    "size": 13_076_330,
+                    "sha256": "fe858626c2b13ef007983fa0171b49b4bb87e05fbd78fdf62fd9693c0809504d",
+                    "kind": "application/update ZIP; not a complete root filesystem",
+                },
+                "extractedFiles": firmware_inventory["file_count"],
+                "sourceBinarySha256": firmware_protos["source_sha256"],
+                "protobufFiles": [item["name"] for item in firmware_protos["descriptors"]],
+                "descriptorCount": len(firmware_protos["descriptors"]),
+                "platform": {
+                    "architecture": "ARMv7-A, little-endian, hard-float",
+                    "libc": "uClibc",
+                    "kernelModuleAbi": "Linux 5.10.160",
+                    "soc": "Rockchip RV1106 (high confidence)",
+                },
+            },
+        )
     _write_json(
         SITE_DIR / "summary.json",
         {

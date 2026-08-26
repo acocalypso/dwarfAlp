@@ -542,23 +542,155 @@ def _build_file_descriptor() -> descriptor_pool.DescriptorPool:
                 ),
             ),
         ),
+        # Exact wire-compatible subset recovered from the DWARF Mini 1.1.3.2
+        # bilbo task_center.proto descriptor. Command 16405 is a device-state
+        # query, not a generic configuration blob.
+        MessageSpec(name="ReqGetDeviceStateInfo", fields=()),
         MessageSpec(
-            name="V3ReqGetDeviceConfig",
-            fields=(),
-        ),
-        MessageSpec(
-            name="V3ResGetDeviceConfig",
+            name="CaptureRawState",
             fields=(
                 (
-                    "code",
+                    "state",
                     1,
                     descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
                     descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
                 ),
                 (
-                    "config_data",
+                    "camera_type",
                     2,
-                    descriptor_pb2.FieldDescriptorProto.TYPE_BYTES,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="ExclusiveCameraState",
+            fields=(
+                (
+                    "capture_raw_state",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.CaptureRawState",
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="CmosTemperature",
+            fields=(
+                (
+                    "temperature",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "camera_type",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="TeleCameraStateInfo",
+            fields=(
+                (
+                    "exclusive_state",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.ExclusiveCameraState",
+                ),
+                (
+                    "h_fov",
+                    3,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "v_fov",
+                    4,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "resolution_width",
+                    5,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "resolution_height",
+                    6,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_UINT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "cmos_temperature",
+                    7,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.CmosTemperature",
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="DeviceCalibrationResult",
+            fields=(
+                (
+                    "azi",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "alt",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="DeviceStateInfo",
+            fields=(
+                (
+                    "calibration_result",
+                    10,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.DeviceCalibrationResult",
+                ),
+            ),
+        ),
+        MessageSpec(
+            name="ResGetDeviceStateInfo",
+            fields=(
+                (
+                    "shooting_mode",
+                    1,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                ),
+                (
+                    "tele_camera_state_info",
+                    2,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.TeleCameraStateInfo",
+                ),
+                (
+                    "device_state_info",
+                    6,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                    descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+                    ".dwarf.DeviceStateInfo",
+                ),
+                (
+                    "code",
+                    7,
+                    descriptor_pb2.FieldDescriptorProto.TYPE_INT32,
                     descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
                 ),
             ),
@@ -1177,8 +1309,12 @@ V3ResShootingModeSwitch = _prototype("V3ResShootingModeSwitch")
 V3ModeSwitchInner = _prototype("V3ModeSwitchInner")
 V3ReqModeSwitch = _prototype("V3ReqModeSwitch")
 V3ResModeSwitch = _prototype("V3ResModeSwitch")
-V3ReqGetDeviceConfig = _prototype("V3ReqGetDeviceConfig")
-V3ResGetDeviceConfig = _prototype("V3ResGetDeviceConfig")
+ReqGetDeviceStateInfo = _prototype("ReqGetDeviceStateInfo")
+ResGetDeviceStateInfo = _prototype("ResGetDeviceStateInfo")
+# Backward-compatible aliases retained for callers that used the former,
+# provisional command-16405 names.
+V3ReqGetDeviceConfig = ReqGetDeviceStateInfo
+V3ResGetDeviceConfig = ResGetDeviceStateInfo
 ReqCloseCamera = _prototype("ReqCloseCamera")
 ResNotifyParam = _prototype("ResNotifyParam")
 ResNotifyFocus = _prototype("ResNotifyFocus")

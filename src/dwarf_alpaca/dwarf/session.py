@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import contextlib
 import math
 import re
@@ -33,6 +32,7 @@ from ..proto.dwarf_messages import (
     ComResponse,
     ReqCloseCamera,
     ReqGetAllFeatureParams,
+    ReqGetDeviceStateInfo,
     ReqGetSystemWorkingState,
     ReqGotoDSO,
     ReqManualContinuFocus,
@@ -54,6 +54,7 @@ from ..proto.dwarf_messages import (
     ReqStopGoto,
     ReqStopManualContinuFocus,
     ResGetAllFeatureParams,
+    ResGetDeviceStateInfo,
     ResNotifyFocus,
     ResNotifyHostSlaveMode,
     ResNotifyParam,
@@ -62,7 +63,6 @@ from ..proto.dwarf_messages import (
     ResNotifyTemperature,
     V3ReqAdjustParam,
     V3ReqFocusInit,
-    V3ReqGetDeviceConfig,
     V3ReqModeQuery,
     V3ReqModeSwitch,
     V3ReqOpenTeleCamera,
@@ -71,7 +71,6 @@ from ..proto.dwarf_messages import (
     V3ReqSetExposureGain,
     V3ReqShootingModeSwitch,
     V3ResFocusInit,
-    V3ResGetDeviceConfig,
     V3ResModeQuery,
     V3ResModeSwitch,
     V3ResNotifyCameraParamState,
@@ -1017,47 +1016,25 @@ class DwarfSession:
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.debug("dwarf.system.v3_mode_query_failed", error=str(exc))
 
-        config_request = V3ReqGetDeviceConfig()
+        config_request = ReqGetDeviceStateInfo()
         try:
             response = await self._send_request(
                 _MODULE_DEVICE_CONFIG,
                 _CMD_V3_DEVICE_CONFIG_GET_CONFIG,
                 config_request,
-                V3ResGetDeviceConfig,
+                ResGetDeviceStateInfo,
                 timeout=5.0,
                 suppress_timeout_warning=True,
                 close_ws_on_timeout=False,
             )
-            if isinstance(response, V3ResGetDeviceConfig):
-                config_data = getattr(response, "config_data", b"") or b""
-                self._v3_device_config_bytes = len(config_data)
-                parsed = _decode_v3_device_config_payload(bytes(config_data))
-                capture_raw_state = parsed.get("capture_raw_state")
-                if isinstance(capture_raw_state, int):
-                    self._set_astro_capture_operation_state(
-                        capture_raw_state,
-                        source="device_state_16405",
-                    )
-                legacy_camera = parsed.get("legacy_camera")
-                if isinstance(legacy_camera, dict):
-                    preview_width = legacy_camera.get("previewWidth")
-                    preview_height = legacy_camera.get("previewHeight")
-                    fv_width = legacy_camera.get("fvWidth")
-                    fv_height = legacy_camera.get("fvHeight")
-                    if isinstance(preview_width, int) and preview_width > 0:
-                        self.camera_state.reported_preview_width = preview_width
-                    if isinstance(preview_height, int) and preview_height > 0:
-                        self.camera_state.reported_preview_height = preview_height
-                    if isinstance(fv_width, (int, float)):
-                        self.camera_state.reported_fv_width = float(fv_width)
-                    if isinstance(fv_height, (int, float)):
-                        self.camera_state.reported_fv_height = float(fv_height)
+            if isinstance(response, ResGetDeviceStateInfo):
+                self._v3_device_config_bytes = len(response.SerializeToString())
+                parsed = self._apply_v3_device_state_info(response)
                 logger.info(
-                    "dwarf.system.v3_device_config_payload",
-                    code=int(getattr(response, "code", protocol_pb2.OK)),
-                    config_data_len=len(config_data),
-                    config_data_hex=bytes(config_data).hex(),
-                    config_data_b64=base64.b64encode(bytes(config_data)).decode("ascii"),
+                    "dwarf.system.v3_device_state_info",
+                    code=int(response.code),
+                    shooting_mode=int(response.shooting_mode),
+                    payload_len=self._v3_device_config_bytes,
                     parsed=parsed,
                 )
         except Exception as exc:  # pragma: no cover - hardware dependent
@@ -5415,6 +5392,80 @@ class DwarfSession:
             if strict:
                 raise CaptureConfigurationError("DWARF did not confirm capture abort") from exc
 
+    def _apply_v3_device_state_info(self, response: Message) -> dict[str, Any]:
+        """Apply the verified command-16405 task-center state snapshot."""
+
+        parsed: dict[str, Any] = {
+            "shooting_mode": int(getattr(response, "shooting_mode", 0)),
+            "code": int(getattr(response, "code", 0)),
+        }
+        if parsed["shooting_mode"]:
+            self._v3_device_state_mode = int(parsed["shooting_mode"])
+
+        has_field = getattr(response, "HasField", None)
+        has_tele = callable(has_field) and response.HasField("tele_camera_state_info")
+        if has_tele:
+            tele = response.tele_camera_state_info
+            width = int(tele.resolution_width)
+            height = int(tele.resolution_height)
+            h_fov = float(tele.h_fov)
+            v_fov = float(tele.v_fov)
+            if width > 0:
+                self.camera_state.reported_preview_width = width
+                parsed["image_width"] = width
+            if height > 0:
+                self.camera_state.reported_preview_height = height
+                parsed["image_height"] = height
+            if h_fov:
+                self.camera_state.reported_fv_width = h_fov
+                parsed["h_fov"] = h_fov
+            if v_fov:
+                self.camera_state.reported_fv_height = v_fov
+                parsed["v_fov"] = v_fov
+            if tele.HasField("cmos_temperature"):
+                cmos_temperature = tele.cmos_temperature
+                temperature = int(cmos_temperature.temperature)
+                self.camera_state.temperature_c = float(temperature)
+                self.camera_state.last_temperature_time = time.time()
+                self.camera_state.last_temperature_code = protocol_pb2.OK
+                parsed["cmos_temperature"] = temperature
+                parsed["cmos_temperature_camera_type"] = int(
+                    cmos_temperature.camera_type
+                )
+            if tele.HasField("exclusive_state") and tele.exclusive_state.HasField(
+                "capture_raw_state"
+            ):
+                capture_raw = tele.exclusive_state.capture_raw_state
+                capture_state = int(capture_raw.state)
+                parsed["capture_raw_state"] = capture_state
+                parsed["capture_raw_camera_type"] = int(capture_raw.camera_type)
+                self._set_astro_capture_operation_state(
+                    capture_state,
+                    source="device_state_16405",
+                )
+
+        has_device = callable(has_field) and response.HasField("device_state_info")
+        if has_device and response.device_state_info.HasField("calibration_result"):
+            calibration = response.device_state_info.calibration_result
+            azimuth = float(calibration.azi)
+            altitude = float(calibration.alt)
+            parsed["calibration_result"] = {
+                "azimuth": azimuth,
+                "altitude": altitude,
+            }
+            # This snapshot carries no completion timestamp, so retain it for
+            # diagnostics without treating it as proof that a newly started
+            # calibration just completed.
+            self._calibration_azimuth = azimuth
+            self._calibration_altitude = altitude
+            logger.info(
+                "dwarf.telescope.calibration.snapshot",
+                azimuth=azimuth,
+                altitude=altitude,
+                source="device_state_16405",
+            )
+        return parsed
+
     async def _query_astro_capture_operation_state(self) -> int | None:
         """Mirror the APK's 16405 whole-device state query for tele RAW state."""
 
@@ -5422,8 +5473,8 @@ class DwarfSession:
             response = await self._send_request(
                 _MODULE_DEVICE_CONFIG,
                 _CMD_V3_DEVICE_CONFIG_GET_CONFIG,
-                V3ReqGetDeviceConfig(),
-                V3ResGetDeviceConfig,
+                ReqGetDeviceStateInfo(),
+                ResGetDeviceStateInfo,
                 timeout=5.0,
                 suppress_timeout_warning=True,
                 close_ws_on_timeout=False,
@@ -5435,16 +5486,14 @@ class DwarfSession:
                 error_type=type(exc).__name__,
             )
             return None
-        config_data = bytes(getattr(response, "config_data", b"") or b"")
-        parsed = _decode_v3_device_config_payload(config_data)
+        parsed = self._apply_v3_device_state_info(response)
         value = parsed.get("capture_raw_state")
         if not isinstance(value, int):
             logger.debug(
                 "dwarf.camera.astro_capture_state_query_missing",
-                payload_hex=config_data.hex(),
+                payload_hex=response.SerializeToString().hex(),
             )
             return None
-        self._set_astro_capture_operation_state(value, source="device_state_16405")
         return value
 
     async def _wait_for_astro_capture_ready(self, *, timeout: float = 75.0) -> None:
