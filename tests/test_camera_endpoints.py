@@ -25,6 +25,9 @@ def _connect_camera():
 
 def test_camera_capture_and_metadata():
     _connect_camera()
+    session = asyncio.run(get_session())
+    session.camera_state.reported_preview_width = 1920
+    session.camera_state.reported_preview_height = 1080
 
     resp = client.get("/api/v1/camera/0/canabortexposure")
     assert resp.status_code == 200 and _value(resp) is True
@@ -51,7 +54,10 @@ def test_camera_capture_and_metadata():
     assert resp.status_code == 200 and _value(resp)
 
     resp = client.get("/api/v1/camera/0/cameraxsize")
-    assert resp.status_code == 200 and _value(resp) >= 1
+    assert resp.status_code == 200 and _value(resp) == 3856
+
+    resp = client.get("/api/v1/camera/0/cameraysize")
+    assert resp.status_code == 200 and _value(resp) == 2180
 
     resp = client.get("/api/v1/camera/0/pixelsizex")
     assert resp.status_code == 200 and _value(resp) > 0
@@ -65,6 +71,11 @@ def test_camera_capture_and_metadata():
     assert image_payload["ImageElementTypeName"] == "Int32"
     assert image_payload["TransmissionElementType"] == 2
     assert image_payload["TransmissionElementTypeName"] == "Int32"
+
+    # A simulated/preview-sized readout must not rewrite the sensor geometry
+    # that NINA reads through CameraXSize and CameraYSize.
+    assert _value(client.get("/api/v1/camera/0/cameraxsize")) == 3856
+    assert _value(client.get("/api/v1/camera/0/cameraysize")) == 2180
 
     resp = client.get("/api/v1/camera/0/imagearray")
     assert resp.status_code == 200

@@ -130,8 +130,15 @@ async def test_preflight_connects_without_calibration(monkeypatch):
     def fake_configure_session(settings):  # pragma: no cover - simple stub
         return None
 
+    shutdown_calls = 0
+
+    async def fake_shutdown_session():
+        nonlocal shutdown_calls
+        shutdown_calls += 1
+
     monkeypatch.setattr("dwarf_alpaca.cli.get_session", fake_get_session)
     monkeypatch.setattr("dwarf_alpaca.cli.configure_session", fake_configure_session)
+    monkeypatch.setattr("dwarf_alpaca.cli.shutdown_session", fake_shutdown_session)
 
     settings = Settings(force_simulation=False)
 
@@ -141,3 +148,4 @@ async def test_preflight_connects_without_calibration(monkeypatch):
     assert dummy_session.release_calls == 1
     assert dummy_session.calibration_calls == 0
     assert dummy_session.wait_calls == 0
+    assert shutdown_calls == 1

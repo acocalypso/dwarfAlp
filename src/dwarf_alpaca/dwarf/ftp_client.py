@@ -16,6 +16,7 @@ logger = structlog.get_logger(__name__)
 
 
 PHOTO_EXTENSIONS = (".jpg", ".jpeg", ".png", ".fits", ".fit")
+CAPTURE_CLOCK_TOLERANCE_SECONDS = 10.0
 
 
 @dataclass(slots=True)
@@ -92,10 +93,9 @@ class DwarfFtpClient:
                     attempt=attempt,
                 )
                 entry = None
-            if (
-                entry
-                and self._is_new_entry(entry, baseline)
-                and (not_before is None or entry.timestamp >= not_before)
+            if entry and self._is_new_entry(entry, baseline) and self._is_current_capture(
+                entry,
+                not_before,
             ):
                 try:
                     content = await asyncio.to_thread(self._download_file_sync, entry.path)
@@ -210,6 +210,12 @@ class DwarfFtpClient:
                     lower = name.lower()
                     if not lower.endswith((".fits", ".fit")):
                         continue
+                    # Stacked FITS files are cumulative firmware products, not
+                    # the single raw exposure requested by an ASCOM client.
+                    # Returning one can also select an older completed stack
+                    # while the requested raw frame is still being written.
+                    if lower.startswith("stacked"):
+                        continue
                     timestamp = self._fetch_timestamp(ftp, name)
                     path = f"{full_dir.rstrip('/')}/{name}"
                     entries.append(
@@ -281,3 +287,58 @@ class DwarfFtpClient:
         if entry.timestamp > baseline.timestamp + 1e-6:
             return True
         return entry.path != baseline.path
+
+    @classmethod
+    def _is_current_capture(
+        cls,
+        entry: FtpPhotoEntry,
+        not_before: float | None,
+    ) -> bool:
+        if not_before is None:
+            return True
+
+        # MDTM is not trustworthy on all firmware versions: some servers
+        # report the time of the directory scan rather than the file. DWARF
+        # astronomy paths contain the actual local capture timestamp, so use
+        # that whenever it is available.
+        embedded = cls._embedded_capture_timestamp(entry.path)
+        observed = embedded if embedded is not None else entry.timestamp
+        is_current = observed >= not_before - CAPTURE_CLOCK_TOLERANCE_SECONDS
+        if not is_current:
+            logger.debug(
+                "dwarf.ftp.stale_entry_ignored",
+                path=entry.path,
+                embedded_timestamp=embedded,
+                mdtm_timestamp=entry.timestamp,
+                not_before=not_before,
+            )
+        return is_current
+
+    @staticmethod
+    def _embedded_capture_timestamp(path: str) -> float | None:
+        matches: list[datetime] = []
+        for match in re.finditer(
+            r"(?<!\d)(20\d{2})[-_](\d{2})[-_](\d{2})[-_](\d{2})[-_](\d{2})[-_](\d{2})(?:[-_](\d{3}))?(?!\d)",
+            path,
+        ):
+            year, month, day, hour, minute, second = (
+                int(value) for value in match.groups()[:6]
+            )
+            milliseconds = int(match.group(7) or 0)
+            with contextlib.suppress(ValueError):
+                matches.append(
+                    datetime(year, month, day, hour, minute, second, milliseconds * 1000)
+                )
+        for match in re.finditer(
+            r"(?<!\d)(20\d{6})[-_](\d{6})(\d{3})?(?!\d)",
+            path,
+        ):
+            value = "".join(match.groups()[:2])
+            with contextlib.suppress(ValueError):
+                parsed = datetime.strptime(value, "%Y%m%d%H%M%S")
+                matches.append(parsed.replace(microsecond=int(match.group(3) or 0) * 1000))
+        if not matches:
+            return None
+        # A filename timestamp is normally later than its directory start
+        # timestamp and therefore best represents when the frame was written.
+        return max(matches).timestamp()

@@ -8,7 +8,12 @@ from logging.handlers import RotatingFileHandler
 from typing import Optional
 
 from .config.settings import Settings, load_settings, normalize_dwarf_device_model
-from .dwarf.session import configure_session, get_session, resolve_ws_client_id
+from .dwarf.session import (
+    configure_session,
+    get_session,
+    resolve_ws_client_id,
+    shutdown_session,
+)
 from .provisioning.cli import provision_command, provision_guide_command
 from .provisioning.workflow import create_state_store
 from .server import run_server
@@ -67,40 +72,46 @@ async def _preflight_session(
     deadline = time.monotonic() + max(timeout, 0.0)
     attempt = 1
 
-    while True:
-        try:
-            await session.acquire("telescope")
-        except Exception as exc:  # pragma: no cover - hardware dependent
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                logger.error(
-                    "cli.start.connection_failed ip=%s attempt=%s error=%s",
+    try:
+        while True:
+            try:
+                await session.acquire("telescope")
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    logger.error(
+                        "cli.start.connection_failed ip=%s attempt=%s error=%s",
+                        settings.dwarf_ap_ip,
+                        attempt,
+                        exc,
+                    )
+                    raise
+                logger.warning(
+                    "cli.start.connection_retry ip=%s attempt=%s error=%s",
                     settings.dwarf_ap_ip,
                     attempt,
                     exc,
                 )
-                raise
-            logger.warning(
-                "cli.start.connection_retry ip=%s attempt=%s error=%s",
-                settings.dwarf_ap_ip,
-                attempt,
-                exc,
-            )
-            await asyncio.sleep(max(interval, 0.5))
-            attempt += 1
-            continue
+                await asyncio.sleep(max(interval, 0.5))
+                attempt += 1
+                continue
 
-        try:
-            has_master_lock = getattr(session, "has_master_lock", False)
-            logger.info(
-                "cli.start.connected ip=%s attempt=%s master_lock=%s",
-                settings.dwarf_ap_ip,
-                attempt,
-                has_master_lock,
-            )
-        finally:
-            await session.release("telescope")
-        return
+            try:
+                has_master_lock = getattr(session, "has_master_lock", False)
+                logger.info(
+                    "cli.start.connected ip=%s attempt=%s master_lock=%s",
+                    settings.dwarf_ap_ip,
+                    attempt,
+                    has_master_lock,
+                )
+            finally:
+                await session.release("telescope")
+            return
+    finally:
+        # GUI preflight runs in a short-lived worker event loop, while the
+        # embedded Alpaca server runs in its own thread and event loop. Never
+        # carry WebSocket tasks or asyncio locks across that boundary.
+        await shutdown_session()
 
 
 async def start_command(

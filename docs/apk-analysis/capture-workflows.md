@@ -32,6 +32,7 @@ sequenceDiagram
     N->>A: StartExposure(duration, Light=true)
     A->>D: POST shootingMode/getParamAndSetting {modeId:2}
     D-->>A: Live exposure names/indices, gain values, parameter IDs
+    A->>D: 11041 prime persisted quick-set tuple
     A->>D: 16700 exposure param (manual, exact firmware index)
     A->>D: 16701 gain param (manual, requested gain)
     A->>D: 16703 absolute frame count
@@ -53,16 +54,19 @@ APK 3.4.1 obtains the authoritative parameter catalogue from
 `POST /shootingMode/getParamAndSetting` with `modeId=2`. On Mini firmware 1.1.3
 build 2 it reported exposure parameter `144396663052566529`, gain parameter
 `144396663052566530`, 1 second as index `120`, and 5 seconds as index `141`.
-Command 11041 is now a quick-set selector (`ReqSetQuickSet.info_id`), not an
+Command 11041 is a quick-set selector (`ReqSetQuickSet.info_id`), not an
 arbitrary parameter setter. The failed driver run sent a 5-second-looking
 quick-set string but progress later reported index `156`, which is 15 seconds.
+A DWARF 3 live test confirmed that priming 11041 before the exact live writes
+preserves a 1-second request through 11005. Notification 15288 reports the
+firmware-selected duration and is checked before accepting the FITS.
 
 ### Driver versus APK 3.4.1
 
 | Stage | Old driver | Current APK workflow / corrected driver |
 |---|---|---|
 | Discover values | 11040 quick-set list only | HTTP mode-2 parameter catalogue |
-| Exposure | rewrite a 11041 string | 16700 with catalogue exposure index |
+| Exposure | rewrite a 11041 string | prime 11041, then 16700 with catalogue exposure index; verify 15288 total time |
 | Gain | rewrite a 11041 string | 16701 with catalogue gain value |
 | Frame count | 16703 | 16703 |
 | Start | 11005 | 11005 |

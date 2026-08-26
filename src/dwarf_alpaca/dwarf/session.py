@@ -470,6 +470,7 @@ class CameraState:
     applied_gain_index: int | None = None
     applied_gain_value: int | None = None
     applied_duration: float | None = None
+    reported_duration: float | None = None
     applied_filter_name: str | None = None
     applied_bin: tuple[int, int] | None = None
     applied_frame_count: int | None = None
@@ -1446,9 +1447,26 @@ class DwarfSession:
         except Exception as exc:  # pragma: no cover - defensive logging helper
             logger.debug("dwarf.camera.long_exposure_progress_decode_failed", error=str(exc))
             return
+        total_time = float(message.total_time)
+        state = self.camera_state
+        if state.capture_id is not None and state.capture_phase in {
+            CapturePhase.STARTING,
+            CapturePhase.EXPOSING,
+            CapturePhase.PROCESSING,
+            CapturePhase.TRANSFERRING,
+        } and total_time > 0:
+            state.reported_duration = total_time
+            tolerance = max(0.001, state.duration * 0.02)
+            if not math.isclose(total_time, state.duration, abs_tol=tolerance):
+                logger.warning(
+                    "dwarf.camera.exposure_duration_mismatch",
+                    capture_id=state.capture_id,
+                    requested_duration=state.duration,
+                    firmware_duration=total_time,
+                )
         logger.info(
             "dwarf.camera.long_exposure_progress",
-            total_time=float(message.total_time),
+            total_time=total_time,
             exposed_time=float(message.exposured_time),
             camera_type=int(message.camera_type),
         )
@@ -2341,9 +2359,13 @@ class DwarfSession:
                     with contextlib.suppress(asyncio.CancelledError, Exception):
                         await task
                 self._calibration_task = None
+                # Closing the socket alone can leave DWARF 3 reporting
+                # DEVICE_OCCUPIED while the GUI hands control from its
+                # preflight loop to the embedded server loop. Relinquish the
+                # firmware master lock explicitly before closing transport.
+                await self._release_master_lock()
                 await self._ws_client.close()
                 await self._http_client.aclose()
-                self._master_lock_acquired = False
 
     async def shutdown(self) -> None:
         if self.camera_state.capture_task and not self.camera_state.capture_task.done():
@@ -3183,18 +3205,35 @@ class DwarfSession:
         if self._uses_v3_protocol():
             request = ReqEnterCamera()
             request.client_param.encode_type = 1
-            response = await self._send_request(
-                _MODULE_DEVICE_CONFIG,
-                _CMD_TASK_ENTER_CAMERA,
-                request,
-                ResEnterCamera,
-            )
-            if int(response.code) != protocol_pb2.OK:
-                raise DwarfCommandError(
+            try:
+                response = await self._send_request(
                     _MODULE_DEVICE_CONFIG,
                     _CMD_TASK_ENTER_CAMERA,
-                    int(response.code),
+                    request,
+                    ResEnterCamera,
+                    timeout=2.0,
+                    suppress_timeout_warning=True,
+                    close_ws_on_timeout=False,
                 )
+            except asyncio.TimeoutError:
+                # Current Mini firmware acknowledges the global task-manager
+                # entry command, while the tested DWARF 3 firmware silently
+                # ignores it and still accepts the camera command below. The
+                # latter has the same wire payload as the formerly documented
+                # V3 OpenTeleCamera action=1 command.
+                logger.warning(
+                    "dwarf.camera.enter_camera_unacknowledged",
+                    model=self.profile.model_id,
+                    command_id=_CMD_TASK_ENTER_CAMERA,
+                    fallback_command=protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_PREVIEW_QUALITY,
+                )
+            else:
+                if int(response.code) != protocol_pb2.OK:
+                    raise DwarfCommandError(
+                        _MODULE_DEVICE_CONFIG,
+                        _CMD_TASK_ENTER_CAMERA,
+                        int(response.code),
+                    )
             await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_CAMERA_TELE,
                 protocol_pb2.DwarfCMD.CMD_CAMERA_TELE_SET_PREVIEW_QUALITY,
@@ -3312,6 +3351,7 @@ class DwarfSession:
         state.source_format = None
         state.source_bit_depth = None
         state.applied_duration = None
+        state.reported_duration = None
         state.applied_gain_value = None
         state.applied_filter_name = None
         state.applied_bin = None
@@ -3733,6 +3773,41 @@ class DwarfSession:
             exposure_param_id=exposure_param_id,
             gain=gain_value,
             gain_param_id=gain_param_id,
+        )
+
+    async def _apply_v3_astro_quick_set(
+        self,
+        duration: float,
+        gain: int,
+        frames: int,
+    ) -> None:
+        """Prime the persisted sequence that command 11005 loads."""
+
+        selected = await self._select_v3_astro_preset(duration)
+        parts = list(selected.pipe_parts)
+        parts[3] = str(int(gain))
+        parts[4] = str(max(1, int(frames)))
+        request = astro_pb2.ReqSetQuickSet(info_id="|".join(parts))
+        response = await self._send_request(
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET,
+            request,
+            astro_pb2.ResSetQuickSet,
+            timeout=8.0,
+        )
+        code = int(getattr(response, "code", protocol_pb2.OK))
+        if code != protocol_pb2.OK:
+            raise CaptureConfigurationError(
+                f"{self.profile.display_name} rejected astronomy quick-set parameters "
+                f"with code {code}"
+            )
+        logger.info(
+            "dwarf.camera.v3_astro_quick_set_applied",
+            info_id=request.info_id,
+            response_info_id=str(getattr(response, "info_id", "")),
+            exposure=duration,
+            gain=gain,
+            frames=frames,
         )
 
     async def _ensure_exposure_settings(self, duration: float) -> None:
@@ -4749,6 +4824,15 @@ class DwarfSession:
             requested_gain = self.camera_state.requested_gain
             if requested_gain is None:
                 requested_gain = int(self.profile.camera.min_gain_db)
+            # 11005 starts the persisted quick-set sequence. Prime that
+            # sequence first, then apply the authoritative live parameters.
+            # Omitting 11041 made DWARF 3 revert a 1-second request to its
+            # stored 15-second preset when 11005 was dispatched.
+            await self._apply_v3_astro_quick_set(
+                self.camera_state.duration,
+                int(requested_gain),
+                frames,
+            )
             await self._apply_v3_astro_exposure_gain(
                 self.camera_state.duration, int(requested_gain)
             )
@@ -4913,7 +4997,14 @@ class DwarfSession:
                 )
             option = options[position]
             request.ir_index = int(option.index)
-            request.force_start = not self._has_recent_goto()
+            # Do not pre-emptively force a capture when no recent GoTo exists.
+            # CODE_ASTRO_NEED_GOTO is a non-fatal warning, while force_start
+            # also bypasses the normal missing-dark response. On DWARF 3 that
+            # caused a requested 1-second exposure to be silently replaced by
+            # the nearest installed dark preset (15 seconds). Starting normally
+            # lets the firmware return its dark warning so command 11050 can
+            # explicitly continue with the requested exposure/gain combination.
+            request.force_start = False
             logger.info(
                 "dwarf.camera.astro_capture_start_options",
                 filter=option.label,
@@ -4943,7 +5034,8 @@ class DwarfSession:
                     and not bool(getattr(request, "force_start", False))
                 ):
                     return self._validate_astro_start_response(
-                        immediate_response, option=locals().get("option")
+                        immediate_response,
+                        option=locals().get("option"),
                     )
             self._set_astro_capture_operation_state(
                 _OperationState.RUNNING,
@@ -5020,6 +5112,7 @@ class DwarfSession:
         response: Message,
         *,
         option: FilterOption | None = None,
+        command_id: int = protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
     ) -> int:
         code = int(getattr(response, "code", protocol_pb2.OK))
         if code == protocol_pb2.OK:
@@ -5031,7 +5124,7 @@ class DwarfSession:
             logger.warning(
                 "dwarf.camera.astro_capture_start_warning",
                 module_id=protocol_pb2.ModuleId.MODULE_ASTRO,
-                command_id=protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                command_id=command_id,
                 code=code,
                 non_fatal=True,
             )
@@ -5043,20 +5136,20 @@ class DwarfSession:
             logger.warning(
                 "dwarf.camera.astro_capture_busy",
                 module_id=protocol_pb2.ModuleId.MODULE_ASTRO,
-                command_id=protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                command_id=command_id,
                 code=code,
             )
         else:
             logger.warning(
                 "dwarf.camera.astro_capture_unexpected_code",
                 module_id=protocol_pb2.ModuleId.MODULE_ASTRO,
-                command_id=protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+                command_id=command_id,
                 code=code,
             )
 
         raise DwarfCommandError(
             protocol_pb2.ModuleId.MODULE_ASTRO,
-            protocol_pb2.DwarfCMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING,
+            command_id,
             code,
         )
 
@@ -5173,7 +5266,11 @@ class DwarfSession:
                             )
                         )
                         response = await asyncio.wait_for(retry_future, timeout=timeout)
-            code = self._validate_astro_start_response(response, option=option)
+            code = self._validate_astro_start_response(
+                response,
+                option=option,
+                command_id=pending_command_id,
+            )
             logger.info(
                 "dwarf.camera.astro_capture_response",
                 capture_id=capture_id,
@@ -6079,7 +6176,10 @@ class DwarfSession:
             if ftp_success:
                 image_captured = True
             else:
-                if not astro_mode or state.image is None:
+                if (
+                    state.last_error != "firmware_exposure_duration_mismatch"
+                    and (not astro_mode or state.image is None)
+                ):
                     await self._attempt_album_capture(state)
                 image_captured = state.image is not None
         else:
@@ -6123,6 +6223,25 @@ class DwarfSession:
             state.last_end_time = time.time()
             state.pending_ftp_baseline = state.last_ftp_entry
             return False
+        if state.reported_duration is not None:
+            tolerance = max(0.001, state.duration * 0.02)
+            if not math.isclose(
+                state.reported_duration,
+                state.duration,
+                abs_tol=tolerance,
+            ):
+                logger.error(
+                    "dwarf.camera.ftp_capture_rejected_duration_mismatch",
+                    capture_id=state.capture_id,
+                    path=capture.entry.path,
+                    requested_duration=state.duration,
+                    firmware_duration=state.reported_duration,
+                )
+                state.start_time = None
+                state.last_error = "firmware_exposure_duration_mismatch"
+                state.last_end_time = time.time()
+                state.pending_ftp_baseline = capture.entry
+                return False
         try:
             frame = self._decode_capture_content(capture.entry.path, capture.content)
         except Exception as exc:
@@ -6293,6 +6412,21 @@ class DwarfSession:
         state.last_end_time = timestamp
         state.start_time = None
         state.last_error = None
+        if frame.size:
+            frame_min = float(np.min(frame))
+            frame_max = float(np.max(frame))
+            logger.info(
+                "dwarf.camera.frame_stored",
+                width=state.frame_width,
+                height=state.frame_height,
+                dtype=str(frame.dtype),
+                pixel_min=frame_min,
+                pixel_max=frame_max,
+                pixel_mean=float(np.mean(frame)),
+                uniform=frame_min == frame_max,
+                saturated_12bit=frame_min == frame_max == 4095.0,
+                source_format=state.source_format,
+            )
 
     def _decode_capture_content(self, identifier: str, content: bytes) -> np.ndarray:
         name = identifier.rsplit("/", 1)[-1]
@@ -6732,7 +6866,14 @@ async def get_session() -> DwarfSession:
 
 
 async def shutdown_session() -> None:
-    global _session
-    if _session is None:
+    global _session, _session_lock, _session_lock_loop
+    session = _session
+    if session is None:
         return
-    await _session.shutdown()
+    # Detach first so a session containing loop-bound locks/tasks can never be
+    # reused by a subsequent GUI server thread, even if shutdown encounters an
+    # error while talking to a disappearing device.
+    _session = None
+    _session_lock = None
+    _session_lock_loop = None
+    await session.shutdown()

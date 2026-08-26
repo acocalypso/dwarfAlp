@@ -155,6 +155,10 @@ async def _take_exposure(
         await session.camera_connect()
         state.requested_gain = gain
         state.filter_name = filter_name
+        try:
+            state.filter_index = profile.filters.labels.index(filter_name)
+        except ValueError:
+            pass
         state.requested_bin = (1, 1)
         state.requested_frame_count = 1
         await session.camera_start_exposure(

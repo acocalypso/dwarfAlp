@@ -80,8 +80,11 @@ _DWARF3 = DeviceProfile(
     has_filterwheel=True,
     camera=CameraProfile(
         name="Sony IMX678 STARVIS 2",
+        # Astronomy FITS files use the full raw array. This is intentionally
+        # larger than the 3840x2160 consumer photo crop and must not be replaced
+        # by the 1920x1080 preview-stream dimensions.
         resolution_x=3856,
-        resolution_y=2176,
+        resolution_y=2180,
         bits_per_pixel=16,
         ad_converter_bits=12,
         max_binning=2,

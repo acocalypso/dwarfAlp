@@ -24,6 +24,7 @@ from dwarf_alpaca.proto.dwarf_messages import (
 )
 from dwarf_alpaca.proto.notify_pb2 import (
     CmosTemperature,
+    LongExpPhotoProgress,
     ProgressCaptureRawLiveStacking,
     SwitchShootingMode,
 )
@@ -146,6 +147,9 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
             entry = response.quick_set_list.add()
             entry.info_id = "0|0|15|60|1|null"
             return response
+        if command == protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET:
+            calls.append((command, request.info_id))
+            return astro_pb2.ResSetQuickSet(code=protocol_pb2.OK, info_id=request.info_id)
         raise AssertionError(f"unexpected command {command}")
 
     async def fake_send_and_check(module, command, request, **_kwargs):
@@ -158,7 +162,7 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
     await session._ensure_gain_settings()
     await session._configure_astro_capture(frames=2, binning=(1, 1))
 
-    assert calls == []
+    assert calls == [(11041, "0|0|1|60|2|null")]
     assert session.camera_state.applied_duration == 1.0
     assert session.camera_state.applied_gain_value == 60
     assert session.camera_state.applied_bin == (1, 1)
@@ -184,6 +188,7 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
         }}]
     }
     adjusted: list[tuple[int, int, int, int]] = []
+    quick_sets: list[str] = []
 
     async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
         if command == protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST:
@@ -191,6 +196,9 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
             entry = response.quick_set_list.add()
             entry.info_id = "0|0|1|60|999|null"
             return response
+        if command == protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET:
+            quick_sets.append(request.info_id)
+            return astro_pb2.ResSetQuickSet(code=protocol_pb2.OK, info_id=request.info_id)
         raise AssertionError(f"unexpected command {command}")
 
     async def fake_send_and_check(module, command, request, **_kwargs):
@@ -208,6 +216,7 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
         (15, 16701, 0x201000000000002, 60),
         (15, 16703, 0x202000000000010, 1),
     ]
+    assert quick_sets == ["0|0|1|60|1|null"]
     assert session.camera_state.applied_frame_count == 1
 
 
@@ -264,7 +273,7 @@ async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
     request = captured["request"]
     assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
     assert request.ir_index == 2
-    assert request.force_start is True
+    assert request.force_start is False
     assert session.camera_state.applied_filter_name == "Duo-Band"
 
 
@@ -294,7 +303,7 @@ async def test_dwarf3_astro_start_embeds_selected_filter(monkeypatch):
     request = captured["request"]
     assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
     assert request.ir_index == 2
-    assert request.force_start is True
+    assert request.force_start is False
     assert session.camera_state.applied_filter_name == "Duo-Band Filter"
 
 
@@ -1045,8 +1054,6 @@ async def test_start_astro_capture_uses_continue_command_for_dark_warning(
         return future
 
     monkeypatch.setattr(session, "_begin_request", fake_begin_request)
-    monkeypatch.setattr(session, "_has_recent_goto", lambda: True)
-
     code = await session._start_astro_capture(timeout=5.0, force_on_dark_warning=True)
     monitor = session._capture_start_response_task
     assert monitor is not None
@@ -1297,6 +1304,35 @@ async def test_v3_camera_disconnect_is_local_only(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_v3_camera_connect_falls_back_when_enter_camera_is_unacknowledged(
+    monkeypatch,
+):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    commands: list[int] = []
+
+    async def fake_ensure_ws(*_args, **_kwargs):
+        return None
+
+    async def fake_send_request(_module_id, command_id, *_args, **_kwargs):
+        commands.append(command_id)
+        raise asyncio.TimeoutError()
+
+    async def fake_send_and_check(_module_id, command_id, *_args, **_kwargs):
+        commands.append(command_id)
+        return None
+
+    monkeypatch.setattr(session, "_ensure_ws", fake_ensure_ws)
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    await session.camera_connect()
+
+    assert commands == [16404, 10050]
+    assert session.camera_state.connected is True
+
+
+@pytest.mark.asyncio
 async def test_gain_commands_disable_after_timeout(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True))
     session.simulation = False
@@ -1483,3 +1519,49 @@ async def test_resolve_gain_command_uses_params_config():
 
     manual_supported = await session._gain_manual_mode_enabled()
     assert manual_supported is False
+def test_long_exposure_progress_records_firmware_duration_mismatch():
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    state = session.camera_state
+    state.capture_id = "capture-1"
+    state.capture_phase = CapturePhase.EXPOSING
+    state.duration = 0.001
+    message = LongExpPhotoProgress(total_time=15.0, exposured_time=0.0, camera_type=0)
+
+    session._handle_long_exposure_progress_notification(
+        types.SimpleNamespace(data=message.SerializeToString())
+    )
+
+    assert state.reported_duration == 15.0
+
+
+@pytest.mark.asyncio
+async def test_fetch_does_not_fall_back_to_album_after_duration_mismatch(monkeypatch):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    state = session.camera_state
+    state.capture_id = "capture-1"
+    state.capture_mode = "astro"
+    state.requested_frame_count = 1
+    state.duration = 0.001
+    album_attempted = False
+
+    async def fake_attempt_ftp(fetch_state) -> bool:
+        fetch_state.last_error = "firmware_exposure_duration_mismatch"
+        session._capture_frame_complete_event.set()
+        return False
+
+    async def fake_stop(*_args, **_kwargs) -> None:
+        return None
+
+    async def fake_attempt_album(_fetch_state) -> None:
+        nonlocal album_attempted
+        album_attempted = True
+
+    monkeypatch.setattr(session, "_attempt_ftp_capture", fake_attempt_ftp)
+    monkeypatch.setattr(session, "_stop_astro_capture", fake_stop)
+    monkeypatch.setattr(session, "_attempt_album_capture", fake_attempt_album)
+
+    await session._fetch_capture(state)
+
+    assert album_attempted is False
+    assert state.capture_phase == CapturePhase.FAILED

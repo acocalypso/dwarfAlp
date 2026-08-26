@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import numpy as np
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from websockets.exceptions import ConnectionClosed
 
 from ..device_profile import get_active_device_profile
 from ..dwarf.session import (
@@ -56,7 +57,7 @@ class SensorProfile:
 IMX678_PROFILE = SensorProfile(
     name="Sony IMX678 STARVIS 2",
     resolution_x=3856,
-    resolution_y=2176,
+    resolution_y=2180,
     bits_per_pixel=16,
     ad_converter_bits=12,
     max_binning=2,
@@ -99,11 +100,20 @@ class CameraState:
     offset_max: int = 255
     ccd_temperature: float = 25.0
     heatsink_temperature: float = 25.0
-    runtime_sensor_width: int | None = None
-    runtime_sensor_height: int | None = None
 
 
 state = CameraState()
+_connect_lock: asyncio.Lock | None = None
+_connect_lock_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _get_connect_lock() -> asyncio.Lock:
+    global _connect_lock, _connect_lock_loop
+    loop = asyncio.get_running_loop()
+    if _connect_lock is None or _connect_lock_loop is not loop:
+        _connect_lock = asyncio.Lock()
+        _connect_lock_loop = loop
+    return _connect_lock
 
 
 def _active_sensor_profile() -> SensorProfile:
@@ -129,18 +139,22 @@ def _active_sensor_profile() -> SensorProfile:
 
 def _sync_state_to_profile() -> SensorProfile:
     profile = _active_sensor_profile()
-    state.sensor_width = state.runtime_sensor_width or profile.resolution_x
-    state.sensor_height = state.runtime_sensor_height or profile.resolution_y
+    previous_width = state.sensor_width
+    previous_height = state.sensor_height
+    used_full_width = state.subframe_start_x == 0 and state.subframe_width == previous_width
+    used_full_height = state.subframe_start_y == 0 and state.subframe_height == previous_height
+    state.sensor_width = profile.resolution_x
+    state.sensor_height = profile.resolution_y
     state.max_bin_x = profile.max_binning
     state.max_bin_y = profile.max_binning
     state.pixel_size_x = profile.pixel_size_um
     state.pixel_size_y = profile.pixel_size_um
     state.gain_min = int(profile.min_gain_db)
     state.gain_max = int(profile.max_gain_db)
-    if state.subframe_width > state.sensor_width or state.subframe_width <= 0:
+    if used_full_width or state.subframe_width > state.sensor_width or state.subframe_width <= 0:
         state.subframe_start_x = 0
         state.subframe_width = state.sensor_width
-    if state.subframe_height > state.sensor_height or state.subframe_height <= 0:
+    if used_full_height or state.subframe_height > state.sensor_height or state.subframe_height <= 0:
         state.subframe_start_y = 0
         state.subframe_height = state.sensor_height
     state.gain = max(state.gain_min, min(state.gain, state.gain_max))
@@ -488,27 +502,55 @@ async def put_connected(
 ):
     value = await resolve_parameter(request, "Connected", bool, Connected_query)
     session = await get_session()
-    if value:
-        await session.acquire("camera")
-        try:
-            await session.camera_connect()
-        except Exception:
-            await session.release("camera")
-            raise
-    else:
-        try:
-            await session.camera_disconnect()
-        finally:
-            await session.release("camera")
-    runtime = session.camera_state
-    state.connected = runtime.connected
-    if state.connected:
-        state.runtime_sensor_width = runtime.reported_preview_width
-        state.runtime_sensor_height = runtime.reported_preview_height
-    else:
-        state.runtime_sensor_width = None
-        state.runtime_sensor_height = None
-    return alpaca_response()
+    async with _get_connect_lock():
+        runtime = session.camera_state
+        if value:
+            if state.connected and runtime.connected:
+                return alpaca_response()
+            await session.acquire("camera")
+            try:
+                await session.camera_connect()
+            except ConnectionClosed as exc:
+                await session.release("camera")
+                close_frame = getattr(exc, "rcvd", None)
+                reason = str(
+                    getattr(exc, "reason", "")
+                    or getattr(close_frame, "reason", "")
+                    or ""
+                )
+                code = getattr(exc, "code", None) or getattr(close_frame, "code", None)
+                if code == 4409 or "DEVICE_OCCUPIED" in reason.upper():
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            "DWARF control is occupied by another client. Close the "
+                            "DWARFLAB app and any other driver connection, then retry."
+                        ),
+                    ) from exc
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"DWARF control connection closed: {exc}",
+                ) from exc
+            except asyncio.TimeoutError as exc:
+                await session.release("camera")
+                raise HTTPException(
+                    status_code=504,
+                    detail=(
+                        "DWARF did not acknowledge the camera connection. Confirm no "
+                        "other client owns the device and retry."
+                    ),
+                ) from exc
+            except Exception:
+                await session.release("camera")
+                raise
+        else:
+            if state.connected or runtime.connected:
+                try:
+                    await session.camera_disconnect()
+                finally:
+                    await session.release("camera")
+        state.connected = runtime.connected
+        return alpaca_response()
 
 
 @router.get("/camerastate")
@@ -753,14 +795,11 @@ async def get_image_bytes():
     bytes_data = processed_image.tobytes()
     height, width = processed_image.shape[:2]
     runtime = session.camera_state
-    if runtime.frame_width and not session.simulation:
-        state.sensor_width = runtime.frame_width
-    else:
-        state.sensor_width = max(state.sensor_width, width)
-    if runtime.frame_height and not session.simulation:
-        state.sensor_height = runtime.frame_height
-    else:
-        state.sensor_height = max(state.sensor_height, height)
+    # The dimensions reported by device-state command 16405 describe the live
+    # preview stream (commonly 1920x1080), while frame_width/frame_height
+    # describe only the most recently retrieved file. Neither may replace the
+    # model's native, usable sensor geometry exposed to ASCOM/NINA.
+    _sync_state_to_profile()
     state.subframe_width = min(state.subframe_width, state.sensor_width - state.subframe_start_x)
     state.subframe_height = min(state.subframe_height, state.sensor_height - state.subframe_start_y)
     if state.subframe_width <= 0:

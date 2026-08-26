@@ -9,6 +9,7 @@ import pytest
 
 from dwarf_alpaca.config.settings import Settings
 from dwarf_alpaca.dwarf import exposure
+from dwarf_alpaca.dwarf import session as session_module
 from dwarf_alpaca.dwarf.session import (
     CaptureConfigurationError,
     DwarfSession,
@@ -46,6 +47,24 @@ def test_all_models_use_v3_ws_profile(model: str) -> None:
     session = DwarfSession(Settings(dwarf_device_model=model))
     assert session._ws_client.minor_version == 20
     assert session._ws_client.device_id == 4
+
+
+@pytest.mark.asyncio
+async def test_shutdown_session_discards_loop_bound_singleton() -> None:
+    previous_session = session_module._session
+    previous_settings = session_module._session_settings
+    try:
+        session_module._session = DwarfSession(Settings(force_simulation=True))
+        first = await session_module.get_session()
+
+        await session_module.shutdown_session()
+        second = await session_module.get_session()
+
+        assert second is not first
+    finally:
+        await session_module.shutdown_session()
+        session_module._session = previous_session
+        session_module._session_settings = previous_settings
 
 
 @pytest.mark.asyncio
