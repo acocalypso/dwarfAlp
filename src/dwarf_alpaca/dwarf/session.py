@@ -4829,19 +4829,51 @@ class DwarfSession:
             requested_gain = self.camera_state.requested_gain
             if requested_gain is None:
                 requested_gain = int(self.profile.camera.min_gain_db)
-            # 11005 starts the persisted quick-set sequence. Prime that
-            # sequence first, then apply the authoritative live parameters.
-            # Omitting 11041 made DWARF 3 revert a 1-second request to its
-            # stored 15-second preset when 11005 was dispatched.
+            # Apply live exposure/gain before touching the persisted quick set.
+            # Mini firmware rejects 16700 with code -1 when it follows 11041,
+            # while the same command order without a preceding 11041 is proven
+            # to produce exact 1s/60 and 30s/60 FITS files. DWARF 3 also needs
+            # 11041 before 11005 so the start command does not reload its old
+            # 15-second preset; therefore prime the quick set *after* these
+            # live writes and before the final frame-count write.
+            live_parameters_applied = True
+            try:
+                await self._apply_v3_astro_exposure_gain(
+                    self.camera_state.duration, int(requested_gain)
+                )
+            except DwarfCommandError as exc:
+                # Keep this adaptive instead of branching on model names so V3
+                # firmware variants on DWARF 2/3 can fall back safely.
+                if exc.code != -1:
+                    raise
+                live_parameters_applied = False
+                self.camera_state.applied_duration = self.camera_state.duration
+                self.camera_state.applied_gain_value = int(requested_gain)
+                logger.warning(
+                    "dwarf.camera.v3_live_parameters_unsupported",
+                    model=self.profile.model_id,
+                    command_id=exc.command_id,
+                    code=exc.code,
+                    fallback="quick_set_11041",
+                )
             await self._apply_v3_astro_quick_set(
                 self.camera_state.duration,
                 int(requested_gain),
                 frames,
             )
-            await self._apply_v3_astro_exposure_gain(
-                self.camera_state.duration, int(requested_gain)
-            )
-            await self._set_v3_astro_frame_count(frames)
+            if live_parameters_applied:
+                try:
+                    await self._set_v3_astro_frame_count(frames)
+                except DwarfCommandError as exc:
+                    if exc.code != -1:
+                        raise
+                    logger.warning(
+                        "dwarf.camera.v3_frame_count_command_unsupported",
+                        model=self.profile.model_id,
+                        command_id=exc.command_id,
+                        code=exc.code,
+                        fallback="quick_set_11041",
+                    )
             self.camera_state.applied_bin = (1, 1)
             self.camera_state.applied_frame_count = frames
             logger.info(

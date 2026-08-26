@@ -126,8 +126,11 @@ async def test_overlapping_capture_is_rejected_without_cancelling_first():
 
 
 @pytest.mark.asyncio
-async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+@pytest.mark.parametrize("model", ["dwarfmini", "dwarf2"])
+async def test_v3_quick_set_fallback_when_live_parameters_are_unsupported(
+    monkeypatch, model
+):
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model=model))
     session.simulation = False
     session._params_config = {}
     session.camera_state.duration = 1.0
@@ -140,6 +143,7 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
     }
     calls: list[tuple[int, str]] = []
     adjusted: list[tuple[int, int, int, int]] = []
+    events: list[int] = []
 
     async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
         if command == protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST:
@@ -149,11 +153,15 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
             return response
         if command == protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET:
             calls.append((command, request.info_id))
+            events.append(command)
             return astro_pb2.ResSetQuickSet(code=protocol_pb2.OK, info_id=request.info_id)
         raise AssertionError(f"unexpected command {command}")
 
     async def fake_send_and_check(module, command, request, **_kwargs):
         adjusted.append((module, command, request.param_id, request.value))
+        events.append(command)
+        if command == 16700:
+            raise DwarfCommandError(module, command, -1)
 
     monkeypatch.setattr(session, "_send_request", fake_send_request)
     monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
@@ -167,11 +175,8 @@ async def test_mini_v3_astro_preset_is_discovered_and_confirmed(monkeypatch):
     assert session.camera_state.applied_gain_value == 60
     assert session.camera_state.applied_bin == (1, 1)
     assert session.camera_state.applied_frame_count == 2
-    assert adjusted == [
-        (15, 16700, 0x201000000000001, 120),
-        (15, 16701, 0x201000000000002, 60),
-        (15, 16703, 0x202000000000010, 2),
-    ]
+    assert adjusted == [(15, 16700, 0x201000000000001, 120)]
+    assert events == [16700, 11041]
 
 
 @pytest.mark.asyncio
@@ -189,6 +194,7 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
     }
     adjusted: list[tuple[int, int, int, int]] = []
     quick_sets: list[str] = []
+    events: list[int] = []
 
     async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
         if command == protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST:
@@ -198,11 +204,13 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
             return response
         if command == protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET:
             quick_sets.append(request.info_id)
+            events.append(command)
             return astro_pb2.ResSetQuickSet(code=protocol_pb2.OK, info_id=request.info_id)
         raise AssertionError(f"unexpected command {command}")
 
     async def fake_send_and_check(module, command, request, **_kwargs):
         adjusted.append((module, command, request.param_id, request.value))
+        events.append(command)
 
     monkeypatch.setattr(session, "_send_request", fake_send_request)
     monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
@@ -217,6 +225,7 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
         (15, 16703, 0x202000000000010, 1),
     ]
     assert quick_sets == ["0|0|1|60|1|null"]
+    assert events == [16700, 16701, 11041, 16703]
     assert session.camera_state.applied_frame_count == 1
 
 
