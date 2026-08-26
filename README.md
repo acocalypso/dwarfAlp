@@ -145,6 +145,14 @@ automatic `force_start` retry are logged. Set `allow_continue_without_darks=fals
 make dark-library warnings fail the exposure; the driver never starts a long
 dark-capture procedure itself.
 
+Current DWARF 3 firmware may reload a saved exposure while preparing a capture.
+DwarfAlp follows the module-15 `15264` parameter notifications and reapplies the
+requested exposure/gain in the active capture namespace. A frame whose minimum
+and maximum are both 4095 is genuinely saturated at the sensor's 12-bit ceiling;
+some viewers display that constant frame as black. Use millisecond exposures and
+low gain for daylight tests; normal astronomy values should be evaluated under
+night-sky illumination.
+
 `CanStopExposure` is false because distinct graceful-stop behavior is unproved.
 `CanAbortExposure` is true for the selected astronomy workflow.
 

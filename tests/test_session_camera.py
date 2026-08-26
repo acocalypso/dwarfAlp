@@ -24,6 +24,7 @@ from dwarf_alpaca.proto.dwarf_messages import (
 )
 from dwarf_alpaca.proto.notify_pb2 import (
     CmosTemperature,
+    GeneralIntParam,
     LongExpPhotoProgress,
     ProgressCaptureRawLiveStacking,
     SwitchShootingMode,
@@ -34,6 +35,72 @@ from dwarf_alpaca.proto.task_center_pb2 import (
     ResSwitchShootingMode,
     ResSwitchShootingTech,
 )
+
+
+@pytest.mark.asyncio
+async def test_v3_capture_parameter_namespace_is_detected_from_module_15_notification() -> None:
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.camera_state.capture_id = "capture-1"
+    session.camera_state.capture_phase = CapturePhase.STARTING
+    message = GeneralIntParam(
+        param_id=0x0D01000000000001,
+        mode=1,
+        value=120,
+    )
+    packet = WsPacket(
+        module_id=protocol_pb2.ModuleId.MODULE_CAMERA_PARAMS,
+        cmd=protocol_pb2.DwarfCMD.CMD_NOTIFY_GENERAL_INT_PARAM,
+        type=TYPE_NOTIFICATION,
+        data=message.SerializeToString(),
+    )
+
+    await session._handle_notification(packet)
+
+    assert session._v3_capture_param_mode_id == 13
+
+
+@pytest.mark.asyncio
+async def test_v3_runtime_parameters_use_detected_capture_namespace(monkeypatch) -> None:
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    calls: list[tuple[int, int, int, int]] = []
+
+    async def fake_resolve(_duration, _gain):
+        return 0x0201000000000001, 120, 0x0201000000000002, 60
+
+    async def fake_send(module, command, request, **_kwargs):
+        calls.append((module, command, request.param_id, request.value))
+
+    monkeypatch.setattr(session, "_resolve_v3_astro_controls", fake_resolve)
+    monkeypatch.setattr(session, "_send_and_check", fake_send)
+
+    await session._apply_v3_capture_runtime_parameters(1.0, 60, 2, mode_id=13)
+
+    assert calls == [
+        (15, 16700, 0x0D01000000000001, 120),
+        (15, 16701, 0x0D01000000000002, 60),
+        (15, 16703, 0x0D02000000000010, 2),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_v3_wait_checkpoint_schedules_runtime_parameter_reapply(monkeypatch) -> None:
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.camera_state.capture_id = "capture-1"
+    session.camera_state.capture_phase = CapturePhase.EXPOSING
+    session._v3_live_parameters_supported = True
+    calls: list[str] = []
+
+    async def fake_reapply(capture_id: str) -> None:
+        calls.append(capture_id)
+
+    monkeypatch.setattr(session, "_reapply_v3_capture_runtime_parameters", fake_reapply)
+    packet = WsPacket(data=b"\x08\x07\x10\x3c")
+
+    session._handle_v3_exposure_progress_notification(packet)
+    await asyncio.sleep(0)
+
+    assert calls == ["capture-1"]
+    assert session._v3_runtime_reapply_capture_id == "capture-1"
 
 
 @pytest.mark.asyncio
@@ -170,7 +237,7 @@ async def test_v3_quick_set_fallback_when_live_parameters_are_unsupported(
     await session._ensure_gain_settings()
     await session._configure_astro_capture(frames=2, binning=(1, 1))
 
-    assert calls == [(11041, "0|0|1|60|2|null")]
+    assert calls == [(11041, "0|0|1|60|1|null")]
     assert session.camera_state.applied_duration == 1.0
     assert session.camera_state.applied_gain_value == 60
     assert session.camera_state.applied_bin == (1, 1)
@@ -200,7 +267,7 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
         if command == protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST:
             response = astro_pb2.ResGetQuickSetList()
             entry = response.quick_set_list.add()
-            entry.info_id = "0|0|1|60|999|null"
+            entry.info_id = "0|0|1|60|0|null"
             return response
         if command == protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET:
             quick_sets.append(request.info_id)
@@ -222,10 +289,19 @@ async def test_dwarf3_v3_astro_frame_count_uses_dedicated_adjust_param(monkeypat
     assert adjusted == [
         (15, 16700, 0x201000000000001, 120),
         (15, 16701, 0x201000000000002, 60),
+        (15, 16700, 0x201000000000001, 120),
+        (15, 16701, 0x201000000000002, 60),
         (15, 16703, 0x202000000000010, 1),
     ]
-    assert quick_sets == ["0|0|1|60|1|null"]
-    assert events == [16700, 16701, 11041, 16703]
+    assert quick_sets == ["0|0|1|60|0|null"]
+    assert events == [
+        16700,
+        16701,
+        11041,
+        16700,
+        16701,
+        16703,
+    ]
     assert session.camera_state.applied_frame_count == 1
 
 
@@ -250,7 +326,7 @@ async def test_dwarf3_v3_astro_preset_accepts_firmware_zero_placeholder(monkeypa
     assert len(presets) == 1
     assert presets[0].exposure_s == 1.0
     assert presets[0].gain == 120
-    assert presets[0].frame_count == 1
+    assert presets[0].resolution_index == 0
 
 
 @pytest.mark.asyncio

@@ -37,6 +37,8 @@ sequenceDiagram
     A->>D: 11041 prime persisted quick-set tuple
     A->>D: 16703 absolute frame count
     A->>D: 11005 ReqCaptureRawLiveStacking(ir_index=1 or 2)
+    D-->>A: 15264 active capture-parameter namespace (module 15)
+    A->>D: 16700/16701/16703 reapply in active namespace
     D-->>A: Capture state/progress notifications
     Note over A,D: Delayed -11514 is nonfatal if shooting continues
     A->>D: 11006 when 15209.current_count reaches requested frames
@@ -65,12 +67,22 @@ firmware-selected duration. The driver records that value and still returns the
 matching fresh FITS; discarding an exposure after StartExposure has returned
 would leave Alpaca clients polling ImageReady until their timeout.
 
+Current DWARF 3 firmware can reload a saved 15-second preset while `11005` is
+preparing the capture. Its `15264` parameter-state packets are emitted from
+module 15 (camera parameters), not module 9, and reveal the active internal
+namespace (mode 11 or 13 was observed). The driver detects that namespace and
+reapplies exposure, gain, and frame count there. Also, the fifth component of
+the `11041` tuple is resolution, not frame count; frame count belongs solely to
+`16703`. A live 0.001-second/gain-0 test then returned a non-uniform FITS with
+pixel range 200..1649. Uniform 4095..4095 daylight samples were genuine 12-bit
+saturation and may appear black in a viewer with no display range.
+
 ### Driver versus APK 3.4.1
 
 | Stage | Old driver | Current APK workflow / corrected driver |
 |---|---|---|
 | Discover values | 11040 quick-set list only | HTTP mode-2 parameter catalogue |
-| Exposure | rewrite a 11041 string | try 16700 with catalogue index, then prime 11041; use 15288 as applied duration |
+| Exposure | rewrite a 11041 string | try 16700 with catalogue index, prime 11041, then reapply in the runtime namespace reported by module-15 notification 15264; use 15288 as applied duration |
 | Gain | rewrite a 11041 string | 16701 with catalogue gain value |
 | Frame count | 16703 | 16703 |
 | Start | 11005 | 11005 |

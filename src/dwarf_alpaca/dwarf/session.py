@@ -311,6 +311,9 @@ _CMD_PARAM_SET_EXPOSURE = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_EXPOSURE)
 _CMD_PARAM_SET_GAIN = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_GAIN)
 _CMD_PARAM_SET_GENERAL_INT = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_GENERAL_INT_PARAM)
 _V3_ASTRO_MODE_ID = 2
+_V3_ASTRO_CAPTURE_MODE_ID = 11
+_V3_PARAM_MODE_SHIFT = 56
+_V3_PARAM_MODE_VALUE_MASK = (1 << _V3_PARAM_MODE_SHIFT) - 1
 _V3_ASTRO_EXPOSURE_PARAM_ID = 0x0201000000000001
 _V3_ASTRO_GAIN_PARAM_ID = 0x0201000000000002
 _CMD_TASK_SWITCH_SHOOTING_MODE = int(
@@ -413,7 +416,7 @@ class CaptureConfigurationError(RuntimeError):
 class V3AstroPreset:
     exposure_s: float
     gain: int
-    frame_count: int
+    resolution_index: int
     pipe_parts: tuple[str, ...]
 
 
@@ -605,6 +608,9 @@ class DwarfSession:
         self._v3_astro_presets: list[V3AstroPreset] | None = None
         self._v3_selected_astro_preset: V3AstroPreset | None = None
         self._v3_astro_param_catalog: dict[str, Any] | None = None
+        self._v3_live_parameters_supported: bool | None = None
+        self._v3_runtime_reapply_capture_id: str | None = None
+        self._v3_capture_param_mode_id: int | None = None
         self._calibration_lock = asyncio.Lock()
         self._last_calibration_time: float | None = None
         self._last_calibration_ip: str | None = None
@@ -1110,9 +1116,18 @@ class DwarfSession:
             )
         self._trace_calibration_notification(packet)
         module_id = getattr(packet, "module_id", None)
+        command_id = getattr(packet, "cmd", None)
+        # Camera parameter notifications are emitted by MODULE_CAMERA_PARAMS
+        # (15) on current DWARF 3 firmware, not MODULE_NOTIFY (9). Process them
+        # before the generic notification-module guard.
+        if (
+            module_id == _MODULE_CAMERA_PARAMS
+            and command_id == _CMD_NOTIFY_GENERAL_INT_PARAM
+        ):
+            self._handle_v3_camera_param_state_notification(packet)
+            return
         if module_id != protocol_pb2.ModuleId.MODULE_NOTIFY:
             return
-        command_id = getattr(packet, "cmd", None)
         if command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_FOCUS_POSITION:
             self._handle_focus_notification(packet)
         elif command_id == protocol_pb2.DwarfCMD.CMD_NOTIFY_TEMPERATURE:
@@ -1412,9 +1427,30 @@ class DwarfSession:
         except Exception as exc:  # pragma: no cover - defensive logging helper
             logger.debug("dwarf.camera.general_int_param_decode_failed", error=str(exc))
             return
+        param_id = int(message.param_id)
+        param_mode_id = (param_id >> _V3_PARAM_MODE_SHIFT) & 0xFF
+        param_key = param_id & _V3_PARAM_MODE_VALUE_MASK
+        exposure_key = _V3_ASTRO_EXPOSURE_PARAM_ID & _V3_PARAM_MODE_VALUE_MASK
+        gain_key = _V3_ASTRO_GAIN_PARAM_ID & _V3_PARAM_MODE_VALUE_MASK
+        state = self.camera_state
+        if (
+            state.capture_id is not None
+            and state.capture_phase
+            in {CapturePhase.STARTING, CapturePhase.EXPOSING}
+            and param_mode_id != _V3_ASTRO_MODE_ID
+            and param_key in {exposure_key, gain_key}
+        ):
+            if self._v3_capture_param_mode_id != param_mode_id:
+                self._v3_capture_param_mode_id = param_mode_id
+                logger.info(
+                    "dwarf.camera.v3_capture_param_namespace_detected",
+                    capture_id=state.capture_id,
+                    mode_id=param_mode_id,
+                    param_id=param_id,
+                )
         logger.debug(
             "dwarf.camera.general_int_param",
-            param_id=int(message.param_id),
+            param_id=param_id,
             mode=int(message.mode),
             value=int(message.value),
         )
@@ -1436,6 +1472,66 @@ class DwarfSession:
             return
         self._v3_exposure_progress = (elapsed, total)
         self._capture_start_evidence_event.set()
+        state = self.camera_state
+        capture_id = state.capture_id
+        # DWARF 3 can reload its internal capture preset near the end of the
+        # wait-shooting preparation. When elapsed=7 is emitted, it follows that
+        # reload and precedes 15288 starting the sensor exposure, so it is a
+        # useful final checkpoint for reapplying exact live values.
+        should_reapply = (
+            elapsed >= 7
+            and capture_id is not None
+            and self._v3_live_parameters_supported is not False
+            and self._v3_runtime_reapply_capture_id != capture_id
+            and state.capture_phase
+            in {
+                CapturePhase.STARTING,
+                CapturePhase.EXPOSING,
+                CapturePhase.PROCESSING,
+            }
+        )
+        if elapsed >= 7:
+            logger.info(
+                "dwarf.camera.v3_capture_runtime_reapply_checkpoint",
+                capture_id=capture_id,
+                capture_phase=state.capture_phase.value,
+                detected_mode_id=self._v3_capture_param_mode_id,
+                elapsed=elapsed,
+                live_parameters_supported=self._v3_live_parameters_supported,
+                scheduled=should_reapply,
+                total=total,
+            )
+        if should_reapply:
+            self._v3_runtime_reapply_capture_id = capture_id
+            asyncio.create_task(
+                self._reapply_v3_capture_runtime_parameters(capture_id),
+                name=f"dwarf-v3-runtime-params-{capture_id}",
+            )
+
+    async def _reapply_v3_capture_runtime_parameters(self, capture_id: str) -> None:
+        state = self.camera_state
+        try:
+            requested_gain = state.requested_gain
+            if requested_gain is None:
+                requested_gain = int(self.profile.camera.min_gain_db)
+            await self._apply_v3_capture_runtime_parameters(
+                state.duration,
+                int(requested_gain),
+                max(1, int(state.requested_frame_count)),
+                mode_id=self._v3_capture_param_mode_id,
+            )
+            logger.info(
+                "dwarf.camera.v3_capture_runtime_params_reapplied",
+                capture_id=capture_id,
+                trigger="wait_shooting_progress",
+            )
+        except Exception as exc:
+            logger.warning(
+                "dwarf.camera.v3_capture_runtime_params_reapply_failed",
+                capture_id=capture_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
 
     def _handle_long_exposure_progress_notification(self, packet: Message) -> None:
         raw_data = bytes(getattr(packet, "data", b"") or b"")
@@ -3370,6 +3466,8 @@ class DwarfSession:
         state.retrieved_file_path = None
         self._capture_frame_complete_event.clear()
         self._v3_selected_astro_preset = None
+        self._v3_runtime_reapply_capture_id = None
+        self._v3_capture_param_mode_id = None
         state.last_dark_check_code = None
         state.capture_mode = self._resolve_mini_capture_mode() if mini_profile else "astro"
         frames_to_capture = max(1, int(state.requested_frame_count or 1))
@@ -3497,6 +3595,25 @@ class DwarfSession:
                 timeout=command_timeout,
                 force_on_dark_warning=bool(continue_without_darks),
             )
+            if self._uses_v3_protocol() and self._v3_live_parameters_supported:
+                try:
+                    requested_gain = state.requested_gain
+                    if requested_gain is None:
+                        requested_gain = int(self.profile.camera.min_gain_db)
+                    await self._apply_v3_capture_runtime_parameters(
+                        duration,
+                        int(requested_gain),
+                        frames_to_capture,
+                    )
+                except Exception as exc:
+                    # 11005 is already running at this point. Never turn a
+                    # best-effort runtime correction into a failed Alpaca
+                    # StartExposure while the device continues capturing.
+                    logger.warning(
+                        "dwarf.camera.v3_capture_runtime_params_failed",
+                        error=str(exc),
+                        error_type=type(exc).__name__,
+                    )
         except DwarfCommandError as exc:
             if exc.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
                 state.last_error = "astro_busy"
@@ -3600,10 +3717,11 @@ class DwarfSession:
             try:
                 exposure_s = float(parts[2])
                 gain = int(parts[3])
-                # DWARF 3 reports 0 here as a firmware/default placeholder.
-                # The requested count is written through the verified 16703
-                # general-integer parameter immediately before capture.
-                frame_count = max(1, int(parts[4]))
+                # The fifth quick-set component is resolution (DWARF 3 uses 0
+                # for its native raw array; Mini uses 1 for native 1080p).
+                # Frame count is a separate 16703 parameter and must never be
+                # written into this tuple position.
+                resolution_index = int(parts[4])
             except (TypeError, ValueError):
                 continue
             if exposure_s <= 0:
@@ -3612,7 +3730,7 @@ class DwarfSession:
                 V3AstroPreset(
                     exposure_s=exposure_s,
                     gain=gain,
-                    frame_count=frame_count,
+                    resolution_index=resolution_index,
                     pipe_parts=parts,
                 )
             )
@@ -3657,7 +3775,7 @@ class DwarfSession:
         selected = V3AstroPreset(
             exposure_s=duration,
             gain=requested_gain,
-            frame_count=template.frame_count,
+            resolution_index=template.resolution_index,
             pipe_parts=tuple(parts),
         )
         self._v3_selected_astro_preset = selected
@@ -3745,8 +3863,11 @@ class DwarfSession:
             await self._resolve_v3_astro_controls(duration, gain)
         )
         expected = {
-            (protocol_pb2.ModuleId.MODULE_NOTIFY, protocol_pb2.DwarfCMD.CMD_NOTIFY_GENERAL_INT_PARAM):
-                GeneralIntParam
+            (_MODULE_CAMERA_PARAMS, _CMD_NOTIFY_GENERAL_INT_PARAM): GeneralIntParam,
+            (
+                protocol_pb2.ModuleId.MODULE_NOTIFY,
+                _CMD_NOTIFY_GENERAL_INT_PARAM,
+            ): GeneralIntParam,
         }
         exp_request = ReqSetExposure()
         exp_request.param_id = exposure_param_id
@@ -3780,6 +3901,90 @@ class DwarfSession:
             gain_param_id=gain_param_id,
         )
 
+    @staticmethod
+    def _v3_param_id_for_mode(param_id: int, mode_id: int) -> int:
+        return (int(mode_id) << _V3_PARAM_MODE_SHIFT) | (
+            int(param_id) & _V3_PARAM_MODE_VALUE_MASK
+        )
+
+    async def _apply_v3_capture_runtime_parameters(
+        self,
+        duration: float,
+        gain: int,
+        frames: int,
+        *,
+        mode_id: int | None = None,
+    ) -> None:
+        """Override the firmware-selected capture namespace after 11005 starts."""
+
+        exposure_param_id, exposure_index, gain_param_id, gain_value = (
+            await self._resolve_v3_astro_controls(duration, gain)
+        )
+        capture_mode_id = (
+            int(mode_id) if mode_id is not None else _V3_ASTRO_CAPTURE_MODE_ID
+        )
+        capture_exposure_param_id = self._v3_param_id_for_mode(
+            exposure_param_id, capture_mode_id
+        )
+        capture_gain_param_id = self._v3_param_id_for_mode(
+            gain_param_id, capture_mode_id
+        )
+        expected = {
+            (_MODULE_CAMERA_PARAMS, _CMD_NOTIFY_GENERAL_INT_PARAM): GeneralIntParam,
+            (
+                protocol_pb2.ModuleId.MODULE_NOTIFY,
+                _CMD_NOTIFY_GENERAL_INT_PARAM,
+            ): GeneralIntParam
+        }
+        exp_request = ReqSetExposure(
+            param_id=capture_exposure_param_id,
+            mode=1,
+            value=exposure_index,
+        )
+        await self._send_and_check(
+            _MODULE_CAMERA_PARAMS,
+            _CMD_PARAM_SET_EXPOSURE,
+            exp_request,
+            expected_responses=expected,
+        )
+        gain_request = ReqSetExposure(
+            param_id=capture_gain_param_id,
+            mode=1,
+            value=gain_value,
+        )
+        await self._send_and_check(
+            _MODULE_CAMERA_PARAMS,
+            _CMD_PARAM_SET_GAIN,
+            gain_request,
+            expected_responses=expected,
+        )
+        capture_frame_param_id = self._v3_param_id_for_mode(
+            _V3_ASTRO_FRAME_COUNT_PARAM_ID, capture_mode_id
+        )
+        frame_request = ReqSetGeneralIntParam(
+            param_id=capture_frame_param_id,
+            value=max(1, int(frames)),
+        )
+        await self._send_and_check(
+            _MODULE_CAMERA_PARAMS,
+            _CMD_PARAM_SET_GENERAL_INT,
+            frame_request,
+            timeout=3.0,
+            expected_responses=expected,
+            close_ws_on_timeout=False,
+        )
+        logger.info(
+            "dwarf.camera.v3_capture_runtime_params_applied",
+            mode_id=capture_mode_id,
+            exposure=duration,
+            exposure_index=exposure_index,
+            exposure_param_id=capture_exposure_param_id,
+            gain=gain_value,
+            gain_param_id=capture_gain_param_id,
+            frames=frame_request.value,
+            frame_param_id=capture_frame_param_id,
+        )
+
     async def _apply_v3_astro_quick_set(
         self,
         duration: float,
@@ -3791,7 +3996,6 @@ class DwarfSession:
         selected = await self._select_v3_astro_preset(duration)
         parts = list(selected.pipe_parts)
         parts[3] = str(int(gain))
-        parts[4] = str(max(1, int(frames)))
         request = astro_pb2.ReqSetQuickSet(info_id="|".join(parts))
         response = await self._send_request(
             protocol_pb2.ModuleId.MODULE_ASTRO,
@@ -3813,6 +4017,7 @@ class DwarfSession:
             exposure=duration,
             gain=gain,
             frames=frames,
+            resolution_index=selected.resolution_index,
         )
 
     async def _ensure_exposure_settings(self, duration: float) -> None:
@@ -4503,6 +4708,7 @@ class DwarfSession:
         if self.simulation:
             return
         expected = {
+            (_MODULE_CAMERA_PARAMS, _CMD_NOTIFY_GENERAL_INT_PARAM): GeneralIntParam,
             (
                 protocol_pb2.ModuleId.MODULE_NOTIFY,
                 _CMD_NOTIFY_GENERAL_INT_PARAM,
@@ -4829,13 +5035,12 @@ class DwarfSession:
             requested_gain = self.camera_state.requested_gain
             if requested_gain is None:
                 requested_gain = int(self.profile.camera.min_gain_db)
-            # Apply live exposure/gain before touching the persisted quick set.
-            # Mini firmware rejects 16700 with code -1 when it follows 11041,
-            # while the same command order without a preceding 11041 is proven
-            # to produce exact 1s/60 and 30s/60 FITS files. DWARF 3 also needs
-            # 11041 before 11005 so the start command does not reload its old
-            # 15-second preset; therefore prime the quick set *after* these
-            # live writes and before the final frame-count write.
+            # Probe live exposure/gain support before touching the persisted
+            # quick set. Mini firmware can reject 16700 with code -1 and must
+            # use the complete 11041 tuple instead. Firmware which accepts the
+            # live writes needs them applied again *after* 11041: a DWARF 3
+            # Astro capture otherwise reloaded its stale 15-second value when
+            # 11005 was dispatched despite a requested/acknowledged 1 second.
             live_parameters_applied = True
             try:
                 await self._apply_v3_astro_exposure_gain(
@@ -4847,6 +5052,7 @@ class DwarfSession:
                 if exc.code != -1:
                     raise
                 live_parameters_applied = False
+                self._v3_live_parameters_supported = False
                 self.camera_state.applied_duration = self.camera_state.duration
                 self.camera_state.applied_gain_value = int(requested_gain)
                 logger.warning(
@@ -4856,12 +5062,17 @@ class DwarfSession:
                     code=exc.code,
                     fallback="quick_set_11041",
                 )
+            else:
+                self._v3_live_parameters_supported = True
             await self._apply_v3_astro_quick_set(
                 self.camera_state.duration,
                 int(requested_gain),
                 frames,
             )
             if live_parameters_applied:
+                await self._apply_v3_astro_exposure_gain(
+                    self.camera_state.duration, int(requested_gain)
+                )
                 try:
                     await self._set_v3_astro_frame_count(frames)
                 except DwarfCommandError as exc:
@@ -4982,6 +5193,7 @@ class DwarfSession:
             request,
             timeout=3.0,
             expected_responses={
+                (_MODULE_CAMERA_PARAMS, _CMD_NOTIFY_GENERAL_INT_PARAM): GeneralIntParam,
                 (
                     protocol_pb2.ModuleId.MODULE_NOTIFY,
                     _CMD_NOTIFY_GENERAL_INT_PARAM,
