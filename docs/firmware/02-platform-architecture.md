@@ -14,14 +14,14 @@
 
 ```mermaid
 flowchart TD
-  Client[DWARFLAB / DwarfAlp] -->|WebSocket + protobuf| Bilbo[bilbo control service]
-  Client -->|HTTP / files / preview| Net[HTTP, nginx, FTP, RTSP/JPEG]
-  Bilbo --> Camera[Rockchip media + rkaiq + camera sensors]
-  Bilbo --> Astro[astrometry.net + OpenCV + RKNN + FITS stacking]
-  Bilbo --> Motor[serial motor and focus controllers]
-  Bilbo --> DB[WCDB / SQLite state]
-  Bilbo --> Storage[/DWARF_mini media storage]
-  BLE[Broadcom BLE service] --> Bilbo
+  Client["DWARFLAB / DwarfAlp"] -->|"WebSocket + protobuf"| Bilbo["bilbo control service"]
+  Client -->|"HTTP / files / preview"| Net["HTTP, nginx, FTP, RTSP/JPEG"]
+  Bilbo --> Camera["Rockchip media + rkaiq + camera sensors"]
+  Bilbo --> Astro["astrometry.net + OpenCV + RKNN + FITS stacking"]
+  Bilbo --> Motor["serial motor and focus controllers"]
+  Bilbo --> DB["WCDB / SQLite state"]
+  Bilbo --> Storage["/DWARF_mini media storage"]
+  BLE["Broadcom BLE service"] --> Bilbo
 ```
 
 Important linked components include libhv, zlog, OpenCV 4.09, OpenSSL 1.1,

@@ -6,19 +6,19 @@ parent rc scripts, so the sequence before that hook is unknown. **VERIFIED**
 
 ```mermaid
 flowchart TD
-  B[Bootloader] -->|not supplied| K[Linux kernel]
-  K -->|base rootfs not supplied| I[BusyBox/SysV-style init]
-  I --> S[S50usbdevice / run.sh]
-  S --> UART[configure UART1/UART3]
-  S --> BLE[BLE on UART4 at 921600]
-  S --> GPIO[IR-cut GPIO initialization]
-  S --> FS[fsck + mount /dev/mmcblk0p10]
-  S --> USB[USB mass storage + RNDIS]
-  S --> FTP[vsftpd]
-  S --> SSH[sshd]
-  S --> HTTP[nginx]
-  S --> Main[bilbo]
-  S --> Upgrade[bilbo_upgrade]
+  B["Bootloader"] -->|"not supplied"| K["Linux kernel"]
+  K -->|"base rootfs not supplied"| I["BusyBox/SysV-style init"]
+  I --> S["S50usbdevice / run.sh"]
+  S --> UART["configure UART1/UART3"]
+  S --> BLE["BLE on UART4 at 921600"]
+  S --> GPIO["IR-cut GPIO initialization"]
+  S --> FS["fsck + mount /dev/mmcblk0p10"]
+  S --> USB["USB mass storage + RNDIS"]
+  S --> FTP["vsftpd"]
+  S --> SSH["sshd"]
+  S --> HTTP["nginx"]
+  S --> Main["bilbo"]
+  S --> Upgrade["bilbo_upgrade"]
 ```
 
 `run.sh` mounts the exFAT media partition at `/DWARF_mini`, configures a USB

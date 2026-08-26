@@ -2,15 +2,15 @@
 
 ```mermaid
 flowchart LR
-  App[LAN client] -->|TCP 80 verified| Nginx[nginx static media]
-  App -->|TCP 21/default verified| FTP[vsftpd /DWARF_mini]
-  App -->|WebSocket, port unresolved statically| Bilbo[bilbo]
-  App -->|device HTTP, port unresolved statically| Bilbo
-  App -->|JPEG/RTSP, ports unresolved statically| Bilbo
-  Host[USB host] -->|RNDIS 10.10.10.1 + mass storage| USB[configfs gadget]
-  WiFi[wpa_supplicant] <-->|Unix control socket| Bilbo
-  BLE[UART4 BLE] --> Bilbo
-  Bilbo -->|UART1/UART3| MCU[controller MCU(s)]
+  App["LAN client"] -->|"TCP 80 verified"| Nginx["nginx static media"]
+  App -->|"TCP 21/default verified"| FTP["vsftpd /DWARF_mini"]
+  App -->|"WebSocket, port unresolved statically"| Bilbo["bilbo"]
+  App -->|"device HTTP, port unresolved statically"| Bilbo
+  App -->|"JPEG/RTSP, ports unresolved statically"| Bilbo
+  Host["USB host"] -->|"RNDIS 10.10.10.1 + mass storage"| USB["configfs gadget"]
+  WiFi["wpa_supplicant"] <-->|"Unix control socket"| Bilbo
+  BLE["UART4 BLE"] --> Bilbo
+  Bilbo -->|"UART1/UART3"| MCU["controller MCU(s)"]
 ```
 
 | Port/interface | Protocol/process | Reachability | Purpose | Confidence |
