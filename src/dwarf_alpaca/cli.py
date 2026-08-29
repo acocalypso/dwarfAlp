@@ -7,6 +7,7 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from typing import Optional
 
+from . import __version__
 from .config.settings import Settings, load_settings, normalize_dwarf_device_model
 from .dwarf.session import (
     configure_session,
@@ -194,6 +195,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(description="dwarfAlp ASCOM Alpaca server")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command")
 
     server_parser = subparsers.add_parser("serve", help="Run the Alpaca server")

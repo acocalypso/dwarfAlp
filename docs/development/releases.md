@@ -2,9 +2,20 @@
 
 ## Windows executable
 
-`.github/workflows/release-windows.yml` runs on `v*` tags or manual dispatch. It
+`pyproject.toml` is the single declared project-version source. The package reads that
+installed metadata at runtime, and the Control Center displays it in its title and
+**Help > About dwarfAlp** dialog.
+
+`.github/workflows/release-windows.yml` runs on manual dispatch or a matching `v*`
+tag. It reads `[project].version`, derives the release tag (`0.1.0` becomes `v0.1.0`),
 installs locked dependencies, runs Ruff and pytest, builds the one-file GUI, uploads a
-workflow artifact, and creates a GitHub release with a SHA-256 file.
+versioned workflow artifact, and creates the matching GitHub release with generated
+release notes and a SHA-256 file. Manual runs no longer ask for a separate version.
+
+To prepare the next release, update `version` in `pyproject.toml`, refresh `uv.lock`,
+commit and push the change, and manually run **Build and release Windows executable**.
+If the workflow is started by pushing a tag, that tag must exactly match the derived
+project tag or the job fails.
 
 Reproduce its build on Windows:
 
@@ -20,6 +31,7 @@ uv run pyinstaller `
   --add-data "images;images" `
   --add-data "var;var" `
   --collect-data "tzdata" `
+  --copy-metadata "dwarf-alpaca" `
   --paths "src" `
   "run_gui.py"
 ```

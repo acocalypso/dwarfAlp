@@ -42,6 +42,7 @@ try:
 except Exception:  # pragma: no cover - Python < 3.9 or missing tzdata
     available_timezones = None  # type: ignore[assignment]
 
+from .. import __version__
 from ..cli import _configure_start_logging, _preflight_session
 from ..config.settings import Settings, load_settings, normalize_dwarf_device_model
 from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
@@ -584,7 +585,7 @@ def _resolve_state_directory(path: Path) -> Path:
 class MainWindow(QMainWindow):
     def __init__(self, *, app_icon: Optional[QIcon] = None) -> None:
         super().__init__()
-        self.setWindowTitle("DWARF Alpaca Control Center")
+        self.setWindowTitle(f"DWARF Alpaca Control Center v{__version__}")
         self.resize(1024, 720)
         if app_icon and not app_icon.isNull():
             self.setWindowIcon(app_icon)
@@ -687,6 +688,23 @@ class MainWindow(QMainWindow):
         reload_action = QAction("Reload", self)
         reload_action.triggered.connect(lambda: self._load_settings(self._settings_path))
         menu.addAction(reload_action)
+
+        help_menu = self.menuBar().addMenu("Help")
+        about_action = QAction("About dwarfAlp", self)
+        about_action.triggered.connect(self._show_about)
+        help_menu.addAction(about_action)
+
+    def _show_about(self) -> None:
+        QMessageBox.about(
+            self,
+            "About dwarfAlp",
+            (
+                "<h3>dwarfAlp</h3>"
+                f"<p>Version {__version__}</p>"
+                "<p>ASCOM Alpaca bridge for DWARFLAB smart telescopes.</p>"
+                "<p>Licensed under the GNU General Public License v3.0.</p>"
+            ),
+        )
 
     def _choose_settings_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(

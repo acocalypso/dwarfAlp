@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
+from .. import __version__
 from ..device_profile import build_device_list, get_active_device_profile
 from ..devices.utils import alpaca_response, bind_request_context
 from ..dwarf.session import get_session
@@ -12,7 +13,7 @@ def _server_description() -> dict[str, str]:
     return {
         "ServerName": f"{profile.display_name} Alpaca Server",
         "Manufacturer": "Astro Tools",
-        "ManufacturerVersion": "0.1.0",
+        "ManufacturerVersion": __version__,
         "Location": "Observatory",
     }
 

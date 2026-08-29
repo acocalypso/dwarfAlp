@@ -2,6 +2,7 @@ import pytest
 import structlog
 from PySide6.QtWidgets import QApplication
 
+from dwarf_alpaca import __version__
 from dwarf_alpaca.dwarf.state import ConnectivityState, StateStore
 from dwarf_alpaca.gui.app import (
     MainWindow,
@@ -16,6 +17,14 @@ def qapp():
     if app is None:
         app = QApplication([])
     yield app
+
+
+def test_window_title_displays_project_version(qapp):
+    window = MainWindow()
+    try:
+        assert window.windowTitle() == f"DWARF Alpaca Control Center v{__version__}"
+    finally:
+        window.close()
 
 
 def test_gui_structlog_works_without_console_streams(monkeypatch):

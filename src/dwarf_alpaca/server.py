@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from . import __version__
 from .config.settings import Settings, normalize_dwarf_device_model
 from .device_profile import configure_device_profile, get_device_profile
 from .devices.camera import router as camera_router
@@ -122,7 +123,7 @@ def build_app(settings: Settings) -> FastAPI:
 
     app = FastAPI(
         title=f"{profile.display_name} Alpaca Server",
-        version="0.1.0",
+        version=__version__,
         lifespan=_lifespan,
     )
     configure_session(settings)

@@ -8,6 +8,7 @@ from typing import Any
 
 import structlog
 
+from . import __version__
 from .config.settings import Settings
 from .device_profile import build_device_list, get_device_profile
 
@@ -123,7 +124,7 @@ def build_discovery_payload(settings: Settings, advertised_host: str) -> dict[st
         "AlpacaPort": settings.http_port,
         "ServerName": f"{profile.display_name} Alpaca Server",
         "Manufacturer": "Astro Tools",
-        "ManufacturerVersion": "0.1.0",
+        "ManufacturerVersion": __version__,
         "Location": "Observatory",
         "ServerID": f"{server_prefix}-0001",
         "ServerUrl": f"{settings.http_scheme}://{advertised_host}:{settings.http_port}",

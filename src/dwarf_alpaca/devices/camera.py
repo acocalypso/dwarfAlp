@@ -11,6 +11,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from websockets.exceptions import ConnectionClosed
 
+from .. import __version__
 from ..device_profile import get_active_device_profile
 from ..dwarf.session import (
     CaptureBusyError,
@@ -242,7 +243,7 @@ def get_name():
 
 @router.get("/driverversion")
 def get_driver_version():
-    return alpaca_response(value="0.1.0")
+    return alpaca_response(value=__version__)
 
 
 @router.get("/driverinfo")

@@ -1,6 +1,6 @@
 name: Build and release Windows executable
 
-run-name: Release ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+run-name: Release ${{ github.ref_type == 'tag' && github.ref_name || 'version from pyproject.toml' }}
 
 on:
   push:
@@ -8,10 +8,6 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Release tag, for example v0.1.0"
-        required: true
-        type: string
       prerelease:
         description: "Mark this release as a pre-release"
         required: false
@@ -22,7 +18,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: windows-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  group: windows-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -31,7 +27,6 @@ jobs:
     runs-on: windows-latest
     env:
       PYTHONUTF8: "1"
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       MANUAL_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
 
     steps:
@@ -51,12 +46,25 @@ jobs:
           enable-cache: true
           prune-cache: true
 
-      - name: Validate release tag
+      - name: Read project version
+        id: version
         shell: pwsh
         run: |
-          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
-            throw "Release tag '$env:RELEASE_TAG' must use a version such as v0.1.0 or v0.1.0-rc.1."
+          $projectVersion = (python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])").Trim()
+          if ($projectVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+            throw "Project version '$projectVersion' must use a version such as 0.1.0 or 0.1.0-rc.1."
           }
+          $releaseTag = "v$projectVersion"
+
+          if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}" -ne $releaseTag) {
+            throw "Git tag '${{ github.ref_name }}' does not match pyproject.toml version '$releaseTag'."
+          }
+
+          "PROJECT_VERSION=$projectVersion" >> $env:GITHUB_ENV
+          "RELEASE_TAG=$releaseTag" >> $env:GITHUB_ENV
+          "version=$projectVersion" >> $env:GITHUB_OUTPUT
+          "tag=$releaseTag" >> $env:GITHUB_OUTPUT
+          "Building dwarfAlp $projectVersion as release $releaseTag"
 
       - name: Install locked dependencies
         run: uv sync --extra development --locked
@@ -83,6 +91,7 @@ jobs:
             --add-data "images;images" `
             --add-data "var;var" `
             --collect-data "tzdata" `
+            --copy-metadata "dwarf-alpaca" `
             --paths "src" `
             "run_gui.py"
 
@@ -93,7 +102,7 @@ jobs:
           $assetDirectory = Join-Path $env:RUNNER_TEMP "release-assets"
           New-Item -ItemType Directory -Path $assetDirectory -Force | Out-Null
 
-          $assetName = "DwarfAlpacaGUI-$env:RELEASE_TAG-windows-x64.exe"
+          $assetName = "DwarfAlpacaGUI-$env:PROJECT_VERSION-windows-x64.exe"
           $assetPath = Join-Path $assetDirectory $assetName
           Copy-Item -LiteralPath "dist\DwarfAlpacaGUI.exe" -Destination $assetPath
 
@@ -108,7 +117,7 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DwarfAlpacaGUI-${{ env.RELEASE_TAG }}-windows-x64
+          name: DwarfAlpacaGUI-${{ steps.version.outputs.version }}-windows-x64
           path: ${{ steps.assets.outputs.directory }}
           if-no-files-found: error
           retention-days: 14
@@ -118,7 +127,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $releaseTitle = "Dwarf Alpaca $env:RELEASE_TAG"
+          $releaseTitle = "dwarfAlp $env:RELEASE_TAG"
           $isPrerelease = $env:MANUAL_PRERELEASE -eq "true" -or $env:RELEASE_TAG.Contains("-")
           $releaseExists = $null -ne (gh release view $env:RELEASE_TAG 2>$null)
 
