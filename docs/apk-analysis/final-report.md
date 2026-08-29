@@ -1,5 +1,8 @@
 # DWARFLAB 3.4.1 investigation report
 
+> Historical validation snapshot. Test and generated-module counts in this report
+> describe the APK investigation date; use current CI for present repository results.
+
 ## 1. Executive summary
 
 DWARFLAB 3.4.1 (677), base APK SHA-256

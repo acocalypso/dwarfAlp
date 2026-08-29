@@ -97,8 +97,9 @@ Configuration/transfer/decode error -> FAILED
    stops the capture and the applied value is recorded.
 4. The selected filter must have a writable control and confirmed ACK/notification.
 5. Binning, FITS format, and frame count are required feature writes.
-6. For light frames, dark status must be ready. Unknown/missing darks proceed only
-   with the caller's explicit `ContinueWithoutDark=true`.
+6. For light frames, dark status is checked. Unknown, missing, or temperature-mismatched
+   darks follow the app's **Continue** behavior by default; a caller or configuration
+   can require failure instead.
 7. Production uses raw astronomy live stacking. Direct PHOTO_RAW/PHOTOGRAPH is
    experimental and disabled by default because long exposure, gain, and raw output
    have not been proved.
@@ -157,5 +158,5 @@ imports. `--check` detects missing/stale bindings. Hatchling builds the package;
 PyInstaller remains the supported Windows GUI executable path. `uv.lock` is the
 reproducible application/development environment.
 
-See [engineering-audit.md](engineering-audit.md) for evidence, history, dependency
+See the [engineering audit](../research/engineering-audit.md) for evidence, history, dependency
 decisions, protocol confidence, test results, and limitations.

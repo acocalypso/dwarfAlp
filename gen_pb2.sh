@@ -1,12 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
+# Compatibility wrapper. The Python generator is canonical because it uses the
+# locked grpcio-tools version and rewrites imports for package-relative use.
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 REPO_DIR="$(dirname "$SCRIPT_PATH")"
-PROTO_DIR="$REPO_DIR/src/dwarf_alpaca/proto"
-PROTOC="$(command -v protoc)"
-if [ -z "$PROTOC" ]; then
-    echo "ERROR: protoc not found. Is protobuf installed?"
-    exit 1
-fi
-
-"$PROTOC" -I "$PROTO_DIR" --python_out="$PROTO_DIR" "$PROTO_DIR"/*.proto
+cd "$REPO_DIR"
+uv run python scripts/generate_protos.py "$@"

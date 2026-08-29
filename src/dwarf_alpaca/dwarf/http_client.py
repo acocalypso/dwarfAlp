@@ -12,7 +12,7 @@ logger = structlog.get_logger(__name__)
 
 @dataclass(slots=True)
 class DwarfHttpClient:
-    """Async HTTP client for DWARF 3 API access.
+    """Async HTTP client for DWARF device API access.
 
     The DWARF API exposes a JSON control service on port 8082 and JPEG assets on 8092.
     This client handles retries, timeouts, and automatic base URL switching between

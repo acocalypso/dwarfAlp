@@ -1,5 +1,9 @@
 # Engineering audit (2026-07-30)
 
+> Historical snapshot: the hardware availability, test counts, and generated-module
+> counts below describe the stated audit date, not the current support status. See
+> [supported devices](../user-guide/device-models.md) and current CI for present evidence.
+
 This report distinguishes code verification, simulation, protocol evidence, and physical
 hardware verification. No DWARF 3 hardware was available. A safe reachability probe found
 neither the configured device nor the default AP address listening on WebSocket (9900),

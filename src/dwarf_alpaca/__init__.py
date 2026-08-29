@@ -1,4 +1,4 @@
-"""DWARF 3 Alpaca server package."""
+"""dwarfAlp ASCOM Alpaca server package for supported DWARF telescopes."""
 
 __all__ = ["__version__"]
 

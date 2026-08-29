@@ -1,6 +1,9 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+.venv/
+.ruff_cache/
+.uv-cache/
 .env
 *_pb2.py
 # Runtime modules import these bindings directly. Keep the package's generated
@@ -17,7 +20,8 @@ dist/
 DwarfAlpacaGUI.spec
 logs/
 dwarfii_api/
-apk/DWARFLAB_3.4.1_apkcube.apks
+apk/*.apk
+apk/*.apks
 .vscode/settings.json
 
 # Disposable firmware extraction and decompiler output. Keep only curated

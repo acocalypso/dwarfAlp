@@ -36,7 +36,7 @@ def _dwarfalp_openapi() -> dict[str, Any]:
             "title": "DwarfAlp ASCOM Alpaca API",
             "description": (
                 "ASCOM Alpaca telescope, camera, focuser and filter-wheel API for "
-                "DWARF 2, DWARF 3 and DWARF Mini. The API follows Alpaca response "
+                "DWARF 2, DWARF 3 and DWARF mini. The API follows Alpaca response "
                 "envelopes; device-specific behavior is documented in the companion registry."
             ),
             "license": {"name": "See repository LICENSE", "identifier": "MIT"},

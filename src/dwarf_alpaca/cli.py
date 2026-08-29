@@ -193,7 +193,7 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO)
 
-    parser = argparse.ArgumentParser(description="DWARF Alpaca Server")
+    parser = argparse.ArgumentParser(description="dwarfAlp ASCOM Alpaca server")
     subparsers = parser.add_subparsers(dest="command")
 
     server_parser = subparsers.add_parser("serve", help="Run the Alpaca server")
@@ -267,7 +267,7 @@ def main() -> None:
 
     provision_parser = subparsers.add_parser(
         "provision",
-        help="Provision DWARF 3 onto a local Wi-Fi network via BLE.",
+        help="Provision a supported DWARF onto a local Wi-Fi network via BLE.",
     )
     provision_parser.add_argument("ssid", type=str, help="Target Wi-Fi SSID")
     provision_parser.add_argument("password", type=str, help="Wi-Fi password")

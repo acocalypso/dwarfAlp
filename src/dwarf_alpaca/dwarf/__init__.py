@@ -1,1 +1,1 @@
-"""Low-level DWARF 3 API clients."""
+"""Low-level API clients for supported DWARF telescopes."""

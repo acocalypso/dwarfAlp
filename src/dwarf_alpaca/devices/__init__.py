@@ -1,1 +1,1 @@
-"""Alpaca device implementations for DWARF 3."""
+"""Alpaca device implementations for supported DWARF telescopes."""

@@ -353,6 +353,8 @@ def render_markdown(inventory: dict[str, object]) -> str:
     lines = [
         "# DWARFLAB APK 3.4.1 WebSocket code registry",
         "",
+        "> **Generated file — do not edit manually.** Regenerate with `scripts/extract_apk_api_inventory.py` as documented in `docs/apk-analysis/README.md`.",
+        "",
         "Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration in the app does not prove model/firmware support.",
         "",
         f"## Commands ({len(commands)})",

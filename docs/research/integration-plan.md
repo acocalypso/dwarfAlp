@@ -1,6 +1,9 @@
 # DWARF Integration Plan
 
-This document sketches the bridge between the Alpaca device routers and the real DWARF-II/III hardware API described in `DWARF API2.txt`.
+> Historical design document. It is retained as research context; the current
+> [architecture](../development/architecture.md) and implementation are authoritative.
+
+This document sketches the bridge between the Alpaca device routers and the real DWARF-II/III hardware API described in [`references/DWARF API2.txt`](references/DWARF%20API2.txt).
 
 ## Runtime building blocks
 
