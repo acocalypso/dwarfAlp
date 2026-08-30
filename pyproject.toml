@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dwarf-alpaca"
-version = "0.1.0"
+version = "0.1.1"
 description = "ASCOM Alpaca bridge for DWARF 2, DWARF 3, and DWARF mini smart telescopes."
 readme = "README.md"
 authors = [
