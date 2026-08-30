@@ -10,7 +10,7 @@
 | `nvram_ap6256.txt`, Broadcom firmware | Wi-Fi chipset support | AP6256/Broadcom family | HIGH |
 | IQ JSON files | camera tuning | IMX662 and OS02K10 AF/FF profiles | VERIFIED |
 | factory JSON | manufacturing/fatigue operations | diagnostic configuration exists | VERIFIED |
-| `/userdata/data/device.db` | live WCDB/SQLite state | album, capture, calibration, parameter, and schedule schemas | VERIFIED live; row values not inspected |
+| `/userdata/data/device.db` | live WCDB/SQLite state | album, capture, calibration, parameter layers, and schedule schemas | VERIFIED live; only non-secret structural/runtime values inspected |
 
 Common setting IDs found in the shooting configuration include 100
 `auto_calibration`, 101 `disable_host_slave`, 104 wide matching calibration,
@@ -41,3 +41,16 @@ The live mode-2 (`DSO`) catalogue confirms:
 1.1.3.2 even when the updater ledger/factory version file has been advanced.
 This endpoint is therefore a better indicator of the actual application
 payload than the update ledger alone. **VERIFIED live**
+
+The acquired SQLite state resolves the persisted `param_type` layers:
+
+- `0` is the default/base layer;
+- `1` is the saved normal-settings layer;
+- `2` is the current/runtime layer.
+
+For DSO tele capture, the captured current layer held exposure 1 second, gain
+60, filter 1, and stack count 1. This independently confirms why the active V3
+parameter namespace can differ from the saved preset and why DwarfAlp must
+reapply exposure/gain/count after discovering the active namespace. The mode
+table also contains synthetic mode 1000 named `CURRENT_MODE`. **VERIFIED on the
+acquired Mini snapshot**

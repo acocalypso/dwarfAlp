@@ -17,6 +17,12 @@ uImage, Android sparse image, MBR, or GPT container was found. This is a
 cross-checked ZIP of replacement files and manifests, not a full firmware
 image. **VERIFIED**
 
+This statement applies only to the supplied update ZIP. A later authorized
+live acquisition recovered the Mini system partitions: signed Rockchip FIT
+images for U-Boot, boot, and recovery plus ext4 rootfs, OEM, and userdata
+filesystems. Those raw images and private extracted state remain local and
+ignored. See [18-live-image-analysis.md](18-live-image-analysis.md).
+
 ## Contents
 
 ```text

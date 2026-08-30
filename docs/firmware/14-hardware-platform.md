@@ -7,6 +7,7 @@
 | Camera sensors | Sony IMX662 and OmniVision OS02K10, 12-bit drivers | VERIFIED |
 | Wi-Fi/Bluetooth | Broadcom 43456C5/AP6256-family firmware/NVRAM and BSA BLE | HIGH |
 | Storage | ten-partition eMMC; p7 rootfs, p8 oem, p9 userdata, p10 exFAT media | VERIFIED live |
+| Boot chain | signed Rockchip FIT with ATF, OP-TEE, U-Boot, kernel/DTB/resource and recovery ramdisk; SHA-256/RSA-2048 metadata | VERIFIED live image |
 | USB | Rockchip VID `0x2207`; mass storage and RNDIS active | VERIFIED |
 | IR-cut | GPIO 70, 71, 2, 3 initialization | VERIFIED |
 | BLE reset | GPIO 48 | VERIFIED |

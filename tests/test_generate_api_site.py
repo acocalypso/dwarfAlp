@@ -71,10 +71,27 @@ def test_published_openapi_and_protocol_inventory_are_complete() -> None:
         "partitionCount": 10,
         "teleSensor": "Sony IMX662 at I2C 0x1a",
         "wideSensor": "OmniVision OS02K10 at I2C 0x21",
-        "databaseSchemaOnly": True,
-        "recordValuesCollected": False,
+        "databaseInspection": "schema, row counts, and non-secret runtime parameters",
+        "privateRecordValuesPublished": False,
+        "systemImageAcquisition": {
+            "capturedPartitions": "p1-p9",
+            "sourceHashVerifiedPartitions": 7,
+            "liveSnapshotPartitions": ["p8-oem", "p9-userdata"],
+            "mediaPartitionCaptured": False,
+            "bootFormat": "signed Rockchip FIT",
+            "fitIntegrityMetadata": "SHA-256/RSA-2048",
+        },
     }
     assert firmware["decompilationFindings"]["fitsListMethod"] == "POST"
+    assert firmware["decompilationFindings"]["runtimeFindings"] == {
+        "parameterLayers": {
+            "0": "default/base",
+            "1": "saved normal settings",
+            "2": "current/runtime",
+        },
+        "currentModeId": 1_000,
+        "focusErrorMinus14511": "StepMotor 3 needs reset",
+    }
     assert firmware["decompilationFindings"]["bilboProgramInventory"] == {
         "functions": 13_306,
         "imports": 1_108,

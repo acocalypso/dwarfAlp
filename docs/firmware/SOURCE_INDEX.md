@@ -29,6 +29,12 @@
 | Live Mini hardware/storage | authorized read-only `/proc`, mounts, and device tree | RV1106G EVB1 V10; ten eMMC partitions; IMX662@0x1a; OS02K10@0x21 | VERIFIED |
 | Live persistence schema | authorized schema-only `strings` inspection | `/userdata/data/device.db`; record values excluded | VERIFIED |
 | Differential update code `-10` | device Bilbo log | `upgradeSoftware: version error` with stale `oldVersion` | VERIFIED |
+| Raw system acquisition | exact byte counts plus device/local MD5 manifest | locally retained p1-p9 images; p8/p9 explicitly marked live | VERIFIED with live-filesystem limitation |
+| Boot chain composition | FIT headers, strings, DT metadata | p3 U-Boot, p4 boot, p6 recovery images | VERIFIED |
+| Rootfs startup chain | extracted BusyBox init scripts | `/etc/inittab`, `rcS`, `S21appinit`, OEM `RkLunch.sh`, `/userdata/run.sh` | VERIFIED |
+| Live application identity | SHA-256 comparison against update ZIP | `/userdata/bin/bilbo` and core payloads | VERIFIED byte-identical to 1.1.3.2 |
+| SQLite integrity/parameter layers | read-only SQLite queries | `/userdata/data/device.db` plus WAL/SHM; private values excluded | VERIFIED |
+| Focus error `-14511` | retained Bilbo runtime log | `StepMotor 3 need reset` then `resetFocusMotor` failure | VERIFIED |
 
 Machine-readable sources:
 
@@ -36,6 +42,7 @@ Machine-readable sources:
 - `firmware-analysis/metadata/bilbo-protos.json`
 - `firmware-analysis/metadata/bilbo-protos.pb`
 - [17-bilbo-internals.md](17-bilbo-internals.md)
+- [18-live-image-analysis.md](18-live-image-analysis.md)
 
 Generated JADX/Ghidra work products remain ignored under
 `build/reverse-engineering/`. The reproducible, pinned container and export
@@ -44,3 +51,7 @@ scripts are maintained in `tools/reverse-engineering/`.
 The metadata identifies the analyzed binary by SHA-256 and records each
 descriptor's byte offset and hash, allowing exact reproduction without trusting
 the prose.
+
+Raw images, source/local acquisition manifests, extracted device state,
+credentials, runtime logs, crash dumps, and diagnostic updater artifacts remain
+local and are intentionally excluded from the repository.

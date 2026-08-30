@@ -1,14 +1,19 @@
 # Boot and service startup
 
-The update manifest installs `S50usbdevice` under `/etc/init.d`, establishing a
-SysV/BusyBox-style boot hook. The package does not contain `/etc/inittab` or the
-parent rc scripts, so the sequence before that hook is unknown. **VERIFIED**
+The update manifest installs `S50usbdevice` under `/etc/init.d`. The live rootfs
+now resolves the parent chain: BusyBox init reads `/etc/inittab`, invokes
+`/etc/init.d/rcS`, runs `S21appinit`, and enters OEM startup through
+`/oem/usr/bin/RkLunch.sh`. OEM startup loads modules and executes
+`/userdata/run.sh`. **VERIFIED from the live image**
 
 ```mermaid
 flowchart TD
-  B["Bootloader"] -->|"not supplied"| K["Linux kernel"]
-  K -->|"base rootfs not supplied"| I["BusyBox/SysV-style init"]
-  I --> S["S50usbdevice / run.sh"]
+  B["Signed Rockchip FIT: ATF / OP-TEE / U-Boot"] --> K["Signed kernel + DTB + resource FIT"]
+  K --> I["BusyBox init / etc/inittab"]
+  I --> RC["etc/init.d/rcS"]
+  RC --> APP["S21appinit"]
+  APP --> OEM["oem/usr/bin/RkLunch.sh"]
+  OEM --> S["userdata/run.sh"]
   S --> UART["configure UART1/UART3"]
   S --> BLE["BLE on UART4 at 921600"]
   S --> GPIO["IR-cut GPIO initialization"]

@@ -16,6 +16,7 @@ local and ignored.
 | `bilbo` decompilation | targeted protocol/network/capture functions exported; a near-full C-like export attempted locally | VERIFIED attempt; names and optimized bodies remain imperfect |
 | `bilbo_upgrade` | full Ghidra export completed; update manifests and MD5 path traced | HIGH |
 | Update package | all 43 supplied files typed, hashed, and classified; all nested `update.json` manifests inspected | VERIFIED |
+| Live Mini image | p1-p9 acquired; seven source-MD5 verified, p8/p9 retained as exact-sized live snapshots; rootfs/OEM/userdata extracted from working copies | VERIFIED with documented live-filesystem limitation |
 
 The Ghidra `inventory` command deliberately exports derived tables rather than
 source-like bodies. It makes future firmware comparisons possible without
@@ -110,16 +111,31 @@ the newly recovered `CODE_GLOBAL_TASK_MANAGER_BUSY` (`-16600`).
 
 The firmware contains ORM/type evidence for `astro_info`, `astro_fits_info`,
 multi-stack, mosaic/subview, picture, burst, video, scheduling, calibration
-frames, common parameters, and auto-parameter state. A schema-only inspection
-of the authorized live `/userdata/data/device.db` confirmed the corresponding
-tables and their columns without reading record values. Astronomy rows retain
+frames, common parameters, and auto-parameter state. The acquired live
+`/userdata/data/device.db` confirmed the corresponding tables and columns,
+passed `PRAGMA quick_check`, and was inspected only for row counts and
+non-secret runtime settings. Astronomy rows retain
 the requested exposure, gain, filter, target, RA/Dec, frame counts, FITS
 path/name/MD5/size, stack state/code, location, equatorial mode, and rotation.
+
+The database resolves parameter layers that were previously inferred only from
+notifications: `param_type` 0 is default/base, 1 is saved normal state, and 2
+is current/runtime state. The DSO tele current row captured the same one-second,
+gain/filter/count operating values used during live driver testing.
 
 The media partition is `/dev/mmcblk0p10`, mounted at `/DWARF_mini` in this Mini
 bundle. Internal working paths also include `/userdata/astro/tele` and
 `/userdata/astro/wide`. These paths are firmware implementation details and
 must not be assumed to be identical across models or releases.
+
+## Live autofocus and goto trace
+
+Retained Bilbo logs show that one-click DSO goto enables auto-calibration,
+constructs `FocusWrapperAstro`, checks user/factory infinity positions, resets
+or positions the focus motor, applies autofocus exposure/gain/filter state, and
+then continues calibration and goto asynchronously. Error `-14511` is emitted
+after the controller reports `StepMotor 3 need reset`; it is a focus-stepper
+reset failure rather than a plate-solving response.
 
 ## Update and trust boundaries
 

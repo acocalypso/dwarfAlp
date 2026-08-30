@@ -1,5 +1,33 @@
 # Investigation journal
 
+## 2026-08-31
+
+- Proved an end-to-end raw acquisition path by streaming the 32 KiB environment
+  partition over a dedicated TCP connection and matching the device/local MD5.
+- Acquired p1-p9 from the authorized live Mini. Seven static/system partitions
+  matched independent source hashes; OEM and userdata were retained as
+  exact-sized live snapshots because their mounted filesystems changed during
+  verification. The 56.9 GB user-media partition was intentionally excluded.
+- Preserved original images and performed journal recovery/`e2fsck` only on
+  disposable working copies. Extracted 4,021 rootfs, 301 OEM, and 188 userdata
+  files locally; private state and images remain ignored and unpublished.
+- Identified signed Rockchip FIT images: U-Boot includes ATF, OP-TEE, U-Boot,
+  an MCU/loadable, and DTB; boot contains kernel/DTB/resource; recovery adds a
+  ramdisk. FIT metadata uses SHA-256/RSA-2048 and names RV1106G EVB1 V10.
+- Resolved the complete BusyBox startup chain from `/etc/inittab` through `rcS`,
+  `S21appinit`, OEM `RkLunch.sh`, and `/userdata/run.sh`.
+- Confirmed that live `bilbo`, `bilbo_upgrade`, astrometry tools, MCU payloads,
+  and models are byte-identical to the 1.1.3.2 update bundle despite the factory
+  ledger reporting 1.1.3.6. Classified the diagnostic ZIPs/Telnet hook as
+  user-generated artifacts rather than manufacturer evidence.
+- Opened the acquired WCDB/SQLite database read-only. It passes
+  `PRAGMA quick_check`; published analysis is limited to schema, counts, and
+  non-secret parameters. `param_type` 0/1/2 maps to default, saved, and current
+  runtime layers, and mode 1000 is `CURRENT_MODE`.
+- Traced the one-click DSO goto sequence in retained Bilbo logs. Error `-14511`
+  follows `StepMotor 3 need reset` and is a focus-stepper reset failure, not a
+  plate-solving response.
+
 ## 2026-08-30
 
 - Used the diagnostic shell for a read-only live Mini
