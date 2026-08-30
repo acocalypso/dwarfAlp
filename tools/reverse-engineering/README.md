@@ -83,6 +83,22 @@ below `build/reverse-engineering/ghidra/<name>/`. Existing outputs are never
 silently overwritten; move or remove a specific output directory before a
 deliberate rerun.
 
+When an authorized filesystem image supplies the target's shared libraries,
+pass Ghidra's semicolon-separated library search paths as the final argument.
+The wrapper enables `ElfLoader` dependency loading to depth two and links the
+direct and transitive project libraries instead of leaving their external
+symbols unresolved:
+
+```powershell
+docker compose -f tools/reverse-engineering/compose.yaml run --rm analyzer `
+  inventory /input/extracted/live-mini/bin/bilbo_s bilbo-s 1800 `
+  '/input/extracted/live-mini/userdata/lib;/input/extracted/live-mini/oem/usr/lib;/input/extracted/live-mini/rootfs/lib'
+```
+
+Runtime TLS and `R_ARM_COPY` relocations can still produce loader warnings;
+those are different from missing dependency files and do not mean that the
+original ELF is damaged.
+
 ## Research boundaries
 
 - Use only artifacts you are authorized to inspect.

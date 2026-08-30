@@ -10,9 +10,9 @@ Usage:
   run-analysis.sh versions
   run-analysis.sh apk [APKS_FILE] [OUTPUT_NAME]
   run-analysis.sh firmware [FIRMWARE_ZIP] [OUTPUT_NAME]
-  run-analysis.sh decompile ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS]
-  run-analysis.sh triage ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS]
-  run-analysis.sh inventory ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS]
+  run-analysis.sh decompile ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS] [LIBRARY_PATHS]
+  run-analysis.sh triage ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS] [LIBRARY_PATHS]
+  run-analysis.sh inventory ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS] [LIBRARY_PATHS]
   run-analysis.sh all [APKS_FILE] [FIRMWARE_ZIP]
 
 Inputs below /input are mounted read-only. All generated output is written below
@@ -150,6 +150,7 @@ decompile_elf() {
     [[ -n "$binary" ]] || fail 'decompile requires an ELF path'
     local name="${2:-$(safe_name "$binary")}"
     local timeout="${3:-1800}"
+    local library_paths="${4:-}"
     require_file "$binary"
     file -b "$binary" | grep -q '^ELF ' || fail "not an ELF file: $binary"
     [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "timeout must be a positive integer"
@@ -160,8 +161,20 @@ decompile_elf() {
     write_hash "$binary" "$output/source.sha256"
     file -b "$binary" > "$output/source.file"
 
+    local -a library_args=()
+    if [[ -n "$library_paths" ]]; then
+        library_args=(
+            -librarySearchPaths "$library_paths"
+            -loader ElfLoader
+            -loader-loadLibraries true
+            -loader-libraryLoadDepth 2
+            -loader-linkExistingProjectLibraries true
+        )
+    fi
+
     analyzeHeadless "$output/project" project \
         -import "$binary" \
+        "${library_args[@]}" \
         -overwrite \
         -analysisTimeoutPerFile "$timeout" \
         -scriptPath "$SCRIPT_DIR/ghidra_scripts" \
@@ -176,6 +189,7 @@ triage_elf() {
     [[ -n "$binary" ]] || fail 'triage requires an ELF path'
     local name="${2:-$(safe_name "$binary")-triage}"
     local timeout="${3:-1800}"
+    local library_paths="${4:-}"
     require_file "$binary"
     file -b "$binary" | grep -q '^ELF ' || fail "not an ELF file: $binary"
     [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "timeout must be a positive integer"
@@ -186,8 +200,20 @@ triage_elf() {
     write_hash "$binary" "$output/source.sha256"
     file -b "$binary" > "$output/source.file"
 
+    local -a library_args=()
+    if [[ -n "$library_paths" ]]; then
+        library_args=(
+            -librarySearchPaths "$library_paths"
+            -loader ElfLoader
+            -loader-loadLibraries true
+            -loader-libraryLoadDepth 2
+            -loader-linkExistingProjectLibraries true
+        )
+    fi
+
     analyzeHeadless "$output/project" project \
         -import "$binary" \
+        "${library_args[@]}" \
         -overwrite \
         -analysisTimeoutPerFile "$timeout" \
         -scriptPath "$SCRIPT_DIR/ghidra_scripts" \
@@ -202,6 +228,7 @@ inventory_elf() {
     [[ -n "$binary" ]] || fail 'inventory requires an ELF path'
     local name="${2:-$(safe_name "$binary")-inventory}"
     local timeout="${3:-1800}"
+    local library_paths="${4:-}"
     require_file "$binary"
     file -b "$binary" | grep -q '^ELF ' || fail "not an ELF file: $binary"
     [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "timeout must be a positive integer"
@@ -212,8 +239,20 @@ inventory_elf() {
     write_hash "$binary" "$output/source.sha256"
     file -b "$binary" > "$output/source.file"
 
+    local -a library_args=()
+    if [[ -n "$library_paths" ]]; then
+        library_args=(
+            -librarySearchPaths "$library_paths"
+            -loader ElfLoader
+            -loader-loadLibraries true
+            -loader-libraryLoadDepth 2
+            -loader-linkExistingProjectLibraries true
+        )
+    fi
+
     analyzeHeadless "$output/project" project \
         -import "$binary" \
+        "${library_args[@]}" \
         -overwrite \
         -analysisTimeoutPerFile "$timeout" \
         -scriptPath "$SCRIPT_DIR/ghidra_scripts" \
@@ -234,13 +273,13 @@ case "${1:-help}" in
         extract_firmware "${2:-}" "${3:-}"
         ;;
     decompile)
-        decompile_elf "${2:-}" "${3:-}" "${4:-1800}"
+        decompile_elf "${2:-}" "${3:-}" "${4:-1800}" "${5:-}"
         ;;
     triage)
-        triage_elf "${2:-}" "${3:-}" "${4:-1800}"
+        triage_elf "${2:-}" "${3:-}" "${4:-1800}" "${5:-}"
         ;;
     inventory)
-        inventory_elf "${2:-}" "${3:-}" "${4:-1800}"
+        inventory_elf "${2:-}" "${3:-}" "${4:-1800}" "${5:-}"
         ;;
     all)
         analyze_apk "${2:-}" ""
