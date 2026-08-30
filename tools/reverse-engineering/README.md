@@ -99,6 +99,17 @@ Runtime TLS and `R_ARM_COPY` relocations can still produce loader warnings;
 those are different from missing dependency files and do not mean that the
 original ELF is damaged.
 
+Use `targeted` with comma-separated function addresses to decompile selected
+handlers and their direct callers and callees without exporting the complete
+program:
+
+```powershell
+docker compose -f tools/reverse-engineering/compose.yaml run --rm analyzer `
+  targeted /input/extracted/live-mini/bin/bilbo_s `
+  '0012cde4,0012dbc4,00122558' bilbo-s-astro 1800 `
+  '/input/extracted/live-mini/userdata/lib;/input/extracted/live-mini/oem/usr/lib;/input/extracted/live-mini/rootfs/lib'
+```
+
 ## Research boundaries
 
 - Use only artifacts you are authorized to inspect.

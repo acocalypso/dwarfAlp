@@ -27,6 +27,15 @@
 - Traced the one-click DSO goto sequence in retained Bilbo logs. Error `-14511`
   follows `StepMotor 3 need reset` and is a focus-stepper reset failure, not a
   plate-solving response.
+- Loaded and linked all 32 direct/transitive `bilbo_s` dependencies in Ghidra;
+  missing-project links fell from five to zero. ARM TLS and runtime-copy
+  relocation warnings remain tool limitations rather than absent firmware.
+- Added targeted Ghidra export and decompiled 92 calibration/goto/capture
+  functions with no failures. Recovered bounded plate-solve retries, camera
+  recovery, alternate yaw search, the `15256`/`15262` success pair, terminal
+  `-11504`, and direct-goto `-11511` behavior.
+- Updated DwarfAlp to recover from firmware `-11511` by invalidating its stale
+  calibration assumption and switching to one-click calibration+goto `11013`.
 
 ## 2026-08-30
 

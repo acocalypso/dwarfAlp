@@ -2572,17 +2572,46 @@ class DwarfSession:
             else:
                 await self._start_goto_command(ra_hours, dec_degrees, target_name)
         except DwarfCommandError as exc:
+            pending_error: DwarfCommandError | None = exc
+            if (
+                exc.code == protocol_pb2.CODE_ASTRO_NEED_CALIBRATION
+                and not use_one_click_goto
+                and self.settings.auto_calibrate_on_slew
+            ):
+                logger.warning(
+                    "dwarf.telescope.goto.calibration_required",
+                    ra_hours=ra_hours,
+                    dec_degrees=dec_degrees,
+                    code=exc.code,
+                    fallback="one_click_goto",
+                )
+                self._last_calibration_time = None
+                self._last_calibration_ip = None
+                await self._prepare_calibration_autofocus()
+                await self._prepare_one_click_goto_mode()
+                use_one_click_goto = True
+                try:
+                    await self._start_one_click_goto_command(
+                        ra_hours, dec_degrees, target_name
+                    )
+                except DwarfCommandError as fallback_error:
+                    pending_error = fallback_error
+                else:
+                    pending_error = None
+
+            if pending_error is None:
+                return ra_hours, dec_degrees
             retryable_codes = {
                 protocol_pb2.CODE_ASTRO_FUNCTION_BUSY,
                 protocol_pb2.CODE_ASTRO_GOTO_FAILED,
             }
-            if exc.code not in retryable_codes:
-                raise
+            if pending_error.code not in retryable_codes:
+                raise pending_error
             logger.warning(
                 "dwarf.telescope.goto.retrying",
                 ra_hours=ra_hours,
                 dec_degrees=dec_degrees,
-                code=exc.code,
+                code=pending_error.code,
                 one_click=use_one_click_goto,
             )
             await self.telescope_abort_slew()

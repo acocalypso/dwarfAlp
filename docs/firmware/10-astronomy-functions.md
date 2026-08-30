@@ -30,3 +30,28 @@ only partly inferable from a stripped binary. **VERIFIED components / HIGH flow*
 `auto_calibration` defaults true for DSO, Milky Way, Sun, Moon, and Planet in
 the supplied parameter configuration. That setting does not prove every model
 or firmware performs the same workflow. **VERIFIED for this bundle**
+
+## Calibration control flow
+
+Targeted Ghidra analysis of the live Mini's alternate `bilbo_s` service adds
+function-level evidence for the equatorial calibration state machine:
+
+1. Attempt plate solving until the configured number of successful solves is
+   reached or the remaining attempts can no longer satisfy that requirement.
+2. If the first solve cannot start, reinitialize the camera path and retry.
+3. For selected solve or motor-limit failures, reverse the sky-search direction,
+   move yaw, wait for the motor to stop, pause two seconds, and try again.
+4. On success, calculate the calibration result and emit `15256`, followed by
+   body/state latch `15262`.
+5. Return `-11504` if solving ultimately fails or yaw cannot stop correctly.
+
+The implementation distinguishes first-pass, camera-recovery, and
+opposite-direction success. It remembers the last search direction for about
+601 seconds to choose the next initial direction. Motor limit codes `-14518`
+and `-14519` can therefore be intermediate search outcomes rather than the
+terminal calibration result. **HIGH (stripped decompilation)**
+
+Direct DSO goto command `11002` does not perform this calibration. It requires
+an existing non-zero solved position and returns `-11511` when calibration is
+needed. One-click DSO command `11013` is the combined calibration-plus-goto
+workflow and is the appropriate recovery path. **HIGH**

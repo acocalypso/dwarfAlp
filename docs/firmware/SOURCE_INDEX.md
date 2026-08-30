@@ -35,6 +35,9 @@
 | Live application identity | SHA-256 comparison against update ZIP | `/userdata/bin/bilbo` and core payloads | VERIFIED byte-identical to 1.1.3.2 |
 | SQLite integrity/parameter layers | read-only SQLite queries | `/userdata/data/device.db` plus WAL/SHM; private values excluded | VERIFIED |
 | Focus error `-14511` | retained Bilbo runtime log | `StepMotor 3 need reset` then `resetFocusMotor` failure | VERIFIED |
+| `bilbo_s` program structure | dependency-linked Ghidra inventory | ignored `live-bilbo-s-inventory-depth2`; 8,243 functions and 32 loaded libraries | VERIFIED |
+| Calibration retry state machine | targeted Ghidra caller/callee decompilation | live `bilbo_s` functions `0x0012cde4`, `0x0012d5f8`, `0x0012dbc4` | HIGH |
+| Direct goto requires calibration | targeted Ghidra decompilation | live `bilbo_s` function `0x0011e190`; `11002` returns `-11511` for zero solved position | HIGH |
 
 Machine-readable sources:
 

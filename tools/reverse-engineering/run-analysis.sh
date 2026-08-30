@@ -13,6 +13,7 @@ Usage:
   run-analysis.sh decompile ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS] [LIBRARY_PATHS]
   run-analysis.sh triage ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS] [LIBRARY_PATHS]
   run-analysis.sh inventory ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS] [LIBRARY_PATHS]
+  run-analysis.sh targeted ELF_FILE ADDRESSES [OUTPUT_NAME] [TIMEOUT_SECONDS] [LIBRARY_PATHS]
   run-analysis.sh all [APKS_FILE] [FIRMWARE_ZIP]
 
 Inputs below /input are mounted read-only. All generated output is written below
@@ -262,6 +263,46 @@ inventory_elf() {
     printf 'Ghidra program inventory written to %s\n' "$output"
 }
 
+targeted_elf() {
+    local binary="${1:-}"
+    local addresses="${2:-}"
+    [[ -n "$binary" ]] || fail 'targeted requires an ELF path'
+    [[ -n "$addresses" ]] || fail 'targeted requires comma-separated function addresses'
+    local name="${3:-$(safe_name "$binary")-targeted}"
+    local timeout="${4:-1800}"
+    local library_paths="${5:-}"
+    require_file "$binary"
+    file -b "$binary" | grep -q '^ELF ' || fail "not an ELF file: $binary"
+    [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "timeout must be a positive integer"
+
+    local output="$OUTPUT_ROOT/ghidra/$name"
+    fresh_output "$output"
+    mkdir "$output/project" "$output/decompiled"
+    write_hash "$binary" "$output/source.sha256"
+    file -b "$binary" > "$output/source.file"
+
+    local -a library_args=()
+    if [[ -n "$library_paths" ]]; then
+        library_args=(
+            -librarySearchPaths "$library_paths"
+            -loader ElfLoader
+            -loader-loadLibraries true
+            -loader-libraryLoadDepth 2
+            -loader-linkExistingProjectLibraries true
+        )
+    fi
+
+    analyzeHeadless "$output/project" project \
+        -import "$binary" \
+        "${library_args[@]}" \
+        -overwrite \
+        -analysisTimeoutPerFile "$timeout" \
+        -scriptPath "$SCRIPT_DIR/ghidra_scripts" \
+        -postScript ExportSelectedDecompilation.java "$output/decompiled" "$addresses" \
+        2>&1 | tee "$output/ghidra.log"
+    printf 'Ghidra targeted decompilation written to %s\n' "$output"
+}
+
 case "${1:-help}" in
     versions)
         show_versions
@@ -280,6 +321,9 @@ case "${1:-help}" in
         ;;
     inventory)
         inventory_elf "${2:-}" "${3:-}" "${4:-1800}" "${5:-}"
+        ;;
+    targeted)
+        targeted_elf "${2:-}" "${3:-}" "${4:-}" "${5:-1800}" "${6:-}"
         ;;
     all)
         analyze_apk "${2:-}" ""

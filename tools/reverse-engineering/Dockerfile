@@ -61,6 +61,8 @@ COPY --chmod=0644 tools/reverse-engineering/ghidra_scripts/ExportDecompilation.j
     /opt/re-tools/ghidra_scripts/ExportDecompilation.java
 COPY --chmod=0644 tools/reverse-engineering/ghidra_scripts/ExportKeywordXrefs.java \
     /opt/re-tools/ghidra_scripts/ExportKeywordXrefs.java
+COPY --chmod=0644 tools/reverse-engineering/ghidra_scripts/ExportSelectedDecompilation.java \
+    /opt/re-tools/ghidra_scripts/ExportSelectedDecompilation.java
 COPY --chmod=0644 tools/reverse-engineering/ghidra_scripts/ExportProgramInventory.java \
     /opt/re-tools/ghidra_scripts/ExportProgramInventory.java
 

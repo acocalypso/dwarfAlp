@@ -13,6 +13,7 @@ local and ignored.
 |---|---|---|
 | APK 3.4.1 | all split DEX files decompiled; 356 WS commands, 137 response codes, 50 HTTP operations, 11 request models, and BLE commands 1–8 extracted | VERIFIED |
 | `bilbo` | ELF metadata plus 13,306 functions, 1,108 imports, 8,544 defined strings, 115,098 call edges, 32 memory blocks, protobuf descriptors, and string xrefs inventoried | VERIFIED |
+| live `bilbo_s` | distinct 4.61 MB ARM/uClibc service; 8,243 functions, 974 imports, 7,612 strings, and 62,003 call edges inventoried with 32 direct/transitive libraries linked | VERIFIED |
 | `bilbo` decompilation | targeted protocol/network/capture functions exported; a near-full C-like export attempted locally | VERIFIED attempt; names and optimized bodies remain imperfect |
 | `bilbo_upgrade` | full Ghidra export completed; update manifests and MD5 path traced | HIGH |
 | Update package | all 43 supplied files typed, hashed, and classified; all nested `update.json` manifests inspected | VERIFIED |
@@ -107,6 +108,13 @@ notifications as authoritative completion signals. A non-zero task-manager or
 scheduler response now appears by symbolic name in driver errors, including
 the newly recovered `CODE_GLOBAL_TASK_MANAGER_BUSY` (`-16600`).
 
+The `bilbo_s` calibration path further confirms that `11002` is goto-only: it
+returns `CODE_ASTRO_NEED_CALIBRATION` (`-11511`) when its solved-position state
+is zero. The equatorial solver can recover from an initial solve failure,
+reverse yaw search direction after motor-limit outcomes, and only publishes
+`15256` plus `15262` after calculating a valid result. Terminal solver or yaw
+wait failure is collapsed to `CODE_ASTRO_CALIBRATION_FAILED` (`-11504`).
+
 ## Persistence and files
 
 The firmware contains ORM/type evidence for `astro_info`, `astro_fits_info`,
@@ -155,6 +163,8 @@ does not bypass or modify any integrity mechanism.
 - Decode and log firmware error names as well as their integer values.
 - Coordinate capture, calibration, goto, and scheduling through their shared
   global task state; `-16600` explicitly identifies task-manager contention.
+- Fall back from direct `11002` to one-click `11013` when firmware returns
+  `-11511`, provided automatic calibration is enabled and location is known.
 - Keep device/model capability claims separate from commands merely registered
   by the app.
 
