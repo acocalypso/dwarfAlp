@@ -1,0 +1,38 @@
+name: dwarf-research
+
+services:
+  analyzer:
+    build:
+      context: ../..
+      dockerfile: tools/reverse-engineering/Dockerfile
+    image: dwarf-research:local
+    hostname: dwarf-analysis
+    extra_hosts:
+      - dwarf-analysis=127.0.0.1
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 1024
+    mem_limit: 12g
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=4g
+      - /home/analyst:rw,nosuid,nodev,uid=10001,gid=10001,mode=0700,size=256m
+    volumes:
+      - type: bind
+        source: ../../apk
+        target: /input/apk
+        read_only: true
+      - type: bind
+        source: ../../firmware
+        target: /input/firmware
+        read_only: true
+      - type: bind
+        source: ../../firmware-analysis/extracted
+        target: /input/extracted
+        read_only: true
+      - type: bind
+        source: ../../build/reverse-engineering
+        target: /output

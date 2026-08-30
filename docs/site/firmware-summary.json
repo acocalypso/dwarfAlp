@@ -31,5 +31,18 @@
     "libc": "uClibc",
     "kernelModuleAbi": "Linux 5.10.160",
     "soc": "Rockchip RV1106 (high confidence)"
+  },
+  "decompilationFindings": {
+    "toolchain": "JADX 1.5.6, apktool 3.0.3, Ghidra 12.1.3 in a network-disabled container",
+    "servicePorts": {
+      "websocket": 9900,
+      "deviceHttp": 8082,
+      "jpeg": 8092,
+      "rtsp": 554
+    },
+    "fitsListMethod": "POST",
+    "innerUpdateIntegrity": "manifest-provided per-file MD5",
+    "outerUpdateAuthentication": "unresolved",
+    "rsaVerifierObservedScope": "cloud activation messages"
   }
 }

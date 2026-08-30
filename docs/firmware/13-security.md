@@ -10,7 +10,8 @@ instructions.
 | CORS | nginx static media uses permissive CORS | VERIFIED |
 | SSH | `sshd` starts; authentication configuration is absent | VERIFIED / UNKNOWN policy |
 | Pairing/control | protobuf contains password-encryption and master-lock concepts | VERIFIED |
-| Update trust | RSA verification and hashing primitives are linked/used by update paths | HIGH |
+| Update trust | `bilbo_upgrade` enforces manifest-provided per-file MD5; no cryptographic outer-bundle verification path has yet been demonstrated | VERIFIED inner integrity / UNKNOWN authentication |
+| Cloud activation trust | `bilbo` verifies SHA-256 digests with RSA for activation-service messages | VERIFIED |
 | Privilege boundary | startup manipulates GPIO, mounts, configfs, and services; service users are absent | HIGH root-like startup / UNKNOWN runtime UID |
 
 The device assumes a trusted local/AP network more strongly than a modern

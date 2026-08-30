@@ -54,3 +54,7 @@ uv run python tools/firmware/extract_protobuf_descriptors.py `
 ELF scanning is available through `tools/firmware/scan_elfs.sh` in WSL. Exact
 embedded protobuf descriptors can be recovered with
 `tools/firmware/extract_protobuf_descriptors.py`.
+
+For reproducible APK and native ELF decompilation, including a network-isolated
+Ghidra headless workflow, see
+[`tools/reverse-engineering/README.md`](../../tools/reverse-engineering/README.md).

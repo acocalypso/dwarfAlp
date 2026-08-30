@@ -1,5 +1,32 @@
 # Investigation journal
 
+## 2026-08-30
+
+- Added a network-disabled, read-only-at-runtime Docker analysis environment
+  with pinned JADX 1.5.6, apktool 3.0.3, and Ghidra 12.1.3.
+- Decompiled all APK splits. JADX recovered 24,530 Java files; 330 individual
+  methods failed to decompile, with the remaining partial result preserved.
+- Recovered the complete exposure-code lookup (0 through sparse value 174),
+  device-specific ranges, device IDs, and logical filter enum from APK 3.4.1.
+- Confirmed that normal live-stacking start serializes filter/force-start while
+  the remaining capture parameters are set separately; calibration-frame start
+  carries its parameters in the request itself.
+- Decompiled all 935 functions in `bilbo_upgrade`. Its manifest workflow uses
+  per-file MD5 comparison; no public-key verification call was found inside
+  this updater. Authentication by an outer `bilbo` stage remains unresolved.
+- Traced `bilbo`'s SHA-256/RSA verifier to cloud-activation message handlers,
+  correcting the earlier unsupported assumption that the routine belonged to
+  firmware-update verification.
+- Completed targeted string-xref/caller triage of the much larger `bilbo`
+  service: 353 high-value functions selected, 344 exported, and nine oversized
+  functions timed out. The generated C-like output is intentionally ignored
+  and not published.
+- Resolved the 1.1.3.2 FITS-list ambiguity: `bilbo` registers
+  `POST /album/astro/fitsList`; the neighboring delete route, not `fitsList`,
+  uses DELETE.
+- Confirmed `bilbo` bind constants for the WebSocket (9900), HTTP API (8082),
+  JPEG service (8092), and RTSP service (554).
+
 ## 2026-08-26
 
 - Inspected repository and dirty state before edits; preserved the untracked

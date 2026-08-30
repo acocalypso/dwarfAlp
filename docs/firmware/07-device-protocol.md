@@ -57,13 +57,15 @@ not the outer WebSocket dispatch IDs.
 ## Local HTTP routes proven by firmware strings
 
 - `POST /album/getMediaInfoByFilePath`
-- `DELETE /album/astro/fitsList`
+- `POST /album/astro/fitsList`
 - `DELETE /album/astro/deleteFits`
 - `/shootingMode/getSupportedShootingModes`
 - `/shootingMode/getParamAndSetting`
 - `/mcufirmwareVersion`, `/sec`, `/checkMd5`
 - `/raw_jpg?stack=(\d+)(?:&bits=(\d+))?`
 
-The method for `/album/astro/fitsList` conflicts with newer APK evidence, which
-uses POST. This is recorded as a firmware-version/API-version discrepancy and
-must be negotiated or validated rather than guessed. **VERIFIED discrepancy**
+Ghidra decompilation of the 1.1.3.2 `bilbo` route-registration function shows
+`http_method_enum("POST")` immediately before the `fitsList` route and
+`http_method_enum("DELETE")` before `deleteFits`. This agrees with APK 3.4.1;
+the earlier DELETE attribution for `fitsList` came from adjacent string
+association and was incorrect. **VERIFIED**

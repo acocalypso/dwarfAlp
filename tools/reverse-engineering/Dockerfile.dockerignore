@@ -1,0 +1,8 @@
+**
+!tools/
+tools/**
+!tools/reverse-engineering/
+!tools/reverse-engineering/run-analysis.sh
+!tools/reverse-engineering/ghidra_scripts/
+!tools/reverse-engineering/ghidra_scripts/ExportDecompilation.java
+!tools/reverse-engineering/ghidra_scripts/ExportKeywordXrefs.java

@@ -8,10 +8,14 @@ Base APK SHA-256:
 Bundle SHA-256:
 `31A7260A66EA4CCD72C3AAD37D5B7F4F345A734D5BC636040B6B12B9951BE7FC`
 
+See [camera parameter tables](camera-parameters.md) for the recovered exposure
+lookup, device-specific ranges, and filter values.
+
 This directory records interoperability findings from local static analysis,
 authorized packet captures, and opt-in DWARF Mini testing. Decompiled code is
 not redistributed. Evidence locations refer to the ignored local JADX tree
-`build/apk-audit-3.4.1/decompiled/sources`.
+`build/apk-audit-3.4.1/decompiled/sources`; the reproducible container writes a
+second analysis tree below `build/reverse-engineering/apk/`.
 
 ## Baseline
 

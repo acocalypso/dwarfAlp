@@ -16,8 +16,12 @@
 | Astro schema | `astro.proto` descriptor | `bin/bilbo` near `0x8468b4` | VERIFIED |
 | Factory surface | `factoryTest.proto` descriptor | `bin/bilbo` near `0x84b1cc` | VERIFIED |
 | HTTP routes | handler/path strings | `bin/bilbo` | VERIFIED |
+| FITS-list HTTP method | Ghidra route-registration call graph | `bin/bilbo` at function `0x003a54d0` | VERIFIED (`POST`) |
+| Service bind ports | Ghidra constructors/startup functions | `bin/bilbo`: 9900, 8082, 8092, 554 | VERIFIED |
 | Astronomy pipeline | linked libraries, tools, symbols/strings | `bin/bilbo`, `bin/astrometry.cfg`, WCS tools, model | HIGH |
 | Update system | symbols/imports/manifests | `bin/bilbo`, `bilbo_upgrade`, `*/update.json` | HIGH |
+| Inner updater integrity | Ghidra call graph/decompilation | `bin/bilbo_upgrade`: `processUpdateJson`, `compareFileMd5` | VERIFIED |
+| RSA verification scope | Ghidra function/caller decompilation | `bin/bilbo`: SHA-256/RSA activation-message handlers | VERIFIED for observed callers; not update evidence |
 | WCDB persistence | ORM RTTI/symbols and paths | `bin/bilbo` | HIGH |
 | MCU payload classification | entropy, initial bytes, printable strings | `mcu/motor.bin`, `mcu/rgb.bin` | VERIFIED/HIGH |
 
@@ -26,6 +30,10 @@ Machine-readable sources:
 - `firmware-analysis/metadata/inventory.json`
 - `firmware-analysis/metadata/bilbo-protos.json`
 - `firmware-analysis/metadata/bilbo-protos.pb`
+
+Generated JADX/Ghidra work products remain ignored under
+`build/reverse-engineering/`. The reproducible, pinned container and export
+scripts are maintained in `tools/reverse-engineering/`.
 
 The metadata identifies the analyzed binary by SHA-256 and records each
 descriptor's byte offset and hash, allowing exact reproduction without trusting
