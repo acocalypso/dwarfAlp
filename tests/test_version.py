@@ -15,7 +15,7 @@ from dwarf_alpaca.server import build_app
 
 
 def test_distribution_version_is_project_version():
-    assert __version__ == version("dwarf-alpaca") == "0.1.0"
+    assert __version__ == version("dwarf-alpaca") == "0.1.1"
 
 
 def test_server_metadata_uses_project_version():
