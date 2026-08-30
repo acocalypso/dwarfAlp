@@ -60,8 +60,19 @@ def test_published_openapi_and_protocol_inventory_are_complete() -> None:
     assert firmware["decompilationFindings"]["servicePorts"] == {
         "websocket": 9900,
         "deviceHttp": 8082,
-        "jpeg": 8092,
+        "rawJpegHttp": 8085,
+        "jpegGuideStream": 8092,
         "rtsp": 554,
+        "internalLoopback": 3893,
+    }
+    assert firmware["decompilationFindings"]["liveMiniValidation"] == {
+        "board": "Rockchip RV1106G EVB1 V10",
+        "ramKiB": 185_916,
+        "partitionCount": 10,
+        "teleSensor": "Sony IMX662 at I2C 0x1a",
+        "wideSensor": "OmniVision OS02K10 at I2C 0x21",
+        "databaseSchemaOnly": True,
+        "recordValuesCollected": False,
     }
     assert firmware["decompilationFindings"]["fitsListMethod"] == "POST"
     assert firmware["decompilationFindings"]["bilboProgramInventory"] == {

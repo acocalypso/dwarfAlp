@@ -1,8 +1,8 @@
 # Filesystem and persistent data
 
-A complete root filesystem cannot be reconstructed from this update bundle.
-Only installation targets and runtime paths referenced by manifests, scripts,
-configuration, and binaries can be mapped.
+A complete root filesystem cannot be reconstructed from the update bundle
+alone. A read-only inspection of a live Mini on
+2026-08-30 confirmed the runtime mounts and persistent application paths below.
 
 ```text
 /
@@ -21,8 +21,17 @@ The firmware contains both `/userdata/astro` and `/usrdata/astro/...` strings.
 They may refer to different areas or one may be a historical typo; the bundle
 does not resolve the discrepancy. **UNKNOWN**
 
-Persistent records use WCDB/SQLite abstractions. Identifiable entities include
-astronomy captures, FITS, multi-stack and mosaic records, calibration frames,
-burst/panorama/picture/video records, shooting modes, schedules, tasks,
-settings, and events. The actual `device.db` is absent, so table columns and
-live user data were not inspected. **VERIFIED / schema details UNKNOWN**
+The live partition map is an eMMC with ten named partitions: `env`, `idblock`,
+`uboot`, `boot`, `misc`, `recovery`, `rootfs` (2 GiB), `oem` (1 GiB),
+`userdata` (2 GiB), and the remaining media area mounted as `/DWARF_mini`.
+The system has no observed A/B rootfs pair. This resolves the physical layout,
+but not recovery or rollback policy. **VERIFIED on Mini 1.1.3.2 binaries**
+
+The live WCDB file is `/userdata/data/device.db`. Schema strings confirm tables
+for `astro_info`, `astro_fits_info`, `astro_multi_stack_info`, mosaics and
+subviews, `cali_frame_info`, picture/video/burst/panorama albums, camera/ISP
+parameters, stack settings, and shooting schedules/tasks. Important astronomy
+columns include exposure, gain, filter, target, RA/Dec, requested/taken/stacked
+counts, FITS path/name/MD5/size, stack state/code, temperature, location,
+equatorial mode, and rotation. Only schema text was inspected; record values
+and user media were not collected. **VERIFIED**

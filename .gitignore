@@ -23,6 +23,7 @@ dwarfii_api/
 apk/*.apk
 apk/*.apks
 .vscode/settings.json
+scripts/Updater/*
 
 # Disposable firmware extraction and decompiler output. Keep only curated
 # metadata, scripts, and documentation under version control.

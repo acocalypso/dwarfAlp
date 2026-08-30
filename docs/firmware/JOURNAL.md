@@ -2,6 +2,24 @@
 
 ## 2026-08-30
 
+- Used the diagnostic shell for a read-only live Mini
+  inspection. Confirmed the RV1106G EVB1 V10 board, 185,916 KiB RAM, ten eMMC
+  partitions, BusyBox/SysV startup, and live IMX662@0x1a plus OS02K10@0x21
+  device-tree attachments. User media and database row values were excluded.
+- Confirmed live process/socket ownership. Bilbo binds TCP/UDP 9900, HTTP 8082,
+  raw-JPEG HTTP 8085, JPEG guide-stream TCP 8092, RTSP 554, and a loopback-only
+  TCP 3893 service. SSH listens on 54227 rather than the default port 22.
+- Inspected schema strings only from the live WCDB database, resolving the exact
+  astronomy/FITS/stack/mosaic/calibration/settings/schedule table columns.
+- Queried the live, read-only shooting catalogue. Mode 2 exposes Astro/Duo-Band
+  on camera 0, tele exposures through 180 seconds, wide exposures through 30
+  seconds, astronomy gain 40-240, stack count 1-999, mosaic count 1-249, and
+  enabled auto-calibration. Supported modes require GET; parameter details use
+  POST.
+- Resolved update error `-10` as a version mismatch from the device log. The
+  diagnostic patch advanced the installer ledger to 1.1.3.6, while Bilbo,
+  `bilbo_upgrade`, and the embedded default configuration remain byte-identical
+  to and report the supplied 1.1.3.2 payload.
 - Added a network-disabled, read-only-at-runtime Docker analysis environment
   with pinned JADX 1.5.6, apktool 3.0.3, and Ghidra 12.1.3.
 - Decompiled all APK splits. JADX recovered 24,530 Java files; 330 individual

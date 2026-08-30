@@ -22,5 +22,22 @@ call sites; UNKNOWN update authentication**
 No complete partition image, A/B metadata, rollback implementation, bootloader,
 or recovery image is present. A/B strategy and rollback behavior are UNKNOWN.
 
+Live, testing clarified the differential-update result:
+
+- a minimal `config/update.json` plus `config/run.sh` package is accepted and
+  installs `/userdata/run.sh`;
+- successful metadata `oldVersion=1.1.3.2`, `newVersion=1.1.3.6` advanced
+  `/userdata/config/factory/firmware_version.json` to 1.1.3.6;
+- the `bilbo` binary and `bilbo_upgrade` hashes still exactly match the supplied
+  1.1.3.2 bundle, and `/getDefaultParamsConfig` still reports 1.1.3.2;
+- repeating the request with stale `oldVersion=1.1.3.2` returns code `-10`, and
+  the device log identifies it as `upgradeSoftware: version error` before
+  extraction.
+
+The factory/update version is consequently an installer ledger, not proof that
+the application binaries were replaced. Missing optional package groups such
+as `iq`, `bin`, `libs`, `mcu`, and `model` are logged during a minimal patch but
+do not prevent the present `config` group from being processed. **VERIFIED**
+
 Update, reset, MCU flashing, and factory endpoints are intentionally not wired
 into DwarfAlp. This analysis does not describe bypassing integrity or signatures.

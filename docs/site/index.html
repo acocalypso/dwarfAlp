@@ -70,7 +70,8 @@
               <tr><td>Imaging</td><td>IMX662 and OS02K10 12-bit drivers, Rockchip media/AIQ, CFITSIO, OpenCV, astrometry.net/WCS, RKNN sky segmentation, dark calibration, and live stacking are present.</td><td>Verified</td></tr>
               <tr><td>State query</td><td>Command <code>16405</code> is the whole-device state query. Its exact schema exposes shooting mode, capture lifecycle, geometry, focus/motion/device state, and calibration result.</td><td>Verified</td></tr>
               <tr><td>Static decompilation</td><td>A pinned, network-disabled Docker workflow reproduces split-APK analysis, targeted/near-full ARM decompilation, and a whole-program function/import/string/call inventory. Generated vendor code remains unpublished.</td><td>Verified</td></tr>
-              <tr><td>Service ports</td><td>Firmware bind/startup constants prove WebSocket 9900, device HTTP 8082, JPEG 8092, and RTSP 554.</td><td>Verified</td></tr>
+              <tr><td>Service ports</td><td>Static and live evidence proves WebSocket/UDP 9900, device HTTP 8082, raw-JPEG HTTP 8085, JPEG guide-stream TCP 8092, RTSP 554, and a loopback-only service on 3893.</td><td>Verified</td></tr>
+              <tr><td>Live Mini hardware</td><td>Read-only inspection confirms an RV1106G EVB1 V10 board, ten eMMC partitions, IMX662 at I2C 0x1a, OS02K10 at 0x21, and the live WCDB schema without collecting row values.</td><td>Verified</td></tr>
               <tr><td>Update integrity</td><td><code>bilbo_upgrade</code> checks manifest-provided MD5 values. The SHA-256/RSA verifier in <code>bilbo</code> serves activation messages and is not evidence of update signing.</td><td>Verified inner check / Unknown outer authentication</td></tr>
               <tr><td>Safety boundary</td><td>Factory tests, direct motor primitives, reset, firmware/MCU update, and dormant USB modes are documented but intentionally not exposed through DwarfAlp.</td><td>Verified</td></tr>
             </tbody>

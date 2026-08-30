@@ -49,7 +49,8 @@ visible in symbols, imports, schemas, and configuration.
 |---|---|---|
 | WebSocket control | TCP 9900, binary protobuf `WsPacket` | commands, correlated responses, notifications, client/master ownership |
 | Device HTTP | TCP 8082 | album metadata and FITS discovery/deletion, shooting-mode metadata, media lookup, firmware-support endpoints |
-| JPEG preview | TCP 8092 | live preview frames, including `raw_jpg` query handling |
+| Raw-JPEG HTTP | TCP 8085 | libhv route `/raw_jpg?stack=...&bits=...` |
+| JPEG guide stream | TCP 8092 | lower-level `JpgServer`/`sendCamGuideStream` transport |
 | RTSP | TCP 554 | encoded camera stream lifecycle |
 | nginx | TCP 80, separate process | static media/UI access rooted on the mounted device storage |
 | WCDB/SQLite | local `device.db` | media album records, astronomy FITS rows, settings, schedules, and runtime state |
@@ -109,9 +110,11 @@ the newly recovered `CODE_GLOBAL_TASK_MANAGER_BUSY` (`-16600`).
 
 The firmware contains ORM/type evidence for `astro_info`, `astro_fits_info`,
 multi-stack, mosaic/subview, picture, burst, video, scheduling, calibration
-frames, common parameters, and auto-parameter state. The live database itself
-is absent from the update package, so column-level schema details remain
-unresolved.
+frames, common parameters, and auto-parameter state. A schema-only inspection
+of the authorized live `/userdata/data/device.db` confirmed the corresponding
+tables and their columns without reading record values. Astronomy rows retain
+the requested exposure, gain, filter, target, RA/Dec, frame counts, FITS
+path/name/MD5/size, stack state/code, location, equatorial mode, and rotation.
 
 The media partition is `/dev/mmcblk0p10`, mounted at `/DWARF_mini` in this Mini
 bundle. Internal working paths also include `/userdata/astro/tele` and

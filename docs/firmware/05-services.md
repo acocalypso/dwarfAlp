@@ -14,3 +14,9 @@
 `bilbo` is stripped but retains C++ RTTI, error strings, handler names, linked
 component metadata, and serialized protobuf descriptors. `bilbo_upgrade` retains
 debug information and symbol names. No binary was executed. **VERIFIED**
+
+Live process inspection confirms BusyBox init launches `/oem/usr/bin/RkLunch.sh`,
+which runs the OEM init scripts and finally `/userdata/run.sh`. That script
+starts BSA on UART4, `vsftpd`, `sshd`, nginx, `bilbo`, and the one-shot
+`bilbo_upgrade` process. `bilbo_upgrade` is absent after its startup work exits;
+the other services remain resident. **VERIFIED on a live Mini**
