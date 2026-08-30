@@ -30,6 +30,9 @@ protobuf metadata is retained in
 `firmware-analysis/metadata/bilbo-protos.json`; the generated human reference is
 [07-device-protocol.md](07-device-protocol.md).
 
+For the consolidated native runtime model, decompilation coverage, capture
+pipeline, and service ownership, see [17-bilbo-internals.md](17-bilbo-internals.md).
+
 Confidence labels used throughout:
 
 - **VERIFIED**: directly demonstrated by a bundled file, schema, or binary metadata.

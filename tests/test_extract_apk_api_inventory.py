@@ -65,3 +65,37 @@ public final class WsNumericReq {
     assert symbolic["raw_ordinal_expression"] == "Library.ORDINAL"
     assert symbolic["raw_value_expression"] == "Library.VALUE"
     assert inventory["response_codes"][0]["code"] == -11530
+
+
+def test_extract_inventory_supports_current_jadx_enum_and_package_prefixes(
+    tmp_path: Path,
+):
+    source_root = tmp_path / "sources"
+    ws_dir = (
+        source_root
+        / "com"
+        / "convergence"
+        / "dwarflab"
+        / "data"
+        / "bean"
+        / "p021ws"
+    )
+    request_dir = ws_dir / "request"
+    request_dir.mkdir(parents=True)
+    (ws_dir / "WsCmd.java").write_text(
+        "public enum WsCmd {\n    CMD_FIRST(11000),\n    CMD_LAST(16407);\n}\n",
+        encoding="utf-8",
+    )
+    (ws_dir / "WsRespCode.java").write_text(
+        "public enum WsRespCode {\n    WS_OK(0),\n    CODE_LAST(-16600);\n}\n",
+        encoding="utf-8",
+    )
+
+    inventory = extract_inventory(source_root)
+
+    assert [item["command_id"] for item in inventory["commands"]] == [11000, 16407]
+    assert [item["ordinal"] for item in inventory["commands"]] == [0, 1]
+    assert inventory["commands"][0]["evidence"][0]["source"].endswith(
+        "data/bean/ws/WsCmd.java"
+    )
+    assert [item["code"] for item in inventory["response_codes"]] == [0, -16600]

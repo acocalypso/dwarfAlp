@@ -119,7 +119,7 @@ The complete command-name comparison is in
 [firmware-command-audit.json](firmware-command-audit.json) and
 [firmware-command-audit.md](firmware-command-audit.md). Deprecated aliases are
 retained for source compatibility but are not used by the runtime. The same
-audit verifies all 123 APK response/error codes numerically; all match, with
+audit verifies all 137 APK response/error codes numerically; all match, with
 `OK` retained as an alias of the app's `WS_OK` value zero.
 
 ## Live Mini validation

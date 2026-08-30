@@ -24,12 +24,15 @@
 | RSA verification scope | Ghidra function/caller decompilation | `bin/bilbo`: SHA-256/RSA activation-message handlers | VERIFIED for observed callers; not update evidence |
 | WCDB persistence | ORM RTTI/symbols and paths | `bin/bilbo` | HIGH |
 | MCU payload classification | entropy, initial bytes, printable strings | `mcu/motor.bin`, `mcu/rgb.bin` | VERIFIED/HIGH |
+| Whole-program structure | Ghidra function/import/string/call/memory inventory | ignored `build/reverse-engineering/ghidra/bilbo-inventory/` | VERIFIED derived inventory |
+| Runtime lifecycle | initialization symbols, call edges, configs, imports | `bin/bilbo`, `bin/run.sh`, `config/*` | HIGH |
 
 Machine-readable sources:
 
 - `firmware-analysis/metadata/inventory.json`
 - `firmware-analysis/metadata/bilbo-protos.json`
 - `firmware-analysis/metadata/bilbo-protos.pb`
+- [17-bilbo-internals.md](17-bilbo-internals.md)
 
 Generated JADX/Ghidra work products remain ignored under
 `build/reverse-engineering/`. The reproducible, pinned container and export

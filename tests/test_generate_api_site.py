@@ -48,7 +48,7 @@ def test_published_openapi_and_protocol_inventory_are_complete() -> None:
     assert "Inside the DWARF Linux stack" in index
     assert device["paths"]["/resetDeviceInfo"]["post"]["x-dangerous-operation"]
     assert len(inventory["commands"]) == 356
-    assert len(inventory["response_codes"]) == 123
+    assert len(inventory["response_codes"]) == 137
     assert len(inventory["http_endpoints"]) == 50
     assert len(inventory["ble"]["commands"]) == 8
     assert all(item["command_id"] is not None for item in inventory["commands"])
@@ -57,10 +57,24 @@ def test_published_openapi_and_protocol_inventory_are_complete() -> None:
     )
     assert firmware["extractedFiles"] == 43
     assert firmware["descriptorCount"] == 16
+    assert firmware["decompilationFindings"]["servicePorts"] == {
+        "websocket": 9900,
+        "deviceHttp": 8082,
+        "jpeg": 8092,
+        "rtsp": 554,
+    }
+    assert firmware["decompilationFindings"]["fitsListMethod"] == "POST"
+    assert firmware["decompilationFindings"]["bilboProgramInventory"] == {
+        "functions": 13_306,
+        "imports": 1_108,
+        "definedStrings": 8_544,
+        "callEdges": 115_098,
+        "memoryBlocks": 32,
+    }
     assert firmware_protobuf["source_binary"] == "dwarf_mini_v1.1.3.2/bin/bilbo"
     assert alignment["schemas"]["exactUniquelyNamedMessages"] == 420
     assert alignment["schemas"]["nonExactUniquelyNamedSharedMessages"] == 0
     assert alignment["registry"]["canonicalCorrectCommands"] == 238
-    assert alignment["registry"]["matchingResponseCodes"] == 123
+    assert alignment["registry"]["matchingResponseCodes"] == 137
     assert alignment["liveValidation"]["exposures"] == 2
     assert alignment["liveValidation"]["notification15288"] == "LongExpPhotoProgress"

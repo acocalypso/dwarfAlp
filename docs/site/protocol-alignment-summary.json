@@ -23,8 +23,8 @@
     "canonicalCorrectCommands": 238,
     "deprecatedCompatibilityAliases": 44,
     "legacyUnknownCommands": 6,
-    "apkResponseCodes": 123,
-    "matchingResponseCodes": 123
+    "apkResponseCodes": 137,
+    "matchingResponseCodes": 137
   },
   "liveValidation": {
     "date": "2026-08-26",
@@ -35,7 +35,10 @@
     "gain": 60,
     "filter": "Astro",
     "fitsBytes": 1846080,
-    "decodedShape": [720, 1280],
+    "decodedShape": [
+      720,
+      1280
+    ],
     "decodedType": "uint16",
     "notification15288": "LongExpPhotoProgress",
     "v3CameraDisconnect": "local-only; command 10001 absent from V3 app captures and ignored by live Mini"

@@ -70,6 +70,14 @@ The triage mode writes `string-xrefs.tsv`, `functions.tsv`, and `targeted.c`.
 Use it before a full export; a full export of the large `bilbo` binary can take
 hours because optimized library and generated protobuf functions are included.
 
+Export a whole-program derived inventory (functions, imports, memory blocks,
+strings and their callers, and function call edges) without decompiled bodies:
+
+```powershell
+docker compose -f tools/reverse-engineering/compose.yaml run --rm analyzer `
+  inventory /input/extracted/dwarf_mini_v1.1.3.2/bin/bilbo bilbo-inventory
+```
+
 Ghidra writes a combined `decompiled.c`, `functions.tsv`, and its analysis log
 below `build/reverse-engineering/ghidra/<name>/`. Existing outputs are never
 silently overwritten; move or remove a specific output directory before a

@@ -11,3 +11,5 @@
 | What CPU/container protects `motor.bin`? | entropy 7.9767, no reliable header/strings | UNKNOWN | vendor documentation or updater decompilation |
 | What physical wheel position corresponds to each filter enum? | APK proves VIS=0, Astro=1, Duo-Band=2, Dark=3; normal choices are model-specific, while calibration explicitly sends Dark=3 | UNKNOWN physical positions | correlate motor/filter notifications with opt-in selections on each model |
 | What is the live `device.db` schema? | ORM names only; DB absent | UNKNOWN | inspect a sanitized authorized copy read-only |
+| What are the exact terminal-state values for every calibration/tracking firmware release? | state machines and notification schemas are recovered, but success/failure timing differs by firmware | MEDIUM | correlate sanitized passive captures with device/app logs by firmware version |
+| Which device-HTTP routes are available on every model? | firmware and APK expose overlapping route sets, but this update is Mini-specific | MEDIUM | perform read-only route probes on each authorized model and version |

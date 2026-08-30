@@ -11,7 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_PATH = ROOT / "docs" / "apk-analysis" / "api-inventory.json"
 FIRMWARE_INVENTORY_PATH = ROOT / "firmware-analysis" / "metadata" / "inventory.json"
 FIRMWARE_PROTO_PATH = ROOT / "firmware-analysis" / "metadata" / "bilbo-protos.json"
+COMMAND_AUDIT_PATH = ROOT / "docs" / "protocol" / "firmware-command-audit.json"
 SITE_DIR = ROOT / "docs" / "site"
+ALIGNMENT_PATH = SITE_DIR / "protocol-alignment-summary.json"
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -282,11 +284,45 @@ def _device_openapi(inventory: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _refresh_protocol_alignment() -> None:
+    """Keep the published registry totals synchronized with the generated audit."""
+    if not COMMAND_AUDIT_PATH.exists() or not ALIGNMENT_PATH.exists():
+        return
+    audit = json.loads(COMMAND_AUDIT_PATH.read_text(encoding="utf-8"))
+    alignment = json.loads(ALIGNMENT_PATH.read_text(encoding="utf-8"))
+    commands = audit["current"]
+    response_codes = audit["response_codes"]["current"]
+    response_apk_only = audit["response_codes"]["apk_only"]
+    registry = alignment["registry"]
+    registry.update(
+        {
+            "apkCommands": len(audit["apk_only"])
+            + sum(item["status"] == "CORRECT" for item in commands),
+            "canonicalCorrectCommands": sum(
+                item["status"] == "CORRECT" for item in commands
+            ),
+            "deprecatedCompatibilityAliases": sum(
+                item["status"] == "DEPRECATED_ALIAS" for item in commands
+            ),
+            "legacyUnknownCommands": sum(
+                item["status"] == "UNKNOWN" for item in commands
+            ),
+            "apkResponseCodes": len(response_apk_only)
+            + sum(item["status"] == "CORRECT" for item in response_codes),
+            "matchingResponseCodes": sum(
+                item["status"] == "CORRECT" for item in response_codes
+            ),
+        }
+    )
+    _write_json(ALIGNMENT_PATH, alignment)
+
+
 def main() -> int:
     inventory = json.loads(INVENTORY_PATH.read_text(encoding="utf-8"))
     SITE_DIR.mkdir(parents=True, exist_ok=True)
     alpaca = _dwarfalp_openapi()
     device = _device_openapi(inventory)
+    _refresh_protocol_alignment()
     _write_json(SITE_DIR / "openapi.json", alpaca)
     _write_json(SITE_DIR / "device-openapi.json", device)
     _write_json(SITE_DIR / "protocol-inventory.json", inventory)
@@ -312,6 +348,29 @@ def main() -> int:
                     "libc": "uClibc",
                     "kernelModuleAbi": "Linux 5.10.160",
                     "soc": "Rockchip RV1106 (high confidence)",
+                },
+                "decompilationFindings": {
+                    "toolchain": (
+                        "JADX 1.5.6, apktool 3.0.3, Ghidra 12.1.3 in a "
+                        "network-disabled container"
+                    ),
+                    "servicePorts": {
+                        "websocket": 9900,
+                        "deviceHttp": 8082,
+                        "jpeg": 8092,
+                        "rtsp": 554,
+                    },
+                    "fitsListMethod": "POST",
+                    "bilboProgramInventory": {
+                        "functions": 13_306,
+                        "imports": 1_108,
+                        "definedStrings": 8_544,
+                        "callEdges": 115_098,
+                        "memoryBlocks": 32,
+                    },
+                    "innerUpdateIntegrity": "manifest-provided per-file MD5",
+                    "outerUpdateAuthentication": "unresolved",
+                    "rsaVerifierObservedScope": "cloud activation messages",
                 },
             },
         )

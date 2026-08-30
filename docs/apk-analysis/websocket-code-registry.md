@@ -111,40 +111,59 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | 11048 | `CMD_ASTRO_STOP_SKY_TARGET_FINDER` | request | WsReqStopSkyTargetFinder |
 | 11049 | `CMD_ASTRO_GET_GYRO_ATTITUDE` | request | — |
 | 11050 | `CMD_ASTRO_CONTINUE_SHOOTING` | request | WsContinueShootingReq |
+| 12000 | `CMD_CAMERA_WIDE_OPEN_CAMERA` | request | WsOpenCameraReq |
 | 12001 | `CMD_CAMERA_WIDE_CLOSE_CAMERA` | request | WsCloseCameraReq |
 | 12002 | `CMD_CAMERA_WIDE_SET_EXP_MODE` | request | WsSetExpModeReq |
 | 12003 | `CMD_CAMERA_WIDE_GET_EXP_MODE` | request | — |
 | 12004 | `CMD_CAMERA_WIDE_SET_EXP` | request | WsSetExpReq |
+| 12005 | `CMD_CAMERA_WIDE_GET_EXP` | request | — |
+| 12006 | `CMD_CAMERA_WIDE_SET_GAIN` | request | WsSetGainReq |
+| 12007 | `CMD_CAMERA_WIDE_GET_GAIN` | request | — |
 | 12008 | `CMD_CAMERA_WIDE_SET_BRIGHTNESS` | request | WsSetCamParamReq |
 | 12009 | `CMD_CAMERA_WIDE_GET_BRIGHTNESS` | request | — |
 | 12010 | `CMD_CAMERA_WIDE_SET_CONTRAST` | request | WsSetCamParamReq |
 | 12011 | `CMD_CAMERA_WIDE_GET_CONTRAST` | request | — |
 | 12012 | `CMD_CAMERA_WIDE_SET_SATURATION` | request | WsSetCamParamReq |
+| 12013 | `CMD_CAMERA_WIDE_GET_SATURATION` | request | — |
 | 12014 | `CMD_CAMERA_WIDE_SET_HUE` | request | WsSetCamParamReq |
 | 12015 | `CMD_CAMERA_WIDE_GET_HUE` | request | — |
 | 12016 | `CMD_CAMERA_WIDE_SET_SHARPNESS` | request | WsSetCamParamReq |
+| 12017 | `CMD_CAMERA_WIDE_GET_SHARPNESS` | request | — |
 | 12018 | `CMD_CAMERA_WIDE_SET_WB_MODE` | request | WsSetWBModeReq |
+| 12019 | `CMD_CAMERA_WIDE_GET_WB_MODE` | request | — |
 | 12020 | `CMD_CAMERA_WIDE_SET_WB_CT` | request | WsSetWBCTReq |
 | 12021 | `CMD_CAMERA_WIDE_GET_WB_CT` | request | — |
 | 12022 | `CMD_CAMERA_WIDE_PHOTOGRAPH` | request | WsPhotoReq |
+| 12023 | `CMD_CAMERA_WIDE_BURST` | request | WsStartBurstReq |
 | 12024 | `CMD_CAMERA_WIDE_STOP_BURST` | request | WsStopBurstReq |
 | 12025 | `CMD_CAMERA_WIDE_START_TIMELAPSE_PHOTO` | request | WsStartTLRecordReq |
+| 12026 | `CMD_CAMERA_WIDE_STOP_TIMELAPSE_PHOTO` | request | WsStopTLRecordReq |
+| 12027 | `CMD_CAMERA_WIDE_GET_ALL_PARAMS` | request | WsGetAllParamsReq |
+| 12028 | `CMD_CAMERA_WIDE_SET_ALL_PARAMS` | request | — |
 | 12029 | `CMD_CAMERA_WIDE_PHOTO_RAW` | request | — |
 | 12030 | `CMD_CAMERA_WIDE_START_RECORD` | request | WsStartRecordReq |
+| 12031 | `CMD_CAMERA_WIDE_STOP_RECORD` | request | WsStopRecordReq |
+| 12032 | `CMD_CAMERA_WIDE_SET_RTSP_BITRATE_TYPE` | request | WsSetRtspBitrateReq |
+| 12035 | `CMD_CAMERA_WIDE_SET_WB_SCENE` | request | WsSetWBSceneReq |
 | 12036 | `CMD_CAMERA_WIDE_SET_PREVIEW_QUALITY` | request | WsSetPreviewQualityReq |
+| 12038 | `CMD_CAMERA_WIDE_SET_ND_FILTER` | request | WsSetNdFilterReq |
+| 13000 | `CMD_SYSTEM_SET_TIME` | request | WsSetTimeReq |
 | 13001 | `CMD_SYSTEM_SET_TIME_ZONE` | request | WsSetTimezoneReq |
 | 13002 | `CMD_SYSTEM_SET_MTP_MODE` | request | WsSetMTPModeReq |
 | 13003 | `CMD_SYSTEM_SET_CPU_MODE` | request | WsSetCPUModeReq |
 | 13004 | `CMD_SYSTEM_SET_MASTER` | request | WsSetMasterLockModeReq |
+| 13005 | `CMD_SYSTEM_GET_DEVICE_ACTIVATE_INFO` | request | — |
 | 13006 | `CMD_SYSTEM_DEVICE_ACTIVATE_WRITE_FILE` | request | — |
 | 13007 | `CMD_SYSTEM_DEVICE_ACTIVATE_NOTIFY_ACTIVATE_SUCCESSFULL` | request | — |
 | 13008 | `CMD_SYSTEM_FACTORY_TEST_UN_ACTIVATE` | request | — |
+| 13009 | `CMD_SYSTEM_SET_LOW_TEMP_PROTECTION_MODE` | request | — |
 | 13010 | `CMD_SYSTEM_SET_LOCATION` | request | WsReqSetLocation |
 | 13500 | `CMD_RGB_POWER_OPEN_RGB` | request | WsOpenRgbReq |
 | 13501 | `CMD_RGB_POWER_CLOSE_RGB` | request | WsCloseRgbReq |
 | 13502 | `CMD_RGB_POWER_POWER_DOWN` | request | WsShutdownReq |
 | 13503 | `CMD_RGB_POWER_POWERIND_ON` | request | WsOpenPowerIndicatorReq |
 | 13504 | `CMD_RGB_POWER_POWERIND_OFF` | request | WsClosePowerIndicatorReq |
+| 13505 | `CMD_RGB_POWER_REBOOT` | request | WsRestartReq |
 | 14000 | `CMD_STEP_MOTOR_RUN` | request | — |
 | 14002 | `CMD_STEP_MOTOR_STOP` | request | — |
 | 14006 | `CMD_STEP_MOTOR_SERVICE_JOYSTICK` | request | WsMotorServiceJoystickReq |
@@ -161,6 +180,7 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | 14800 | `CMD_TRACK_START_TRACK` | request | WsStartTargetTrackReq |
 | 14801 | `CMD_TRACK_STOP_TRACK` | request | WsStopTargetTrackReq |
 | 14802 | `CMD_SENTRY_MODE_START` | request | WsStartSentryModeReq |
+| 14803 | `CMD_SENTRY_MODE_STOP` | request | WsStopSentryModeReq |
 | 14804 | `CMD_MOT_START` | request | — |
 | 14805 | `CMD_MOT_TRACK_ONE` | request | WsStartMOTTrackOneReq |
 | 14806 | `CMD_UFOTRACK_MODE_START` | request | — |
@@ -168,6 +188,7 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | 14808 | `CMD_MOT_WIDE_TRACK_ONE` | request | WsStartMOTTrackOneReq |
 | 14809 | `CMD_SWITCH_MAIN_PREVIEW` | request | — |
 | 14810 | `CMD_UFO_HAND_AOTO_MODE` | request | WsUFOAutoManualModeReq |
+| 14811 | `CMD_SENTRY_SCENE_SELECT` | request | — |
 | 14812 | `CMD_TRACK_START_CLICK` | request | WsStartTargetTrackClickReq |
 | 15000 | `CMD_FOCUS_AUTO_FOCUS` | request | WsNormalAutoFocusReq |
 | 15001 | `CMD_FOCUS_MANUAL_SINGLE_STEP_FOCUS` | request | WsManualSingleStepFocusReq |
@@ -175,8 +196,11 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | 15003 | `CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS` | request | WsStopManualContinuousFocusReq |
 | 15004 | `CMD_FOCUS_START_ASTRO_AUTO_FOCUS` | request | WsAstroAutoFocusReq |
 | 15005 | `CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS` | request | WsStopAstroAutoFocusReq |
+| 15006 | `CMD_FOCUS_AUTO_INFINITY_FOCUS` | request | — |
+| 15014 | `CMD_WIDE_FOCUS_AUTO_FOCUS` | request | WsNormalAutoFocusReq |
 | 15015 | `CMD_WIDE_FOCUS_MANUAL_SINGLE_STEP_FOCUS` | request | WsManualSingleStepFocusReq |
 | 15016 | `CMD_WIDE_FOCUS_START_MANUAL_CONTINU_FOCUS` | request | WsManualContinuousFocusReq |
+| 15017 | `CMD_WIDE_FOCUS_STOP_MANUAL_CONTINU_FOCUS` | request | WsStopManualContinuousFocusReq |
 | 15018 | `CMD_WIDE_FOCUS_START_ASTRO_AUTO_FOCUS` | request | WsAstroAutoFocusReq |
 | 15019 | `CMD_WIDE_FOCUS_STOP_ASTRO_AUTO_FOCUS` | request | WsStopAstroAutoFocusReq |
 | 15020 | `CMD_WIDE_FOCUS_AUTO_INFINITY_FOCUS` | request | — |
@@ -185,16 +209,22 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | 15029 | `CMD_GUIDE_FOCUS_MANUAL_SINGLE_STEP_FOCUS` | request | WsManualSingleStepFocusReq |
 | 15030 | `CMD_GUIDE_FOCUS_START_MANUAL_CONTINU_FOCUS` | request | WsManualContinuousFocusReq |
 | 15031 | `CMD_GUIDE_FOCUS_STOP_MANUAL_CONTINU_FOCUS` | request | WsStopManualContinuousFocusReq |
+| 15032 | `CMD_GUIDE_FOCUS_START_ASTRO_AUTO_FOCUS` | request | WsAstroAutoFocusReq |
+| 15033 | `CMD_GUIDE_FOCUS_AUTO_INFINITY_FOCUS` | request | — |
+| 15034 | `CMD_GUIDE_FOCUS_STOP_ASTRO_AUTO_FOCUS` | request | WsStopAstroAutoFocusReq |
+| 15500 | `CMD_PANORAMA_START_GRID` | request | WsStartPanoramaGridReq |
 | 15501 | `CMD_PANORAMA_STOP` | request | WsStopPanoramaReq |
+| 15503 | `CMD_PANORAMA_START_STITCH_UPLOAD` | request | WsStartPanoramaStitchUploadReq |
+| 15504 | `CMD_PANORAMA_STOP_STITCH_UPLOAD` | request | WsStopPanoramaStitchUploadReq |
 | 15505 | `CMD_PANORAMA_GET_CURRENT_UPLOAD_STATE` | request | WsGetPanoramaCurrentUploadStateReq |
 | 15506 | `CMD_PANORAMA_GET_UPLOAD_PREDICT` | request | WsGetUploadPredictReq |
 | 15507 | `CMD_PANORAMA_START_COMPRESS` | request | WsReqPanoramaStartCompress; PanoramaStartCompress (BaseProto.ComResponse) |
 | 15508 | `CMD_PANORAMA_STOP_COMPRESS` | request | WsReqPanoramaStopCompress; PanoramaStopCompress (BaseProto.ComResponse) |
-| 15509 | `CMD_PANORAMA_START_FRAMING` | request | — |
-| 15510 | `CMD_PANORAMA_STOP_FRAMING` | request | — |
-| 15511 | `CMD_PANORAMA_RESET_FRAMING` | request | — |
+| 15509 | `CMD_PANORAMA_START_FRAMING` | request | PanoramaFramingKt |
+| 15510 | `CMD_PANORAMA_STOP_FRAMING` | request | PanoramaFramingKt |
+| 15511 | `CMD_PANORAMA_RESET_FRAMING` | request | PanoramaFramingKt |
 | 15512 | `CMD_PANORAMA_UPDATE_FRAMING_RECT` | request | ReqPanoramaUpdateFraming |
-| 15513 | `CMD_PANORAMA_STOP_FRAMEING_AND_START_GRID` | request | — |
+| 15513 | `CMD_PANORAMA_STOP_FRAMEING_AND_START_GRID` | request | PanoramaFramingKt |
 | 15011 | `CMD_FOCUS_GET_USER_INFINITY_POS` | request | WsGetUserInfinityPosReq |
 | 15012 | `CMD_FOCUS_SET_USER_INFINITY_POS` | request | WsSetUserInfinityPosReq |
 | 15200 | `CMD_NOTIFY_TELE_WIDE_PICTURE_MATCHING` | notification | NotifyPictureMatching (NotifyProto.PictureMatching) |
@@ -218,14 +248,17 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | 15218 | `CMD_NOTIFY_TELE_BURST_PROGRESS` | notification | — |
 | 15219 | `CMD_NOTIFY_PANORAMA_PROGRESS` | notification | NotifyPanoramaProgress (NotifyProto.PanoramaProgress) |
 | 15220 | `CMD_NOTIFY_WIDE_BURST_PROGRESS` | notification | — |
+| 15221 | `CMD_NOTIFY_RGB_STATE` | notification | NotifyRgbState (NotifyProto.ChargingState) |
 | 15222 | `CMD_NOTIFY_POWER_IND_STATE` | notification | NotifyPowerIndState (NotifyProto.PowerIndState) |
 | 15223 | `CMD_NOTIFY_WS_HOST_SLAVE_MODE` | notification | NotifyHostSlaveMode (NotifyProto.HostSlaveMode) |
 | 15224 | `CMD_NOTIFY_MTP_STATE` | notification | NotifyMTPState (NotifyProto.MTPState) |
+| 15225 | `CMD_NOTIFY_TRACK_RESULT` | notification | — |
 | 15226 | `CMD_NOTIFY_WIDE_TIMELAPSE_OUT_TIME` | notification | — |
 | 15227 | `CMD_NOTIFY_CPU_MODE` | notification | NotifyCPUMode (NotifyProto.CPUMode) |
 | 15228 | `CMD_NOTIFY_STATE_ASTRO_TRACKING_SPECIAL` | notification | NotifyAstroTrackingSpecial (NotifyProto.AstroTrackingSpecialState) |
 | 15229 | `CMD_NOTIFY_POWER_OFF` | notification | — |
 | 15230 | `CMD_NOTIFY_ALBUM_UPDATE` | notification | — |
+| 15231 | `CMD_NOTIFY_SENTRY_MODE_STATE` | notification | NotifySentryState (NotifyProto.SentryState) |
 | 15232 | `CMD_NOTIFY_SENTRY_MODE_TRACK_RESULT` | notification | — |
 | 15233 | `CMD_NOTIFY_STATE_ASTRO_ONE_CLICK_GOTO` | notification | NotifyOneClickGotoState (NotifyProto.OneClickGotoState) |
 | 15234 | `CMD_NOTIFY_STREAM_TYPE` | notification | NotifyStreamType (NotifyProto.StreamType) |
@@ -234,12 +267,18 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | 15237 | `CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING` | notification | — |
 | 15238 | `CMD_NOTIFY_MULTI_TRACK_RESULT` | notification | — |
 | 15239 | `CMD_NOTIFY_EQ_SOLVING_STATE` | notification | NotifyEqSolvingState (NotifyProto.EqSolvingState) |
+| 15240 | `CMD_NOTIFY_UFO_MODE_STATE` | notification | — |
+| 15241 | `CMD_NOTIFY_TELE_LONG_EXP_PROGRESS` | notification | — |
+| 15242 | `CMD_NOTIFY_WIDE_LONG_EXP_PROGRESS` | notification | — |
+| 15243 | `CMD_NOTIFY_TEMPERATURE` | notification | NotifyTemperature (NotifyProto.Temperature) |
 | 15244 | `CMD_NOTIFY_PANORAMA_UPLOAD_COMPRESS_PROGRESS` | notification | — |
+| 15245 | `CMD_NOTIFY_PANORAMA_UPLOAD_UPLOAD_PROGRESS` | notification | — |
 | 15245 | `CMD_NOTIFY_PANORAMA_UPLOAD_COMPLETE` | notification | — |
 | 15247 | `CMD_NOTIFY_STATE_CAPTURE_WIDE_RAW_DARK` | notification | — |
 | 15248 | `CMD_NOTIFY_SHOOTING_SCHEDULE_RESULT_AND_STATE` | notification | — |
 | 15249 | `CMD_NOTIFY_SHOOTING_TASK_STATE` | notification | — |
 | 15250 | `CMD_NOTIFY_SKY_SEACHER_STATE` | notification | NotifySkySeacherState (NotifyProto.SkySeacherState) |
+| 15251 | `CMD_NOTIFY_WIDE_MULTI_TRACK_RESULT` | notification | — |
 | 15252 | `CMD_NOTIFY_WIDE_TRACK_RESULT` | notification | — |
 | 15253 | `CMD_NOTIFY_STATE_AI_ENHANCE` | notification | — |
 | 15254 | `CMD_NOTIFY_PROGRESS_AI_ENHANCE` | notification | — |
@@ -285,6 +324,9 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | 15294 | `CMD_NOTIFY_PANORAMA_COMPRESS_COMPLETE` | notification | PanoramaCompressComplete (NotifyProto.PanoramaCompressionComplete) |
 | 15296 | `CMD_NOTIFY_SKY_TARGET_FINDER_STATE` | notification | NotifySkyTargetFinderState (NotifyProto.SkyTargetFinderState) |
 | 15295 | `CMD_NOTIFY_DEVICE_ATTITUDE` | notification | NotifyDeviceAttitude (NotifyProto.DeviceAttitude) |
+| 15297 | `CMD_NOTIFY_PANO_FRAMING_RECT_UPDATE` | notification | NotifyPanoFramingRectUpdate (NotifyProto.PanoFramingRectUpdateNotify) |
+| 15298 | `CMD_NOTIFY_PANO_FRAMING_THUMBNAIL_UPDATE` | notification | NotifyPanoFramingThumbnailUpdate (NotifyProto.PanoFramingThumbnailUpdateNotify) |
+| 15299 | `CMD_NOTIFY_PANO_FRAMING_STATE` | notification | NotifyPanoFramingState (NotifyProto.PanoFramingStateNotify) |
 | 15300 | `CMD_NOTIFY_WIDE_FOCUS_POSITION` | notification | NotifyWideFocusPosition (NotifyProto.FocusPosition) |
 | 15301 | `CMD_NOTIFY_LENS_DEFOG_STATE` | notification | NotifyLensDefogState (NotifyProto.LensDefog) |
 | 15302 | `CMD_NOTIFY_AUTO_COOLING_STATE` | notification | NotifyAutoCoolingState (NotifyProto.AutoCooling) |
@@ -322,50 +364,8 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | 17000 | `CMD_DEVICE_LENS_DEFOG` | request | WsSetLensDefogReq |
 | 17001 | `CMD_DEVICE_AUTO_COOLING` | request | WsSetAutoCoolingReq |
 | 17002 | `CMD_DEVICE_AUTO_SHUTDOWN` | request | WsSetAutoShutdownReq |
-| 12023 | `CMD_CAMERA_WIDE_BURST` | request | WsStartBurstReq |
-| 12027 | `CMD_CAMERA_WIDE_GET_ALL_PARAMS` | request | WsGetAllParamsReq |
-| 12005 | `CMD_CAMERA_WIDE_GET_EXP` | request | — |
-| 12007 | `CMD_CAMERA_WIDE_GET_GAIN` | request | — |
-| 12013 | `CMD_CAMERA_WIDE_GET_SATURATION` | request | — |
-| 12017 | `CMD_CAMERA_WIDE_GET_SHARPNESS` | request | — |
-| 12019 | `CMD_CAMERA_WIDE_GET_WB_MODE` | request | — |
-| 12000 | `CMD_CAMERA_WIDE_OPEN_CAMERA` | request | WsOpenCameraReq |
-| 12028 | `CMD_CAMERA_WIDE_SET_ALL_PARAMS` | request | — |
-| 12006 | `CMD_CAMERA_WIDE_SET_GAIN` | request | WsSetGainReq |
-| 12038 | `CMD_CAMERA_WIDE_SET_ND_FILTER` | request | WsSetNdFilterReq |
-| 12032 | `CMD_CAMERA_WIDE_SET_RTSP_BITRATE_TYPE` | request | WsSetRtspBitrateReq |
-| 12035 | `CMD_CAMERA_WIDE_SET_WB_SCENE` | request | WsSetWBSceneReq |
-| 12031 | `CMD_CAMERA_WIDE_STOP_RECORD` | request | WsStopRecordReq |
-| 12026 | `CMD_CAMERA_WIDE_STOP_TIMELAPSE_PHOTO` | request | WsStopTLRecordReq |
-| 15006 | `CMD_FOCUS_AUTO_INFINITY_FOCUS` | request | — |
-| 15033 | `CMD_GUIDE_FOCUS_AUTO_INFINITY_FOCUS` | request | — |
-| 15032 | `CMD_GUIDE_FOCUS_START_ASTRO_AUTO_FOCUS` | request | WsAstroAutoFocusReq |
-| 15034 | `CMD_GUIDE_FOCUS_STOP_ASTRO_AUTO_FOCUS` | request | WsStopAstroAutoFocusReq |
-| 15245 | `CMD_NOTIFY_PANORAMA_UPLOAD_UPLOAD_PROGRESS` | notification | — |
-| 15297 | `CMD_NOTIFY_PANO_FRAMING_RECT_UPDATE` | notification | NotifyPanoFramingRectUpdate (NotifyProto.PanoFramingRectUpdateNotify) |
-| 15299 | `CMD_NOTIFY_PANO_FRAMING_STATE` | notification | NotifyPanoFramingState (NotifyProto.PanoFramingStateNotify) |
-| 15298 | `CMD_NOTIFY_PANO_FRAMING_THUMBNAIL_UPDATE` | notification | NotifyPanoFramingThumbnailUpdate (NotifyProto.PanoFramingThumbnailUpdateNotify) |
-| 15221 | `CMD_NOTIFY_RGB_STATE` | notification | NotifyRgbState (NotifyProto.ChargingState) |
-| 15231 | `CMD_NOTIFY_SENTRY_MODE_STATE` | notification | NotifySentryState (NotifyProto.SentryState) |
-| 15241 | `CMD_NOTIFY_TELE_LONG_EXP_PROGRESS` | notification | — |
-| 15243 | `CMD_NOTIFY_TEMPERATURE` | notification | NotifyTemperature (NotifyProto.Temperature) |
-| 15225 | `CMD_NOTIFY_TRACK_RESULT` | notification | — |
-| 15240 | `CMD_NOTIFY_UFO_MODE_STATE` | notification | — |
-| 15242 | `CMD_NOTIFY_WIDE_LONG_EXP_PROGRESS` | notification | — |
-| 15251 | `CMD_NOTIFY_WIDE_MULTI_TRACK_RESULT` | notification | — |
-| 15500 | `CMD_PANORAMA_START_GRID` | request | WsStartPanoramaGridReq |
-| 15503 | `CMD_PANORAMA_START_STITCH_UPLOAD` | request | WsStartPanoramaStitchUploadReq |
-| 15504 | `CMD_PANORAMA_STOP_STITCH_UPLOAD` | request | WsStopPanoramaStitchUploadReq |
-| 13505 | `CMD_RGB_POWER_REBOOT` | request | WsRestartReq |
-| 14803 | `CMD_SENTRY_MODE_STOP` | request | WsStopSentryModeReq |
-| 14811 | `CMD_SENTRY_SCENE_SELECT` | request | — |
-| 13005 | `CMD_SYSTEM_GET_DEVICE_ACTIVATE_INFO` | request | — |
-| 13009 | `CMD_SYSTEM_SET_LOW_TEMP_PROTECTION_MODE` | request | — |
-| 13000 | `CMD_SYSTEM_SET_TIME` | request | WsSetTimeReq |
-| 15014 | `CMD_WIDE_FOCUS_AUTO_FOCUS` | request | WsNormalAutoFocusReq |
-| 15017 | `CMD_WIDE_FOCUS_STOP_MANUAL_CONTINU_FOCUS` | request | WsStopManualContinuousFocusReq |
 
-## Response and error codes (123)
+## Response and error codes (137)
 
 | Code | Name |
 |---:|---|
@@ -472,26 +472,40 @@ Generated from the decompiled `WsCmd` and `WsRespCode` registries. Registration 
 | -14902 | `CODE_TRACK_SENTRY_MODE_INITING` |
 | -14903 | `CODE_TRACK_SENTRY_MODE_FAILED` |
 | -14904 | `CODE_UFOTRACK_MODE_INITING` |
+| -14905 | `CODE_UFOTRACK_MODE_FAILED` |
 | -14906 | `CODE_UFO_DAY_AUTO_MODE` |
 | -15100 | `CODE_FOCUS_ASTRO_AUTO_FOCUS_SLOW_ERROR` |
 | -15101 | `CODE_FOCUS_ASTRO_AUTO_FOCUS_FAST_ERROR` |
 | -15106 | `CODE_FOCUS_EXP_TOO_LONG` |
+| -15107 | `CODE_FOCUS_INFINITY_POS_ERROR` |
+| -15108 | `CODE_FOCUS_GET_NOW_POS_FAILED` |
+| -15600 | `CODE_PANORAMA_PHOTO_FAILED` |
 | -15601 | `CODE_PANORAMA_MOTOR_RESET_FAILED` |
 | -15602 | `CODE_PANORAMA_UPLOAD_USER_STOP` |
 | -15603 | `CODE_PANORAMA_UPLOAD_FILE_CHECK_FAILED` |
 | -15604 | `CODE_PANORAMA_UPLOAD_COMPRESS_FAILED` |
 | -15605 | `CODE_PANORAMA_UPLOAD_UPLOAD_FAILED` |
+| -15606 | `CODE_PANORAMA_UPLOAD_NOT_EXIST` |
 | -15607 | `CODE_PANORAMA_UPLOAD_IS_RUNNING` |
 | -15608 | `CODE_PANORAMA_UPLOAD_CAMERA_BUSY` |
 | -15609 | `CODE_PANORAMA_UPLOAD_NOT_IN_STA` |
+| -15612 | `CODE_PANORAMA_COMPRESSION_IS_RUNNING` |
 | -15615 | `CODE_PANORAMA_COMPOSE_IS_RUNNING` |
+| -15614 | `CODE_PANORAMA_COMPOSE_IS_IDEL` |
 | -16300 | `CODE_SHOOTING_SCHEDULE_DEVICE_ID_NOT_MATCH` |
 | -16301 | `CODE_SHOOTING_SCHEDULE_INVALID_SHOOTING_DURATION` |
 | -16302 | `CODE_SHOOTING_SCHEDULE_TIME_CONFLICT` |
+| -16303 | `CODE_SHOOTING_SCHEDULE_INVALID_TASK_DURATION` |
 | -16305 | `CODE_SHOOTING_SCHEDULE_DATABASE_OPERATION_FAILED` |
 | -16306 | `CODE_SHOOTING_SCHEDULE_PASSWORD_ERROR` |
+| -16307 | `CODE_SHOOTING_SCHEDULE_SHOOTING` |
+| -16308 | `CODE_SHOOTING_SCHEDULE_START_TIME_TOO_FAR` |
+| -16309 | `CODE_SHOOTING_SCHEDULE_DEVICE_BUSY` |
 | -16310 | `CODE_SHOOTING_SCHEDULE_INTERRUPTED` |
 | -16311 | `CODE_SHOOTING_SCHEDULE_NOT_SYNCED` |
+| -16312 | `CODE_SHOOTING_SCHEDULE_TASK_TIME_TOO_SHORT` |
+| -16313 | `CODE_SHOOTING_SCHEDULE_TASK_EXPIRED` |
+| -16600 | `CODE_GLOBAL_TASK_MANAGER_BUSY` |
 
 ## HTTP operations (50)
 
@@ -523,32 +537,32 @@ Device-local and DWARFLAB cloud interfaces are separated by scope. Cloud registr
 | device | `GET` | `update` | `updateFirmware` | — |
 | device | `POST` | `uploadFirmware` | `uploadFirmware` | — |
 | device | `POST` | `uploadFirmwareDiff` | `uploadFirmwareDiff` | — |
-| cloud | `POST` | `/api-front/v1/user/userinfo` | `a` | — |
-| cloud | `POST` | `/api-front/v1/user/deactivate` | `b` | — |
-| cloud | `GET` | `/api-front/v1/system/server-info` | `c` | — |
-| cloud | `POST` | `/api-front/v1/user/avatar` | `d` | — |
-| cloud | `GET` | `/api-front/v1/sn/status` | `e` | — |
-| cloud | `GET` | `/api-front/v1/version/app/up-version` | `f` | — |
-| cloud | `GET` | `/api-front/v1/sn/status` | `g` | — |
-| cloud | `GET` | `/api-front/v1/user/userinfo` | `h` | — |
-| cloud | `POST` | `/api-front/v1/stitch-process/export` | `i` | — |
-| cloud | `POST` | `/api-front/v1/auth/refresh-token` | `j` | — |
-| cloud | `POST` | `/api-front/v1/user/subscribe-email` | `k` | — |
-| cloud | `POST` | `/api-front/v1/user/userinfo` | `l` | — |
-| cloud | `GET` | `<dynamic-url>` | `m` | — |
-| cloud | `GET` | `/api-front/v1/gpt/watermark-text` | `n` | — |
-| cloud | `POST` | `/api-front/v1/sn/activate/code` | `o` | ServerRequest |
-| cloud | `POST` | `/api-front/v1/stitch-process/adjust-color-params` | `p` | — |
-| cloud | `POST` | `/api-front/v1/auth/password` | `q` | — |
-| cloud | `POST` | `/api-front/v1/auth/register` | `r` | — |
-| cloud | `POST` | `/api-front/v1/sn/activate/notify` | `s` | ServerRequest |
-| cloud | `GET` | `/api-front/v1/version/star/up-version` | `t` | — |
-| cloud | `GET` | `/api-front/v1/stitch-process/detail/{processId}` | `u` | — |
-| cloud | `GET` | `/api-front/v1/version/app/up-version` | `v` | — |
-| cloud | `POST` | `/api-front/v1/user/bind-identifier` | `w` | — |
-| cloud | `GET` | `/api-front/v1/version/firmware/up-version-ex` | `x` | — |
-| cloud-log-analysis | `GET` | `v1/ai/analysis/tasks` | `a` | — |
-| cloud-log-analysis | `GET` | `v1/ai/analysis/tasks/{taskId}` | `b` | — |
+| cloud | `POST` | `/api-front/v1/user/userinfo` | `m9275a` | — |
+| cloud | `POST` | `/api-front/v1/user/deactivate` | `m9276b` | — |
+| cloud | `GET` | `/api-front/v1/system/server-info` | `m9277c` | — |
+| cloud | `POST` | `/api-front/v1/user/avatar` | `m9278d` | — |
+| cloud | `GET` | `/api-front/v1/sn/status` | `m9279e` | — |
+| cloud | `GET` | `/api-front/v1/version/app/up-version` | `m9280f` | — |
+| cloud | `GET` | `/api-front/v1/sn/status` | `m9281g` | — |
+| cloud | `GET` | `/api-front/v1/user/userinfo` | `m9282h` | — |
+| cloud | `POST` | `/api-front/v1/stitch-process/export` | `m9283i` | — |
+| cloud | `POST` | `/api-front/v1/auth/refresh-token` | `m9284j` | — |
+| cloud | `POST` | `/api-front/v1/user/subscribe-email` | `m9285k` | — |
+| cloud | `POST` | `/api-front/v1/user/userinfo` | `m9286l` | — |
+| cloud | `GET` | `<dynamic-url>` | `m9287m` | — |
+| cloud | `GET` | `/api-front/v1/gpt/watermark-text` | `m9288n` | — |
+| cloud | `POST` | `/api-front/v1/sn/activate/code` | `m9289o` | ServerRequest |
+| cloud | `POST` | `/api-front/v1/stitch-process/adjust-color-params` | `m9290p` | — |
+| cloud | `POST` | `/api-front/v1/auth/password` | `m9291q` | — |
+| cloud | `POST` | `/api-front/v1/auth/register` | `m9292r` | — |
+| cloud | `POST` | `/api-front/v1/sn/activate/notify` | `m9293s` | ServerRequest |
+| cloud | `GET` | `/api-front/v1/version/star/up-version` | `m9294t` | — |
+| cloud | `GET` | `/api-front/v1/stitch-process/detail/{processId}` | `m9295u` | — |
+| cloud | `GET` | `/api-front/v1/version/app/up-version` | `m9296v` | — |
+| cloud | `POST` | `/api-front/v1/user/bind-identifier` | `m9297w` | — |
+| cloud | `GET` | `/api-front/v1/version/firmware/up-version-ex` | `m9298x` | — |
+| cloud-log-analysis | `GET` | `v1/ai/analysis/tasks` | `m9273a` | — |
+| cloud-log-analysis | `GET` | `v1/ai/analysis/tasks/{taskId}` | `m9274b` | — |
 
 ## BLE provisioning commands (8)
 

@@ -1,9 +1,9 @@
 {
   "apkVersion": "3.4.1",
   "websocketCommands": 356,
-  "documentedRequestPayloads": 191,
+  "documentedRequestPayloads": 195,
   "documentedNotificationPayloads": 72,
-  "responseCodes": 123,
+  "responseCodes": 137,
   "deviceHttpOperations": 24,
   "cloudHttpOperations": 26,
   "bleCommands": 8,

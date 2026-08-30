@@ -1,7 +1,7 @@
 # Device API inventory
 
 The machine-readable [api-inventory.json](api-inventory.json) contains all 356
-WebSocket commands, all 123 response/error codes, 50 Retrofit HTTP operations,
+WebSocket commands, all 137 response/error codes, 50 Retrofit HTTP operations,
 11 HTTP request models, eight BLE commands, and eight BLE UUIDs recovered from
 the APK. It preserves declarations, literal or symbolic values, direction,
 directly traceable request protobufs, notification payload handlers, and source
@@ -9,13 +9,16 @@ lines. It is generated with:
 
 ```text
 uv run python scripts/extract_apk_api_inventory.py \
-  build/apk-audit-3.4.1/decompiled/sources \
+  build/reverse-engineering/apk/DWARFLAB_3.4.1_apkcube/jadx/sources \
   docs/apk-analysis/api-inventory.json \
   --markdown-output docs/apk-analysis/websocket-code-registry.md
 ```
 
 Registration does not prove support on every model. The following table is the
 human-oriented subset relevant to dwarfAlp and the current Mini investigation.
+The generated registry also retains all 57 requests without a directly
+traceable wrapper and all 46 notification declarations without a typed handler;
+they remain named unknowns rather than receiving guessed payload schemas.
 
 | Operation | Model | Transport | Endpoint/command | Request | Response/notification | Trigger | Evidence | Confidence |
 |---|---|---|---|---|---|---|---|---|

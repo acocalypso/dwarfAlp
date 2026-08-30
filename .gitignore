@@ -33,3 +33,7 @@ firmware-analysis/ghidra-projects/
 # Original vendor firmware may contain embedded network credentials and is
 # retained locally only. Commit hashes, inventories, and redacted metadata.
 firmware/*.zip
+
+# Keep model-specific DRACO reverse-engineering notes local until they are
+# intentionally reviewed and published.
+docs/apk-analysis/DRACO_LOCAL.md

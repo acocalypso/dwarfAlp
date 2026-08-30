@@ -16,7 +16,7 @@ The investigation confirms that Mini Deep Sky filters are Astro and Duo-Band,
 selected in capture command 11005, while Dark belongs to the separate
 11045/11046 calibration workflow. It also recovers calibration state/progress
 commands 15290/15291 and their schemas. Production dark capture remains
-disabled until image delivery is verified. A reproducible 314-command APK
+disabled until image delivery is verified. A reproducible 356-command APK
 inventory and evidence-indexed architecture/transport/workflow documentation
 were added. Both Python and JavaScript API protobuf definitions now contain the
 new notification schemas.
@@ -99,7 +99,7 @@ packaging.
 | File/group | Previous behavior | New behavior | Evidence/tests |
 |---|---|---|---|
 | `docs/apk-analysis/*` | findings scattered across audit/probe notes | structured architecture, transports, workflows, compatibility, evidence and unknowns | APK 3.4.1 + captures |
-| `api-inventory.json` and extractor | manual command lists | reproducible 314-command registry with raw symbolic expressions preserved | extractor unit test |
+| `api-inventory.json` and extractor | manual command lists | reproducible 356-command and 137-response-code registry with raw symbolic expressions preserved | extractor unit test |
 | Python `protocol.proto` / `v3_notify.proto` | no 15290/15291 definitions | exact state/progress IDs and three-field messages | APK embedded descriptor; protocol tests |
 | generated Python bindings / `.gitignore` | ignored, stale and absent from clean package source | exact generated modules are versioned and checked | generation check and wheel build |
 | nested dwarfii_api protocol, mappings and docs | no calibration notification decoding | enums, schemas, decoder/text mappings and generated output | Node fixture decode + typecheck |

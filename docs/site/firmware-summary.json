@@ -41,6 +41,13 @@
       "rtsp": 554
     },
     "fitsListMethod": "POST",
+    "bilboProgramInventory": {
+      "functions": 13306,
+      "imports": 1108,
+      "definedStrings": 8544,
+      "callEdges": 115098,
+      "memoryBlocks": 32
+    },
     "innerUpdateIntegrity": "manifest-provided per-file MD5",
     "outerUpdateAuthentication": "unresolved",
     "rsaVerifierObservedScope": "cloud activation messages"

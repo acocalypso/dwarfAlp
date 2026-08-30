@@ -16,7 +16,7 @@ method bodies are copied here.
 | EV-CAP-01 | `WsStartCaptureRawLiveStackingReq.java:57`; Mini capture | `ir_index` and `force_start`; Astro=1, Duo=2 | Mini 1.1.3 build 2 | app code and hardware traffic |
 | EV-CAP-02 | `WsCmd.java:130-136`; raw Mini survey | 11040/11041 params; 11043 calibration-list ambiguity | Mini 1.1.3 build 2 | mixed; individual claims labelled |
 | EV-CAP-03 | `WsStartCaptureCaliFrameReq.java:73`; `WsCmd.java:135-136,347-348` | 11045/11046 and 15290/15291 calibration workflow | newer/Mini | confirmed in app code |
-| EV-PARAM-01 | `assets/params_range.json`; `DeviceType.java` | complete exposure-code table and model/camera-specific ranges; IDs D2=1, D3=2, Mini=4, DRACO=6 | app 3.4.1 | confirmed in app resource/code |
+| EV-PARAM-01 | `assets/params_range.json`; `DeviceType.java` | complete exposure-code table and model/camera-specific ranges for published devices; IDs D2=1, D3=2, Mini=4 | app 3.4.1 | confirmed in app resource/code |
 | EV-PARAM-02 | `FilterType.java`; `assets/params_range.json` | VIS=0, Astro=1, Duo-Band=2, Dark=3; normal choices differ by model | app 3.4.1 | confirmed in app resource/code; physical wheel positions unresolved |
 | EV-CAP-04 | `WsStartCaptureRawLiveStackingReq.java`; `WsStartCaptureCaliFrameReq.java` | live-stacking start serializes filter/force-start only; calibration start carries all frame parameters | shared V3 workflow | confirmed in app code |
 | EV-CAL-01 | `WsStartCalibrationReq.java:21-48`; `CaptureActivity.java:2597-2623,4629-4652`; `CaptureViewModel.java:8385-8391`; `AstroProto.java:38` | 11000 requires current longitude field 1 and latitude field 2; app blocks missing/(0,0) location | shared V3 workflow | confirmed in app code |

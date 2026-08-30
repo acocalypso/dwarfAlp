@@ -13,6 +13,7 @@ from websockets.exceptions import ConnectionClosedOK
 from websockets.protocol import State
 
 from ..proto.base_pb2 import ComResponse, WsPacket
+from ..proto.protocol_pb2 import DwarfErrorCode
 
 TYPE_REQUEST = 0
 TYPE_REQUEST_RESPONSE = 1
@@ -358,10 +359,17 @@ class DwarfCommandError(RuntimeError):
     """Raised when DWARF returns a non-zero error code."""
 
     def __init__(self, module_id: int, command_id: int, code: int) -> None:
-        super().__init__(f"DWARF command {module_id}:{command_id} failed with code {code}")
+        try:
+            code_name = DwarfErrorCode.Name(code)
+        except ValueError:
+            code_name = "UNKNOWN_ERROR"
+        super().__init__(
+            f"DWARF command {module_id}:{command_id} failed with code {code} ({code_name})"
+        )
         self.module_id = module_id
         self.command_id = command_id
         self.code = code
+        self.code_name = code_name
 
 
 async def send_and_check(

@@ -13,7 +13,6 @@ enums. They are not inferred from the numeric spacing.
 | DWARF 3 | 2 |
 | DWARF Mini | 4 |
 | DWARF 4 | 5 |
-| DRACO | 6 |
 
 DWARF 4 is present in the enum but has no entry in this APK's camera-parameter
 resource. Camera ID 0 is tele and camera ID 1 is wide.
@@ -55,7 +54,6 @@ The app-advertised normal ranges are:
 | DWARF 2 | 1–15 s | 1/10000–1 s | tele 15 s, wide 1 s |
 | DWARF 3 | 1–120 s | 1–90 s | 15 s |
 | DWARF Mini | 1–180 s | 1–30 s | 15 s |
-| DRACO | 1–300 s | 1–90 s | 15 s |
 
 The resource contains separate dark-frame ranges. Those ranges are device and
 camera specific and must not be treated as proof that every value is valid for
@@ -73,7 +71,7 @@ a normal light capture on every firmware version.
 | 3 | `DARK` | internal dark/calibration position |
 
 Normal tele-camera choices exposed by the APK are DWARF 2 `[VIS, ASTRO]`,
-DWARF 3 `[VIS, ASTRO, DUO_BAND]`, and Mini/DRACO `[ASTRO, DUO_BAND]`. Dark is
+DWARF 3 `[VIS, ASTRO, DUO_BAND]`, and Mini `[ASTRO, DUO_BAND]`. Dark is
 not a normal UI choice. The calibration-frame request explicitly carries
 `DARK=3`; this proves the protocol value but not its physical wheel index.
 In particular, the two DWARF 2 protocol choices do not imply that DWARF 2 has

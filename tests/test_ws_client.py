@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from dwarf_alpaca.dwarf.ws_client import DwarfWsClient
+from dwarf_alpaca.dwarf.ws_client import DwarfCommandError, DwarfWsClient
 from dwarf_alpaca.proto import protocol_pb2
 from dwarf_alpaca.proto.dwarf_messages import (
     TYPE_NOTIFICATION,
@@ -33,6 +33,20 @@ def test_ws_client_connected_handles_missing_closed():
 
     dummy_conn.close_code = 1000
     assert client.connected is False
+
+
+def test_command_error_includes_known_protocol_name():
+    error = DwarfCommandError(15, 11000, protocol_pb2.CODE_GLOBAL_TASK_MANAGER_BUSY)
+
+    assert error.code_name == "CODE_GLOBAL_TASK_MANAGER_BUSY"
+    assert "-16600 (CODE_GLOBAL_TASK_MANAGER_BUSY)" in str(error)
+
+
+def test_command_error_labels_unknown_protocol_code():
+    error = DwarfCommandError(15, 11000, -99999)
+
+    assert error.code_name == "UNKNOWN_ERROR"
+    assert "-99999 (UNKNOWN_ERROR)" in str(error)
 
 
 class DummyConnection:

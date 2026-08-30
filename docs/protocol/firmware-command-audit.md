@@ -65,9 +65,9 @@ Status counts: `{"CORRECT": 238, "DEPRECATED_ALIAS": 44, "UNKNOWN": 6}`
 
 ## Response/error codes
 
-Current codes: **124**. APK codes: **123**.
+Current codes: **138**. APK codes: **137**.
 
-Status counts: `{"CORRECT": 123, "DEPRECATED_ALIAS": 1}`
+Status counts: `{"CORRECT": 137, "DEPRECATED_ALIAS": 1}`
 
 | Current name | Code | Status | APK evidence at that code |
 |---|---:|---|---|

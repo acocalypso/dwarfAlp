@@ -26,6 +26,15 @@
   uses DELETE.
 - Confirmed `bilbo` bind constants for the WebSocket (9900), HTTP API (8082),
   JPEG service (8092), and RTSP service (554).
+- Repaired the APK extractor for current JADX enum syntax and package-directory
+  prefixes. The complete registry is 356 commands and 137 response codes; 14
+  previously missed error states were added to the canonical protocol.
+- Added a whole-program Ghidra inventory of functions, imports, memory blocks,
+  strings/xrefs, and call edges, complementing the targeted and near-full
+  decompilation attempts without publishing vendor method bodies.
+- Consolidated `bilbo` startup, services, persistence, calibration/tracking,
+  capture/FITS, and updater architecture in `17-bilbo-internals.md`.
+- Moved DRACO-specific observations to an explicitly ignored local-only note.
 
 ## 2026-08-26
 
@@ -51,8 +60,6 @@
 
 ## Deferred
 
-- Ghidra call-graph/decompilation of port binding and signature scope: useful but
-  not required for the verified integration and not installed without approval.
-- Dynamic/QEMU analysis: unjustified for this package at present because exact
-  descriptors and configs answered the high-value safe questions; dependencies
-  and side effects are extensive.
+- Dynamic/QEMU analysis remains unjustified: exact descriptors, full static
+  inventories, and targeted decompilation answer the high-value interoperability
+  questions without executing a privileged hardware-control service.

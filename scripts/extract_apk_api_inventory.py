@@ -9,6 +9,10 @@ COMMAND_RE = re.compile(
     r'public static final WsCmd (?P<name>CMD_[A-Z0-9_]+) = '
     r'new WsCmd\("(?P=name)",\s*(?P<ordinal>[^,]+),\s*(?P<value>[^;]+)\);'
 )
+COMMAND_ENUM_RE = re.compile(
+    r"^\s*(?P<name>CMD_[A-Z0-9_]+)\((?P<value>[^)]+)\)[,;]?\s*$",
+    re.MULTILINE,
+)
 CLASS_RE = re.compile(r"public (?:final |abstract )?class (?P<name>[A-Za-z0-9_$]+)")
 CMD_REF_RE = re.compile(r"WsCmd\.(?P<name>CMD_[A-Z0-9_]+)")
 MESSAGE_RE = re.compile(r"(?P<name>[A-Za-z0-9_]+Proto\.[A-Za-z0-9_]+)\.newBuilder\(")
@@ -18,6 +22,10 @@ RESPONSE_CLASS_RE = re.compile(
 RESPONSE_CODE_RE = re.compile(
     r'public static final WsRespCode (?P<name>[A-Z0-9_]+) = '
     r'new WsRespCode\("(?P=name)",\s*(?P<ordinal>\d+),\s*(?P<value>-?\d+)\);'
+)
+RESPONSE_CODE_ENUM_RE = re.compile(
+    r"^\s*(?P<name>(?:WS_|CODE_)[A-Z0-9_]+)\((?P<value>-?\d+)\)[,;]?\s*$",
+    re.MULTILINE,
 )
 HTTP_ANNOTATION_RE = re.compile(
     r'@(?P<method>GET|POST|PUT|DELETE|PATCH)\s*(?:\(\s*"(?P<path>[^"]*)"\s*\))?'
@@ -37,6 +45,7 @@ NOTIFICATION_HANDLER_RE = re.compile(
     r"super\(WsCmd\.(?P<cmd>CMD_[A-Z0-9_]+),\s*null\);",
     re.DOTALL,
 )
+JADX_PACKAGE_PREFIX_RE = re.compile(r"/p\d+(?=[A-Za-z])")
 
 KNOWN_CONSTANT_VALUES = {
     # R8/JADX substituted this unrelated library constant for the literal.
@@ -55,6 +64,47 @@ KNOWN_CONSTANT_VALUES = {
 }
 
 
+def _logical_relative(path: Path, source_root: Path) -> str:
+    """Return a stable source path across JADX's generated pNNN package names."""
+    relative = path.relative_to(source_root).as_posix()
+    return JADX_PACKAGE_PREFIX_RE.sub("/", relative)
+
+
+def _find_java_source(source_root: Path, logical_path: str) -> Path:
+    direct = source_root / logical_path
+    if direct.exists():
+        return direct
+    matches = [
+        path
+        for path in source_root.rglob(Path(logical_path).name)
+        if _logical_relative(path, source_root).endswith(logical_path)
+    ]
+    if len(matches) != 1:
+        raise FileNotFoundError(
+            f"expected one JADX source for {logical_path}, found {len(matches)}"
+        )
+    return matches[0]
+
+
+def _find_java_directory(source_root: Path, logical_path: str) -> Path:
+    direct = source_root / logical_path
+    if direct.is_dir():
+        return direct
+    matches = [
+        path
+        for path in source_root.rglob(Path(logical_path).name)
+        if path.is_dir()
+        and JADX_PACKAGE_PREFIX_RE.sub(
+            "/", path.relative_to(source_root).as_posix()
+        ).endswith(logical_path)
+    ]
+    if len(matches) != 1:
+        raise FileNotFoundError(
+            f"expected one JADX directory for {logical_path}, found {len(matches)}"
+        )
+    return matches[0]
+
+
 def _extract_http_endpoints(source_root: Path) -> list[dict[str, object]]:
     api_sources = [
         ("device", "com/convergence/dwarflab/data/http/Api.java"),
@@ -63,8 +113,9 @@ def _extract_http_endpoints(source_root: Path) -> list[dict[str, object]]:
     ]
     endpoints: list[dict[str, object]] = []
     for scope, relative in api_sources:
-        path = source_root / relative
-        if not path.exists():
+        try:
+            path = _find_java_source(source_root, relative)
+        except FileNotFoundError:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         pending: dict[str, object] | None = None
@@ -113,7 +164,12 @@ def _extract_http_endpoints(source_root: Path) -> list[dict[str, object]]:
 
 
 def _extract_http_models(source_root: Path) -> list[dict[str, object]]:
-    model_dir = source_root / "com/convergence/dwarflab/data/http/request"
+    try:
+        model_dir = _find_java_directory(
+            source_root, "com/convergence/dwarflab/data/http/request"
+        )
+    except FileNotFoundError:
+        return []
     models: list[dict[str, object]] = []
     for path in sorted(model_dir.glob("*.java")):
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -126,14 +182,15 @@ def _extract_http_models(source_root: Path) -> list[dict[str, object]]:
                 {
                     "name": path.stem,
                     "fields": fields,
-                    "evidence": path.relative_to(source_root).as_posix(),
+                    "evidence": _logical_relative(path, source_root),
                 }
             )
     return models
 
 
 def _extract_ble_registry(source_root: Path) -> dict[str, object]:
-    uuid_path = source_root / "defpackage/tn1.java"
+    uuid_candidates = list(source_root.rglob("tn1.java"))
+    uuid_path = uuid_candidates[0] if len(uuid_candidates) == 1 else source_root / "defpackage/tn1.java"
     uuid_text = (
         uuid_path.read_text(encoding="utf-8", errors="replace")
         if uuid_path.exists()
@@ -143,7 +200,7 @@ def _extract_ble_registry(source_root: Path) -> dict[str, object]:
         {
             "uuid": match.group("uuid").upper(),
             "evidence": {
-                "source": uuid_path.relative_to(source_root).as_posix(),
+                "source": _logical_relative(uuid_path, source_root),
                 "line": _line_number(uuid_text, match.start()),
             },
         }
@@ -172,15 +229,8 @@ def _line_number(text: str, offset: int) -> int:
 
 def extract_inventory(source_root: Path) -> dict[str, object]:
     """Extract an evidence-preserving command inventory from JADX Java output."""
-    command_path = (
-        source_root
-        / "com"
-        / "convergence"
-        / "dwarflab"
-        / "data"
-        / "bean"
-        / "ws"
-        / "WsCmd.java"
+    command_path = _find_java_source(
+        source_root, "com/convergence/dwarflab/data/bean/ws/WsCmd.java"
     )
     request_dir = command_path.parent / "request"
     command_text = command_path.read_text(encoding="utf-8", errors="replace")
@@ -208,8 +258,14 @@ def extract_inventory(source_root: Path) -> dict[str, object]:
         )
 
     commands: dict[str, dict[str, object]] = {}
-    for match in COMMAND_RE.finditer(command_text):
-        raw_ordinal = match.group("ordinal").strip()
+    command_matches = list(COMMAND_RE.finditer(command_text))
+    enum_syntax = not command_matches
+    if enum_syntax:
+        command_matches = list(COMMAND_ENUM_RE.finditer(command_text))
+    for enum_ordinal, match in enumerate(command_matches):
+        raw_ordinal = (
+            str(enum_ordinal) if enum_syntax else match.group("ordinal").strip()
+        )
         raw_value = match.group("value").strip()
         commands[match.group("name")] = {
             "name": match.group("name"),
@@ -230,7 +286,7 @@ def extract_inventory(source_root: Path) -> dict[str, object]:
             "request_wrappers": [],
             "evidence": [
                 {
-                    "source": command_path.relative_to(source_root).as_posix(),
+                    "source": _logical_relative(command_path, source_root),
                     "line": _line_number(command_text, match.start()),
                     "kind": "APK enum declaration",
                 }
@@ -258,7 +314,7 @@ def extract_inventory(source_root: Path) -> dict[str, object]:
             "response_messages": sorted(responses),
             "response_evidence": response_evidence,
             "evidence": {
-                "source": request_path.relative_to(source_root).as_posix(),
+                "source": _logical_relative(request_path, source_root),
             },
         }
         for cmd_match in cmd_matches:
@@ -277,8 +333,14 @@ def extract_inventory(source_root: Path) -> dict[str, object]:
             if command_wrapper not in request_wrappers:
                 request_wrappers.append(command_wrapper)
 
-    websocket_dir = source_root / "com/convergence/dwarflab/data/websocket"
-    for handler_path in sorted(websocket_dir.rglob("*.java")):
+    try:
+        websocket_dir = _find_java_directory(
+            source_root, "com/convergence/dwarflab/data/websocket"
+        )
+        handler_paths = sorted(websocket_dir.rglob("*.java"))
+    except FileNotFoundError:
+        handler_paths = []
+    for handler_path in handler_paths:
         text = handler_path.read_text(encoding="utf-8", errors="replace")
         for match in NOTIFICATION_HANDLER_RE.finditer(text):
             command = commands.get(match.group("cmd"))
@@ -290,7 +352,7 @@ def extract_inventory(source_root: Path) -> dict[str, object]:
                 "class": match.group("class"),
                 "protobuf_message": match.group("message"),
                 "evidence": {
-                    "source": handler_path.relative_to(source_root).as_posix(),
+                    "source": _logical_relative(handler_path, source_root),
                     "line": _line_number(text, match.start()),
                 },
             }
@@ -299,18 +361,26 @@ def extract_inventory(source_root: Path) -> dict[str, object]:
 
     response_path = command_path.with_name("WsRespCode.java")
     response_text = response_path.read_text(encoding="utf-8", errors="replace")
+    response_matches = list(RESPONSE_CODE_RE.finditer(response_text))
+    response_enum_syntax = not response_matches
+    if response_enum_syntax:
+        response_matches = list(RESPONSE_CODE_ENUM_RE.finditer(response_text))
     response_codes = [
         {
             "name": match.group("name"),
-            "ordinal": int(match.group("ordinal")),
+            "ordinal": (
+                enum_ordinal
+                if response_enum_syntax
+                else int(match.group("ordinal"))
+            ),
             "code": int(match.group("value")),
             "evidence": {
-                "source": response_path.relative_to(source_root).as_posix(),
+                "source": _logical_relative(response_path, source_root),
                 "line": _line_number(response_text, match.start()),
             },
             "confidence": "confirmed in app code",
         }
-        for match in RESPONSE_CODE_RE.finditer(response_text)
+        for enum_ordinal, match in enumerate(response_matches)
     ]
 
     return {

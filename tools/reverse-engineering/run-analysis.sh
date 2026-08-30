@@ -12,6 +12,7 @@ Usage:
   run-analysis.sh firmware [FIRMWARE_ZIP] [OUTPUT_NAME]
   run-analysis.sh decompile ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS]
   run-analysis.sh triage ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS]
+  run-analysis.sh inventory ELF_FILE [OUTPUT_NAME] [TIMEOUT_SECONDS]
   run-analysis.sh all [APKS_FILE] [FIRMWARE_ZIP]
 
 Inputs below /input are mounted read-only. All generated output is written below
@@ -196,6 +197,32 @@ triage_elf() {
     printf 'Ghidra keyword triage written to %s\n' "$output"
 }
 
+inventory_elf() {
+    local binary="${1:-}"
+    [[ -n "$binary" ]] || fail 'inventory requires an ELF path'
+    local name="${2:-$(safe_name "$binary")-inventory}"
+    local timeout="${3:-1800}"
+    require_file "$binary"
+    file -b "$binary" | grep -q '^ELF ' || fail "not an ELF file: $binary"
+    [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "timeout must be a positive integer"
+
+    local output="$OUTPUT_ROOT/ghidra/$name"
+    fresh_output "$output"
+    mkdir "$output/project" "$output/inventory"
+    write_hash "$binary" "$output/source.sha256"
+    file -b "$binary" > "$output/source.file"
+
+    analyzeHeadless "$output/project" project \
+        -import "$binary" \
+        -overwrite \
+        -analysisTimeoutPerFile "$timeout" \
+        -scriptPath "$SCRIPT_DIR/ghidra_scripts" \
+        -postScript ExportProgramInventory.java "$output/inventory" \
+        -deleteProject \
+        2>&1 | tee "$output/ghidra.log"
+    printf 'Ghidra program inventory written to %s\n' "$output"
+}
+
 case "${1:-help}" in
     versions)
         show_versions
@@ -211,6 +238,9 @@ case "${1:-help}" in
         ;;
     triage)
         triage_elf "${2:-}" "${3:-}" "${4:-1800}"
+        ;;
+    inventory)
+        inventory_elf "${2:-}" "${3:-}" "${4:-1800}"
         ;;
     all)
         analyze_apk "${2:-}" ""
