@@ -1,0 +1,621 @@
+{
+  "retrieved_at": "2026-10-18T10:01:35.135236+00:00",
+  "api_url": "https://api-front.dwarflabapp.com/api-front/v1/version/firmware/up-version-ex?deviceId=2&firmwareVer=1.5.3.9&appOs=1&appVer=3.4.3",
+  "api_response": {
+    "data": {
+      "id": null,
+      "createTime": "2026-09-16 16:55:40",
+      "updateTime": "2026-09-16 18:33:19",
+      "createTimestamp": 1789548940000,
+      "updateTimestamp": 1789554799000,
+      "version": "1.5.3.9",
+      "link": "https://global.dwarflabapp.com/dwarf-prod/system/fireware/version/2/dwarf3_upgrade_firmware_v1.5.3.9.zip",
+      "updateContent": "1. Added fixed foreground support for Milky Way imaging.\n2. Improved Milky Way timelapse imaging.\n3. Improved Sun and Moon timelapse imaging.\n4. Fixed an issue where single frames could not be previewed in Star Trails.",
+      "fileMd5": "13deb9f62c34b6d88ea9eed30b8ac725",
+      "fileName": "dwarf3_upgrade_firmware_v1.5.3.9.zip",
+      "fileSize": 90538283,
+      "fileSizeStr": "86.34MB",
+      "status": 1,
+      "bsdiffStatus": 3,
+      "updateFileType": 0,
+      "fileDiff": null,
+      "logMsg": null,
+      "deviceId": 2,
+      "majorVersion": 1,
+      "minorVersion": 5,
+      "patchVersion": 3,
+      "buildVersion": 9,
+      "md5": "13deb9f62c34b6d88ea9eed30b8ac725",
+      "firmwareType": 0,
+      "requireSysVersion": null,
+      "requireSysRollbackIndex": null,
+      "rollbackIndex": null,
+      "appMinRollbackIndex": null,
+      "domain": null,
+      "updateType": 0,
+      "submitType": 0,
+      "androidMinVer": "3.4.2",
+      "iosMinVer": "3.4.2",
+      "firmwareMinVer": "1.3.34",
+      "needDiff": 1,
+      "supportOldApi": 1
+    },
+    "code": 0,
+    "msg": "\u67e5\u8be2\u6210\u529f",
+    "serverInfo": {
+      "serverLocation": "Global-Prod",
+      "profileActive": "prod",
+      "region": "us"
+    }
+  },
+  "artifact": {
+    "filename": "dwarf3_upgrade_firmware_v1.5.3.9.zip",
+    "size": 90538283,
+    "md5": "13deb9f62c34b6d88ea9eed30b8ac725",
+    "sha256": "f56c8792cb0c0a2f63fb9d45da8a95278adf6bd63cb24b77968d826b138dc8b0",
+    "zip_crc_verified": true,
+    "members": [
+      {
+        "path": "lib/",
+        "size": 0
+      },
+      {
+        "path": "lib/libhv.so",
+        "size": 2917808
+      },
+      {
+        "path": "lib/update.json",
+        "size": 152
+      },
+      {
+        "path": "run.sh",
+        "size": 9889
+      },
+      {
+        "path": "mcu/",
+        "size": 0
+      },
+      {
+        "path": "mcu/motor.bin",
+        "size": 41324
+      },
+      {
+        "path": "mcu/update_rgb.json",
+        "size": 315
+      },
+      {
+        "path": "mcu/rgb.bin",
+        "size": 44889
+      },
+      {
+        "path": "mcu/update.json",
+        "size": 251
+      },
+      {
+        "path": "config/",
+        "size": 0
+      },
+      {
+        "path": "config/nginx.conf",
+        "size": 3156
+      },
+      {
+        "path": "config/vsftpd.conf",
+        "size": 4869
+      },
+      {
+        "path": "config/run.sh",
+        "size": 9889
+      },
+      {
+        "path": "config/dwarf3_config.json",
+        "size": 227
+      },
+      {
+        "path": "config/dnsmasq.conf",
+        "size": 224
+      },
+      {
+        "path": "config/udhcpd.conf",
+        "size": 539
+      },
+      {
+        "path": "config/config/",
+        "size": 0
+      },
+      {
+        "path": "config/config/astro_denoise.json",
+        "size": 276
+      },
+      {
+        "path": "config/config/skydetectsegment.json",
+        "size": 279
+      },
+      {
+        "path": "config/config/ufosegment_day.json",
+        "size": 271
+      },
+      {
+        "path": "config/config/lightfc_backbone.json",
+        "size": 294
+      },
+      {
+        "path": "config/config/autofocus_critic.json",
+        "size": 279
+      },
+      {
+        "path": "config/config/tele_scene_detect.json",
+        "size": 282
+      },
+      {
+        "path": "config/config/sharpness.json",
+        "size": 265
+      },
+      {
+        "path": "config/config/match_cnn.json",
+        "size": 265
+      },
+      {
+        "path": "config/config/autofocus_actor.json",
+        "size": 277
+      },
+      {
+        "path": "config/config/lightfc_search.json",
+        "size": 290
+      },
+      {
+        "path": "config/config/u2netp_milky_320.json",
+        "size": 241
+      },
+      {
+        "path": "config/config/yolov8s_30c.json",
+        "size": 2847
+      },
+      {
+        "path": "config/config/ufosegment.json",
+        "size": 267
+      },
+      {
+        "path": "config/config/yolov8s_2c.json",
+        "size": 687
+      },
+      {
+        "path": "config/config/salient_seg.json",
+        "size": 269
+      },
+      {
+        "path": "config/config/track_cnn.json",
+        "size": 265
+      },
+      {
+        "path": "config/config/wide_scene_detect.json",
+        "size": 282
+      },
+      {
+        "path": "config/config/bird.json",
+        "size": 380
+      },
+      {
+        "path": "config/arnn_model/",
+        "size": 0
+      },
+      {
+        "path": "config/arnn_model/sharpness.npubin",
+        "size": 43622
+      },
+      {
+        "path": "config/arnn_model/salient_seg.npubin",
+        "size": 4125068
+      },
+      {
+        "path": "config/arnn_model/WideSceneDetection.npubin",
+        "size": 3848406
+      },
+      {
+        "path": "config/arnn_model/astro_denoise.npubin",
+        "size": 5719412
+      },
+      {
+        "path": "config/arnn_model/lightfc_search_network_mobile.npubin",
+        "size": 3582636
+      },
+      {
+        "path": "config/arnn_model/Autofocus_Actor.npubin",
+        "size": 5323744
+      },
+      {
+        "path": "config/arnn_model/TeleSceneDetection.npubin",
+        "size": 3878062
+      },
+      {
+        "path": "config/arnn_model/tele_scene_detect.json",
+        "size": 282
+      },
+      {
+        "path": "config/arnn_model/skydetectsegment.npubin",
+        "size": 2227750
+      },
+      {
+        "path": "config/arnn_model/milky_seg.npubin",
+        "size": 5004252
+      },
+      {
+        "path": "config/arnn_model/ufosegment_day.npubin",
+        "size": 2310322
+      },
+      {
+        "path": "config/arnn_model/LFC_track.npubin",
+        "size": 4484264
+      },
+      {
+        "path": "config/arnn_model/match_cnn.npubin",
+        "size": 4423234
+      },
+      {
+        "path": "config/arnn_model/Autofocus_Critic.npubin",
+        "size": 3225978
+      },
+      {
+        "path": "config/arnn_model/yolov8s_30c.npubin",
+        "size": 11855664
+      },
+      {
+        "path": "config/arnn_model/lightfc_template_encoder_mobile.npubin",
+        "size": 911608
+      },
+      {
+        "path": "config/arnn_model/yolov8s_2c.npubin",
+        "size": 11836814
+      },
+      {
+        "path": "config/arnn_model/ufosegment.npubin",
+        "size": 2294386
+      },
+      {
+        "path": "config/arnn_model/wide_scene_detect.json",
+        "size": 282
+      },
+      {
+        "path": "config/factory/",
+        "size": 0
+      },
+      {
+        "path": "config/factory/fatigue_test.json",
+        "size": 987
+      },
+      {
+        "path": "config/factory/firmware_version.json",
+        "size": 94
+      },
+      {
+        "path": "config/PanoViewerService.wasm",
+        "size": 343153
+      },
+      {
+        "path": "config/usb_gadget_configfs.sh",
+        "size": 33206
+      },
+      {
+        "path": "config/default_params_configs.yaml",
+        "size": 67900
+      },
+      {
+        "path": "config/zlog.conf",
+        "size": 483
+      },
+      {
+        "path": "config/track_pid.json",
+        "size": 867
+      },
+      {
+        "path": "config/asset/",
+        "size": 0
+      },
+      {
+        "path": "config/asset/wasm/",
+        "size": 0
+      },
+      {
+        "path": "config/asset/wasm/pv/",
+        "size": 0
+      },
+      {
+        "path": "config/asset/wasm/pv/PanoViewerService.worker.wasm",
+        "size": 88037
+      },
+      {
+        "path": "config/asset/wasm/pv/PanoViewerService.wasm",
+        "size": 343153
+      },
+      {
+        "path": "config/asset/wasm/pv/PanoViewerService.worker.js",
+        "size": 29878
+      },
+      {
+        "path": "config/asset/wasm/pv/PanoViewerService.js",
+        "size": 106795
+      },
+      {
+        "path": "config/bcmdhd.ko",
+        "size": 2256752
+      },
+      {
+        "path": "config/update.json",
+        "size": 2171
+      },
+      {
+        "path": "bin/",
+        "size": 0
+      },
+      {
+        "path": "bin/imx307_tuning_preview_dwt_80.bin",
+        "size": 816776
+      },
+      {
+        "path": "bin/dpl_device_supervisor.sh",
+        "size": 12357
+      },
+      {
+        "path": "bin/magni",
+        "size": 12040176
+      },
+      {
+        "path": "bin/magni_upgrade",
+        "size": 400560
+      },
+      {
+        "path": "bin/moon.bin",
+        "size": 816776
+      },
+      {
+        "path": "bin/run.sh",
+        "size": 9889
+      },
+      {
+        "path": "bin/wcs-rd2xy",
+        "size": 3565216
+      },
+      {
+        "path": "bin/imx678_tuning_preview.bin",
+        "size": 816776
+      },
+      {
+        "path": "bin/wcs-xy2rd",
+        "size": 3564928
+      },
+      {
+        "path": "bin/wpa_cli",
+        "size": 417608
+      },
+      {
+        "path": "bin/plot-constellations",
+        "size": 3440272
+      },
+      {
+        "path": "bin/wpa_supplicant",
+        "size": 11841376
+      },
+      {
+        "path": "bin/wpa_passphrase",
+        "size": 355848
+      },
+      {
+        "path": "bin/magni_backend_monitoring",
+        "size": 92120
+      },
+      {
+        "path": "bin/iw",
+        "size": 1242448
+      },
+      {
+        "path": "bin/vsftpd",
+        "size": 127024
+      },
+      {
+        "path": "bin/backendMonitoring",
+        "size": 76560
+      },
+      {
+        "path": "bin/astrometry.cfg",
+        "size": 2507
+      },
+      {
+        "path": "bin/device_phonton_link",
+        "size": 5609528
+      },
+      {
+        "path": "bin/dnsmasq",
+        "size": 325680
+      },
+      {
+        "path": "bin/update.json",
+        "size": 2662
+      },
+      {
+        "path": "libs/",
+        "size": 0
+      },
+      {
+        "path": "libs/libnl-3.so.200",
+        "size": 529680
+      },
+      {
+        "path": "libs/libaws-c-event-stream.so.1.0.0",
+        "size": 103112
+      },
+      {
+        "path": "libs/libhv.so",
+        "size": 2917808
+      },
+      {
+        "path": "libs/libiot_hal_ble.so",
+        "size": 683248
+      },
+      {
+        "path": "libs/libPocoXML.so",
+        "size": 707432
+      },
+      {
+        "path": "libs/libboost_atomic.so.1.88.0",
+        "size": 22704
+      },
+      {
+        "path": "libs/libPocoNet.so.101",
+        "size": 1486376
+      },
+      {
+        "path": "libs/libnl-route-3.so.200",
+        "size": 2656912
+      },
+      {
+        "path": "libs/libaws-c-mqtt.so.1.0.0",
+        "size": 344480
+      },
+      {
+        "path": "libs/librtprocess.so.0",
+        "size": 265880
+      },
+      {
+        "path": "libs/libPocoJSON.so.101",
+        "size": 414416
+      },
+      {
+        "path": "libs/libaws-crt-cpp.so",
+        "size": 938544
+      },
+      {
+        "path": "libs/libaws-c-http.so.1.0.0",
+        "size": 446864
+      },
+      {
+        "path": "libs/libPocoNetSSL.so.101",
+        "size": 351056
+      },
+      {
+        "path": "libs/libar_minirtsp.so",
+        "size": 344576
+      },
+      {
+        "path": "libs/libWCDB.so",
+        "size": 10530080
+      },
+      {
+        "path": "libs/libaws-cpp-sdk-transfer.so",
+        "size": 278520
+      },
+      {
+        "path": "libs/libcurl.so.4",
+        "size": 821160
+      },
+      {
+        "path": "libs/libs2n.so.1",
+        "size": 1501024
+      },
+      {
+        "path": "libs/libyaml-cpp.so.0.7",
+        "size": 569800
+      },
+      {
+        "path": "libs/libPocoUtil.so.101",
+        "size": 531120
+      },
+      {
+        "path": "libs/libnl-genl-3.so.200",
+        "size": 110920
+      },
+      {
+        "path": "libs/libaws-c-sdkutils.so.1.0.0",
+        "size": 118528
+      },
+      {
+        "path": "libs/libsns_imx290_1.so",
+        "size": 124176
+      },
+      {
+        "path": "libs/libhal_npu.so",
+        "size": 292136
+      },
+      {
+        "path": "libs/libzip.so.5",
+        "size": 109624
+      },
+      {
+        "path": "libs/libcossdk-shared.so",
+        "size": 1830480
+      },
+      {
+        "path": "libs/libPocoCrypto.so.101",
+        "size": 317128
+      },
+      {
+        "path": "libs/libboost_system.so.1.88.0",
+        "size": 9864
+      },
+      {
+        "path": "libs/libexiv2.so.28",
+        "size": 3701048
+      },
+      {
+        "path": "libs/libmpp_service.so",
+        "size": 21655480
+      },
+      {
+        "path": "libs/libPocoJSON.so",
+        "size": 414416
+      },
+      {
+        "path": "libs/libboost_filesystem.so.1.88.0",
+        "size": 186440
+      },
+      {
+        "path": "libs/libaws-c-compression.so.1.0.0",
+        "size": 19704
+      },
+      {
+        "path": "libs/libaws-cpp-sdk-s3.so",
+        "size": 2651440
+      },
+      {
+        "path": "libs/libaws-cpp-sdk-core.so",
+        "size": 1991240
+      },
+      {
+        "path": "libs/libaws-c-s3.so.0unstable",
+        "size": 251120
+      },
+      {
+        "path": "libs/libaws-c-common.so.1",
+        "size": 354032
+      },
+      {
+        "path": "libs/libaws-c-cal.so.1.0.0",
+        "size": 91136
+      },
+      {
+        "path": "libs/libaws-checksums.so.1.0.0",
+        "size": 47248
+      },
+      {
+        "path": "libs/libaws-c-io.so.1.0.0",
+        "size": 332264
+      },
+      {
+        "path": "libs/libsns_imx678.so",
+        "size": 102992
+      },
+      {
+        "path": "libs/libPocoXML.so.101",
+        "size": 707432
+      },
+      {
+        "path": "libs/libaws-c-auth.so.1.0.0",
+        "size": 250016
+      },
+      {
+        "path": "libs/update.json",
+        "size": 6172
+      }
+    ]
+  },
+  "scope": "Download and archive verification only; no device update or payload execution."
+}

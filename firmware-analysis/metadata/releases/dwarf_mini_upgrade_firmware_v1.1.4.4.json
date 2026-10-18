@@ -1,0 +1,281 @@
+{
+  "retrieved_at": "2026-10-18T10:01:32.720710+00:00",
+  "api_url": "https://api-front.dwarflabapp.com/api-front/v1/version/firmware/up-version-ex?deviceId=4&firmwareVer=1.1.4.4&appOs=1&appVer=3.4.3",
+  "api_response": {
+    "data": {
+      "id": null,
+      "createTime": "2026-09-16 16:58:39",
+      "updateTime": "2026-09-16 18:33:19",
+      "createTimestamp": 1789549119000,
+      "updateTimestamp": 1789554799000,
+      "version": "1.1.4.4",
+      "link": "https://global.dwarflabapp.com/dwarf-prod/system/fireware/version/4/dwarf_mini_upgrade_firmware_v1.1.4.4.zip",
+      "updateContent": "1. Added fixed foreground support for Milky Way imaging.\n2. Improved Milky Way timelapse imaging.\n3. Improved Sun and Moon timelapse imaging.\n4. Fixed an issue where single frames could not be previewed in Star Trails.",
+      "fileMd5": "66821fb82c347e71e07dba982f9b0caa",
+      "fileName": "dwarf_mini_upgrade_firmware_v1.1.4.4.zip",
+      "fileSize": 14420722,
+      "fileSizeStr": "13.75MB",
+      "status": 1,
+      "bsdiffStatus": 3,
+      "updateFileType": 0,
+      "fileDiff": null,
+      "logMsg": null,
+      "deviceId": 4,
+      "majorVersion": 1,
+      "minorVersion": 1,
+      "patchVersion": 4,
+      "buildVersion": 4,
+      "md5": "66821fb82c347e71e07dba982f9b0caa",
+      "firmwareType": 0,
+      "requireSysVersion": null,
+      "requireSysRollbackIndex": null,
+      "rollbackIndex": null,
+      "appMinRollbackIndex": null,
+      "domain": null,
+      "updateType": 0,
+      "submitType": 0,
+      "androidMinVer": "3.4.2",
+      "iosMinVer": "3.4.2",
+      "firmwareMinVer": "",
+      "needDiff": 1,
+      "supportOldApi": 1
+    },
+    "code": 0,
+    "msg": "\u67e5\u8be2\u6210\u529f",
+    "serverInfo": {
+      "serverLocation": "Global-Prod",
+      "profileActive": "prod",
+      "region": "us"
+    }
+  },
+  "artifact": {
+    "filename": "dwarf_mini_upgrade_firmware_v1.1.4.4.zip",
+    "size": 14420722,
+    "md5": "66821fb82c347e71e07dba982f9b0caa",
+    "sha256": "a6ea33a3332a4cb247db2003d13b55f0252dc4a6016985267734f6169c3416c9",
+    "zip_crc_verified": true,
+    "members": [
+      {
+        "path": "iq/",
+        "size": 0
+      },
+      {
+        "path": "iq/FF/",
+        "size": 0
+      },
+      {
+        "path": "iq/FF/os02k10_CMK-OT2115-PC1_30IRC-F16.json",
+        "size": 864856
+      },
+      {
+        "path": "iq/AF/",
+        "size": 0
+      },
+      {
+        "path": "iq/AF/os02k10_CMK-OT2115-PC1_30IRC-F16.json",
+        "size": 863673
+      },
+      {
+        "path": "iq/imx662_CMK-OT2022-PX1_IR0147-36IRC-8M-F20.json",
+        "size": 525548
+      },
+      {
+        "path": "iq/update.json",
+        "size": 537
+      },
+      {
+        "path": "mcu/",
+        "size": 0
+      },
+      {
+        "path": "mcu/motor.bin",
+        "size": 46080
+      },
+      {
+        "path": "mcu/update_rgb.json",
+        "size": 260
+      },
+      {
+        "path": "mcu/rgb.bin",
+        "size": 43507
+      },
+      {
+        "path": "mcu/update.json",
+        "size": 263
+      },
+      {
+        "path": "config/",
+        "size": 0
+      },
+      {
+        "path": "config/nginx.conf",
+        "size": 3201
+      },
+      {
+        "path": "config/vsftpd.conf",
+        "size": 4729
+      },
+      {
+        "path": "config/bilbo_config.json",
+        "size": 187
+      },
+      {
+        "path": "config/nvram_ap6256.txt",
+        "size": 2732
+      },
+      {
+        "path": "config/udhcpd.conf",
+        "size": 605
+      },
+      {
+        "path": "config/factory/",
+        "size": 0
+      },
+      {
+        "path": "config/factory/fatigue_test.json",
+        "size": 902
+      },
+      {
+        "path": "config/factory/firmware_version.json",
+        "size": 94
+      },
+      {
+        "path": "config/hostapd.conf",
+        "size": 192
+      },
+      {
+        "path": "config/default_params_configs.yaml",
+        "size": 59292
+      },
+      {
+        "path": "config/fw_bcm43456c5_ag.bin",
+        "size": 590389
+      },
+      {
+        "path": "config/update.json",
+        "size": 1584
+      },
+      {
+        "path": "bin/",
+        "size": 0
+      },
+      {
+        "path": "bin/bilbo",
+        "size": 9892436
+      },
+      {
+        "path": "bin/S50usbdevice",
+        "size": 10653
+      },
+      {
+        "path": "bin/dd",
+        "size": 449032
+      },
+      {
+        "path": "bin/run.sh",
+        "size": 4931
+      },
+      {
+        "path": "bin/as_ap.sh",
+        "size": 1013
+      },
+      {
+        "path": "bin/bilbo_upgrade",
+        "size": 1833368
+      },
+      {
+        "path": "bin/wcs-rd2xy",
+        "size": 3139544
+      },
+      {
+        "path": "bin/wcs-xy2rd",
+        "size": 3139700
+      },
+      {
+        "path": "bin/plot-constellations",
+        "size": 3013304
+      },
+      {
+        "path": "bin/nginx",
+        "size": 618172
+      },
+      {
+        "path": "bin/astrometry.cfg",
+        "size": 2525
+      },
+      {
+        "path": "bin/update.json",
+        "size": 1828
+      },
+      {
+        "path": "libs/",
+        "size": 0
+      },
+      {
+        "path": "libs/lib/",
+        "size": 0
+      },
+      {
+        "path": "libs/lib/libiot_hal_ble.so",
+        "size": 559808
+      },
+      {
+        "path": "libs/lib/libbz2.so.1.0",
+        "size": 234092
+      },
+      {
+        "path": "libs/lib/librtprocess.so.0",
+        "size": 209456
+      },
+      {
+        "path": "libs/lib/libprotobuf.so.3.19.6.0",
+        "size": 3155896
+      },
+      {
+        "path": "libs/lib/libexiv2.so.28",
+        "size": 2751484
+      },
+      {
+        "path": "libs/lib/libwcs.so.7",
+        "size": 2323864
+      },
+      {
+        "path": "libs/imx662_12bit.ko",
+        "size": 21872
+      },
+      {
+        "path": "libs/os02k10_12bit.ko",
+        "size": 18380
+      },
+      {
+        "path": "libs/update.json",
+        "size": 505
+      },
+      {
+        "path": "model/",
+        "size": 0
+      },
+      {
+        "path": "model/milky_seg.rknn",
+        "size": 3956624
+      },
+      {
+        "path": "model/skysegment.rknn",
+        "size": 978347
+      },
+      {
+        "path": "model/skysegment.json",
+        "size": 112
+      },
+      {
+        "path": "model/u2netp_milky_320.json",
+        "size": 279
+      },
+      {
+        "path": "model/update.json",
+        "size": 720
+      }
+    ]
+  },
+  "scope": "Download and archive verification only; no device update or payload execution."
+}

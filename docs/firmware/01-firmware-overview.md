@@ -2,6 +2,11 @@
 
 ## Evidence baseline
 
+Newer DWARF Mini 1.1.4.4 and DWARF 3 1.5.3.9 update archives were acquired on
+2026-10-18. Their verified downloads, hashes, API parameters and reproduction
+commands are recorded in [release acquisition](19-release-acquisition-2026-10-18.md).
+The analysis below retains its original Mini 1.1.3.2 evidence baseline.
+
 | Original artifact | Size | Container | SHA-256 | Confidence |
 |---|---:|---|---|---|
 | `firmware/dwarf_mini_upgrade_firmware_v1.1.3.2.zip` | 13,076,330 bytes | ZIP update bundle | `fe858626c2b13ef007983fa0171b49b4bb87e05fbd78fdf62fd9693c0809504d` | VERIFIED |
