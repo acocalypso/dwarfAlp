@@ -60,3 +60,8 @@ RTSP is used for preview and focus feedback. Existing protocol notes state that
 long exposure can switch preview delivery from RTSP to JPEG; it is not evidence
 that preview frames are the final FITS capture result. Exact stream paths and
 codec/model variations remain capture-dependent.
+
+The [3.4.3 session preview investigation](live-session-preview-3.4.3.md)
+documents the JPEG reader, camera routing, D3 runtime image updates and separate
+capture/stack counters. Session viewing consumes the device stream without
+restarting capture or selecting the newest saved album image.
