@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import html
 import logging
 import sys
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,9 +11,11 @@ from typing import Optional
 
 import httpx
 import structlog
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QIcon
+import yaml
+from PySide6.QtCore import QLockFile, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPalette, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -28,9 +32,12 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSpinBox,
+    QSplashScreen,
     QSplitter,
+    QStyleFactory,
     QTabWidget,
     QTextEdit,
     QVBoxLayout,
@@ -48,7 +55,8 @@ from ..config.settings import Settings, load_settings, normalize_dwarf_device_mo
 from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
 from ..dwarf.state import ConnectivityState, StateStore
 from ..provisioning.workflow import create_state_store, provision_sta
-from .logging import QtLogHandler
+from .activity import COLORS, ICONS, ActivityEntry, ActivityTranslator
+from .logging import ActivityLogHandler, QtLogHandler
 from .server import ServerService, ServerStatus
 from .workers import AsyncWorker
 
@@ -56,6 +64,7 @@ logger = logging.getLogger(__name__)
 
 
 APP_ICON_PATH = Path(__file__).resolve().parents[3] / "images" / "dwarfalplogo.ico"
+SPLASH_PATH = APP_ICON_PATH.with_name("splash.png")
 
 
 def _configure_gui_structlog() -> None:
@@ -151,12 +160,94 @@ class LogConsole(QTextEdit):
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
 
 
+class ActivityConsole(QTextEdit):
+    """Plain-language activity feed; repeated messages are merged (×N)."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setReadOnly(True)
+        self._last_group: Optional[str] = None
+        self._last_entry: Optional[ActivityEntry] = None
+        self._repeat = 0
+
+    def append_entry(self, entry: ActivityEntry) -> None:
+        if entry.group and entry.group == self._last_group and self._last_entry:
+            self._repeat += 1
+            self._remove_last_line()
+            self._write(entry, self._repeat)
+        else:
+            self._repeat = 1
+            self._write(entry, 1)
+        self._last_group = entry.group
+        self._last_entry = entry
+        self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+
+    def _write(self, entry: ActivityEntry, repeat: int) -> None:
+        stamp = time.strftime("%H:%M:%S", time.localtime(entry.timestamp))
+        color = COLORS.get(entry.kind, "#333333")
+        icon = ICONS.get(entry.kind, "•")
+        suffix = f" <b>(×{repeat})</b>" if repeat > 1 else ""
+        self.append(
+            f'<span style="color:#888888">{stamp}</span>&nbsp;&nbsp;'
+            f'<span style="color:{color}">{icon}&nbsp;{html.escape(entry.text)}</span>{suffix}'
+        )
+
+    def _remove_last_line(self) -> None:
+        document = self.document()
+        if document.blockCount() <= 1:
+            self.clear()
+            return
+        # Select from the end of the previous block to the end of the document,
+        # i.e. the last line together with its preceding paragraph separator.
+        cursor = QTextCursor(document)
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+        cursor.movePosition(
+            QTextCursor.MoveOperation.PreviousCharacter, QTextCursor.MoveMode.MoveAnchor
+        )
+        cursor.movePosition(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.KeepAnchor)
+        cursor.removeSelectedText()
+
+
+IP_FIELD_WIDTH = 140
+
+
+def _compact_form() -> QFormLayout:
+    """Form where only text such as wrapped labels fills the row.
+
+    Value fields get a fixed width (see the widgets), so they no longer stretch
+    across the whole tab.
+    """
+
+    form = QFormLayout()
+    form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+    return form
+
+
+def _inline_row(*items: QWidget | str) -> QWidget:
+    """Lay out several fields on one form row (strings become small labels)."""
+
+    row = QWidget()
+    layout = QHBoxLayout(row)
+    layout.setContentsMargins(0, 0, 0, 0)
+    for index, item in enumerate(items):
+        if isinstance(item, str):
+            label = QLabel(item)
+            if index:
+                label.setContentsMargins(12, 0, 0, 0)
+            layout.addWidget(label)
+        else:
+            layout.addWidget(item)
+    layout.addStretch(1)
+    return row
+
+
 class SettingsOverridesWidget(QGroupBox):
     location_fetch_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__("Server Overrides", parent)
-        form = QFormLayout()
+        form = _compact_form()
 
         self.http_host_edit = QLineEdit()
         self.http_port_spin = QSpinBox()
@@ -173,9 +264,7 @@ class SettingsOverridesWidget(QGroupBox):
         self.ws_client_id_combo.setInsertPolicy(QComboBox.NoInsert)
         self.force_sim_checkbox = QCheckBox("Force simulation mode")
         self.skip_preflight_checkbox = QCheckBox("Skip connectivity preflight")
-        self.calibrate_after_start_checkbox = QCheckBox(
-            "Prepare calibration after server start"
-        )
+        self.calibrate_after_start_checkbox = QCheckBox("Prepare calibration after start")
         self.site_latitude_edit = QLineEdit()
         self.site_latitude_edit.setPlaceholderText("e.g. 48.1372")
         self.site_longitude_edit = QLineEdit()
@@ -196,8 +285,7 @@ class SettingsOverridesWidget(QGroupBox):
         self.timezone_combo = QComboBox()
         self.timezone_combo.setEditable(True)
         self.timezone_combo.setInsertPolicy(QComboBox.NoInsert)
-        self.timezone_combo.setMinimumContentsLength(20)
-        self.timezone_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.timezone_combo.setMinimumContentsLength(30)
         completer = QCompleter(TIMEZONE_CHOICES, self.timezone_combo)
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         completer.setFilterMode(Qt.MatchContains)
@@ -209,20 +297,46 @@ class SettingsOverridesWidget(QGroupBox):
         self.device_model_combo.currentIndexChanged.connect(self._sync_client_id_for_selected_model)
         self.device_model_combo.currentIndexChanged.connect(self._sync_calibration_availability)
 
-        form.addRow("HTTP host", self.http_host_edit)
-        form.addRow("HTTP port", self.http_port_spin)
+        # Compact layout: related fields share a row so the log area can be taller.
+        self.http_host_edit.setFixedWidth(IP_FIELD_WIDTH)
+        self.http_port_spin.setFixedWidth(90)
+        self.dwarf_ip_edit.setFixedWidth(IP_FIELD_WIDTH)
+        for combo in (self.device_model_combo, self.ws_client_id_combo, self.timezone_combo):
+            combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+            combo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.site_latitude_edit.setFixedWidth(110)
+        self.site_longitude_edit.setFixedWidth(110)
+        self.preflight_timeout_spin.setFixedWidth(90)
+        self.preflight_interval_spin.setFixedWidth(80)
+
+        form.addRow("HTTP host", _inline_row(self.http_host_edit, "Port", self.http_port_spin))
         form.addRow("DWARF IP", self.dwarf_ip_edit)
         form.addRow("DWARF model", self.device_model_combo)
         form.addRow("WS client ID", self.ws_client_id_combo)
-        form.addRow(self.force_sim_checkbox)
-        form.addRow(self.skip_preflight_checkbox)
-        form.addRow(self.calibrate_after_start_checkbox)
-        form.addRow("Site latitude", self.site_latitude_edit)
-        form.addRow("Site longitude", self.site_longitude_edit)
-        form.addRow(self.fetch_location_button)
+        form.addRow(
+            _inline_row(
+                self.force_sim_checkbox,
+                self.skip_preflight_checkbox,
+                self.calibrate_after_start_checkbox,
+            )
+        )
+        form.addRow(
+            "Site",
+            _inline_row(
+                self.fetch_location_button,
+                "Latitude",
+                self.site_latitude_edit,
+                "Longitude",
+                self.site_longitude_edit,
+            ),
+        )
         form.addRow("Location status", self.location_status_label)
-        form.addRow("Preflight timeout", self.preflight_timeout_spin)
-        form.addRow("Preflight interval", self.preflight_interval_spin)
+        form.addRow(
+            "Preflight",
+            _inline_row(
+                "Timeout", self.preflight_timeout_spin, "Interval", self.preflight_interval_spin
+            ),
+        )
         form.addRow("Timezone", self.timezone_combo)
         self.setLayout(form)
 
@@ -366,7 +480,7 @@ class ProvisioningWidget(QGroupBox):
         super().__init__("Provisioning", parent)
         layout = QVBoxLayout()
 
-        form = QFormLayout()
+        form = _compact_form()
         self.ssid_edit = QLineEdit()
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.Password)
@@ -374,6 +488,9 @@ class ProvisioningWidget(QGroupBox):
         self.ble_password_edit = QLineEdit()
         self.device_address_edit = QLineEdit()
 
+        for field in (self.ssid_edit, self.password_edit, self.device_address_edit):
+            field.setFixedWidth(240)
+        self.ble_password_edit.setFixedWidth(160)
         form.addRow("SSID", self.ssid_edit)
         form.addRow("Password", self.password_edit)
         form.addRow("", self.show_password_checkbox)
@@ -582,6 +699,219 @@ def _resolve_state_directory(path: Path) -> Path:
     return (base / path).resolve()
 
 
+TESTED_ENVIRONMENT = (
+    "DWARF 3 firmware V1.5.4.1 and V1.5.5.1, DWARFLAB app V3.4.5 (build 794), N.I.N.A. 3.2.0.9001"
+)
+CAPTURE_DISCLAIMER_HTML = (
+    "<b>Tested only with DWARF 3</b> (" + TESTED_ENVIRONMENT + "). "
+    "DWARF 2 and DWARF mini use the same capture code but have not been tested. "
+    "DWARFLAB publishes no API and new firmware or app versions may change the "
+    "behaviour. Use at your own risk and keep copies of your data; if something "
+    "fails, please report it with the Technical log."
+)
+
+
+class CaptureOptionsWidget(QGroupBox):
+    """Capture options added for DWARF 3 + NINA (continuous session, cleanup)."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__("Capture options", parent)
+        form = _compact_form()
+
+        self.compatibility_label = QLabel(CAPTURE_DISCLAIMER_HTML)
+        self.compatibility_label.setWordWrap(True)
+        self.compatibility_label.setStyleSheet(
+            "QLabel { background: #fff4ce; color: #5c4400; padding: 8px; "
+            "border: 1px solid #e0c060; border-radius: 4px; }"
+        )
+
+        self.continuous_info_label = QLabel(
+            "The DWARF always captures in a continuous session, stacking on the "
+            "telescope. dwarfAlp keeps that session running while exposure, gain, "
+            "filter and binning stay the same, and hands the FITS to NINA in order. "
+            "Frames NINA does not ask for stay on the DWARF."
+        )
+        self.continuous_info_label.setWordWrap(True)
+        for label in (self.compatibility_label, self.continuous_info_label):
+            # Wrapped labels spanning a QFormLayout row get a too small height
+            # (the disclaimer was cut after two lines); a plain vertical layout
+            # sizes them correctly.
+            label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        self.continuous_idle_spin = QSpinBox()
+        self.continuous_idle_spin.setRange(10, 3600)
+        self.continuous_idle_spin.setSuffix(" s")
+        self.continuous_idle_spin.setToolTip(
+            "Stop the continuous session after this long without a new exposure."
+        )
+        self.continuous_max_frames_spin = QSpinBox()
+        self.continuous_max_frames_spin.setRange(2, 9999)
+        self.continuous_max_frames_spin.setToolTip(
+            "Frame count requested from the DWARF for a continuous session."
+        )
+        self.delete_session_checkbox = QCheckBox("Delete DWARF session after download")
+        self.delete_session_checkbox.setToolTip(
+            "Removes the session folder (raw FITS, stacked image, previews) from the telescope."
+        )
+        self.delete_timeout_spin = QSpinBox()
+        self.delete_timeout_spin.setRange(30, 1800)
+        self.delete_timeout_spin.setSuffix(" s")
+        self.delete_timeout_spin.setToolTip(
+            "How long to wait for the DWARF to close the session before skipping deletion."
+        )
+        self.ready_timeout_spin = QSpinBox()
+        self.ready_timeout_spin.setRange(30, 1800)
+        self.ready_timeout_spin.setSuffix(" s")
+        self.ready_timeout_spin.setToolTip(
+            "How long a new capture waits for the DWARF to close the previous session."
+        )
+
+        self.autofocus_checkbox = QCheckBox("Autofocus before GOTO and calibration")
+        self.autofocus_checkbox.setToolTip(
+            "DWARF 3 firmware V1.5.4.1 accepts the command but never starts autofocus; "
+            "each GOTO then waits 20 s for nothing. Focus in the DWARFLAB app instead."
+        )
+        self.autofocus_checkbox.setContentsMargins(24, 0, 0, 0)
+        self.ring_light_checkbox = QCheckBox("Ring light off")
+        self.battery_indicator_checkbox = QCheckBox("Battery indicator off")
+        for box in (self.ring_light_checkbox, self.battery_indicator_checkbox):
+            box.setToolTip(
+                "Turned off when dwarfAlp connects to the DWARF; the DWARFLAB app can "
+                "turn it on again."
+            )
+        self.battery_indicator_checkbox.setContentsMargins(24, 0, 0, 0)
+
+        for spin in (self.continuous_idle_spin, self.delete_timeout_spin, self.ready_timeout_spin):
+            spin.setFixedWidth(100)
+        self.continuous_max_frames_spin.setFixedWidth(90)
+        form.addRow(
+            "Continuous idle timeout",
+            _inline_row(self.continuous_idle_spin, "Max frames", self.continuous_max_frames_spin),
+        )
+        form.addRow(
+            "Wait for DWARF ready", _inline_row(self.ready_timeout_spin, self.autofocus_checkbox)
+        )
+        form.addRow(
+            _inline_row(self.delete_session_checkbox, "Deletion wait", self.delete_timeout_spin)
+        )
+        form.addRow(
+            "DWARF lights",
+            _inline_row(self.ring_light_checkbox, self.battery_indicator_checkbox),
+        )
+        self.delete_session_checkbox.toggled.connect(self._sync_state)
+        layout = QVBoxLayout()
+        layout.addWidget(self.compatibility_label)
+        layout.addWidget(self.continuous_info_label)
+        layout.addLayout(form)
+        self.setLayout(layout)
+
+    def _sync_state(self) -> None:
+        self.delete_timeout_spin.setEnabled(self.delete_session_checkbox.isChecked())
+
+    def populate(self, settings: Settings) -> None:
+        self.continuous_idle_spin.setValue(
+            int(round(settings.continuous_astro_idle_timeout_seconds))
+        )
+        self.continuous_max_frames_spin.setValue(int(settings.continuous_astro_max_frames))
+        self.delete_session_checkbox.setChecked(settings.delete_astro_session_after_download)
+        self.delete_timeout_spin.setValue(
+            int(round(settings.delete_astro_session_timeout_seconds))
+        )
+        self.ready_timeout_spin.setValue(
+            int(round(settings.astro_capture_ready_timeout_seconds))
+        )
+        self.autofocus_checkbox.setChecked(settings.autofocus_before_calibration)
+        self.ring_light_checkbox.setChecked(settings.ring_light_off)
+        self.battery_indicator_checkbox.setChecked(settings.battery_indicator_off)
+        self._sync_state()
+
+    def apply(self, settings: Settings) -> Settings:
+        return settings.model_copy(
+            update={
+                # Always on in the GUI, even if an older profile saved it as false.
+                "continuous_astro_session": True,
+                "continuous_astro_idle_timeout_seconds": float(
+                    self.continuous_idle_spin.value()
+                ),
+                "continuous_astro_max_frames": self.continuous_max_frames_spin.value(),
+                "delete_astro_session_after_download": (
+                    self.delete_session_checkbox.isChecked()
+                ),
+                "delete_astro_session_timeout_seconds": float(
+                    self.delete_timeout_spin.value()
+                ),
+                "astro_capture_ready_timeout_seconds": float(
+                    self.ready_timeout_spin.value()
+                ),
+                "autofocus_before_calibration": self.autofocus_checkbox.isChecked(),
+                "ring_light_off": self.ring_light_checkbox.isChecked(),
+                "battery_indicator_off": self.battery_indicator_checkbox.isChecked(),
+            }
+        )
+
+
+DEFAULT_PROFILE_NAME = "dwarf-alpaca.yaml"
+
+# Settings written by File > Save settings profile: everything editable on the
+# Settings tab. Keys present in a loaded profile take precedence over values
+# remembered from provisioning (IP, model, location, timezone).
+PROFILE_KEYS: tuple[str, ...] = (
+    "http_host",
+    "http_port",
+    "dwarf_ap_ip",
+    "dwarf_device_model",
+    "dwarf_ws_client_id",
+    "force_simulation",
+    "calibrate_after_server_start",
+    "autofocus_before_calibration",
+    "ring_light_off",
+    "battery_indicator_off",
+    "site_latitude",
+    "site_longitude",
+    "timezone_name",
+    "continuous_astro_idle_timeout_seconds",
+    "continuous_astro_max_frames",
+    "delete_astro_session_after_download",
+    "delete_astro_session_timeout_seconds",
+    "astro_capture_ready_timeout_seconds",
+)
+
+
+def default_profile_path() -> Path:
+    """Profile loaded at start-up: next to the executable, or the working folder."""
+
+    if getattr(sys, "frozen", False):
+        base = Path(sys.executable).resolve().parent
+    else:
+        base = Path.cwd()
+    return base / DEFAULT_PROFILE_NAME
+
+
+def profile_data(settings: Settings) -> dict:
+    data = settings.model_dump(mode="json")
+    return {key: data.get(key) for key in PROFILE_KEYS}
+
+
+def write_profile(path: Path, settings: Settings) -> None:
+    header = (
+        "# dwarfAlp settings profile\n"
+        "# Saved from File > Save settings profile. Loaded automatically at start-up\n"
+        f"# when named {DEFAULT_PROFILE_NAME} next to the app. Values here override .env.\n"
+    )
+    body = yaml.safe_dump(profile_data(settings), sort_keys=False, allow_unicode=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(header + body, encoding="utf-8")
+    tmp.replace(path)
+
+
+def read_profile_keys(path: Path) -> set[str]:
+    with path.open("r", encoding="utf-8") as stream:
+        data = yaml.safe_load(stream) or {}
+    if not isinstance(data, dict):
+        raise ValueError("Settings profile must be a YAML mapping")
+    return {str(key) for key in data}
+
+
 class MainWindow(QMainWindow):
     def __init__(self, *, app_icon: Optional[QIcon] = None) -> None:
         super().__init__()
@@ -591,6 +921,7 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(app_icon)
 
         self._settings_path: Optional[Path] = None
+        self._profile_keys: set[str] = set()
         self._settings: Optional[Settings] = None
         self._state_store: Optional[StateStore] = None
         self._workers: set[AsyncWorker] = set()
@@ -606,9 +937,23 @@ class MainWindow(QMainWindow):
         )
         self.log_handler.emitter.message.connect(self.log_console.append_message)
         logging.getLogger().addHandler(self.log_handler)
+
+        self.activity_translator = ActivityTranslator()
+        self.activity_console = ActivityConsole()
+        self.activity_status_label = QLabel()
+        self.activity_status_label.setWordWrap(True)
+        self.activity_status_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.activity_status_label.setStyleSheet(
+            "QLabel { font-weight: bold; padding: 4px 6px; background: #eef3f8; "
+            "border: 1px solid #c8d4e0; border-radius: 3px; }"
+        )
+        self.activity_handler = ActivityLogHandler()
+        self.activity_handler.emitter.record.connect(self._handle_activity_record)
+        logging.getLogger().addHandler(self.activity_handler)
         logging.getLogger().setLevel(logging.INFO)
 
         self.settings_widget = SettingsOverridesWidget()
+        self.capture_widget = CaptureOptionsWidget()
         self.provisioning_widget = ProvisioningWidget()
         self.server_widget = ServerControlWidget()
         self._connectivity_summary: str = ""
@@ -636,24 +981,47 @@ class MainWindow(QMainWindow):
         tabs.addTab(self.server_widget, "Server")
         tabs.addTab(self.provisioning_widget, "Provisioning")
         tabs.addTab(self.settings_widget, "Settings")
+        capture_page = QWidget()
+        capture_layout = QVBoxLayout(capture_page)
+        capture_layout.addWidget(self.capture_widget)
+        capture_layout.addStretch(1)
+        tabs.addTab(capture_page, "Capture")
         upper_layout.addWidget(tabs, 2)
         self.help_panel = QLabel()
         self.help_panel.setWordWrap(True)
         self.help_panel.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self.help_panel.setMargin(12)
         self.help_panel.setFrameStyle(QFrame.Panel | QFrame.Sunken)
-        self.help_panel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-        upper_layout.addWidget(self.help_panel, 1)
+        help_scroll = QScrollArea()
+        help_scroll.setWidgetResizable(True)
+        help_scroll.setFrameShape(QFrame.NoFrame)
+        help_scroll.setWidget(self.help_panel)
+        upper_layout.addWidget(help_scroll, 1)
+        upper_layout.setContentsMargins(0, 0, 0, 0)
         splitter.addWidget(upper)
-        splitter.addWidget(self.log_console)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
+        log_panel = QWidget()
+        log_layout = QVBoxLayout(log_panel)
+        log_layout.setContentsMargins(0, 0, 0, 0)
+        log_layout.addWidget(self.activity_status_label)
+        self.log_tabs = QTabWidget()
+        self.log_tabs.addTab(self.activity_console, "Activity")
+        self.log_tabs.addTab(self.log_console, "Technical")
+        log_layout.addWidget(self.log_tabs)
+        self._refresh_activity_status()
+        splitter.addWidget(log_panel)
+        # The tabs only take the height they need; the logs get the rest.
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        self._splitter = splitter
+        self._upper_area = upper
+        self._splitter_placed = False
         content_layout.addWidget(splitter)
         self.setCentralWidget(content)
 
         self._create_menu()
         self._tabs = tabs
-        self._load_settings(None)
+        startup_profile = default_profile_path()
+        self._load_settings(startup_profile if startup_profile.exists() else None)
         self._help_messages = {
             0: (
                 "Server",
@@ -672,11 +1040,41 @@ class MainWindow(QMainWindow):
                 " Choose the correct DWARF model (DWARF 3, DWARF 2, or DWARF mini)"
                 " and enter or fetch observer coordinates before optional post-start calibration.",
             ),
+            3: (
+                "Capture",
+                "<b>Capture tab</b><br/>Options that make the DWARF work the way NINA"
+                " expects."
+                "<br/><br/><b>Continuous DWARF session</b>: the DWARF always"
+                " captures as a stacking session on the telescope; one session serves a"
+                " whole sequence instead of one per frame (closing a session takes about"
+                " a minute). It ends when exposure, gain, filter or binning change, on"
+                " abort, slew, tracking off, focuser move, disconnect, or after the idle"
+                " timeout."
+                " NINA receives the frames in order, oldest first, and exactly as many as"
+                " it asks for; when the Wi-Fi download is slower than the exposures the"
+                " DWARF takes more, which stay on the telescope (Activity reports them)."
+                "<br/><br/><b>Delete DWARF session after download</b>: removes the session"
+                " folder (raw FITS, stacked image, previews) from the telescope once the"
+                " DWARF has closed it. Keep the app open for a minute or two after the"
+                " sequence so the deletion can finish."
+                "<br/><br/><b>Wait for DWARF ready</b>: how long a new capture waits for"
+                " the previous session to close."
+                "<br/><br/><b>Autofocus before GOTO and calibration</b>: off by default."
+                " The tested DWARF 3 firmware accepts the command but never starts"
+                " autofocus, so each GOTO waited 20 s for nothing. Focus in the DWARFLAB"
+                " app before connecting NINA."
+                "<br/><br/><b>DWARF lights</b>: turn the ring light and the battery"
+                " indicator off when dwarfAlp connects (start the server again after a"
+                " change). They stay off; the DWARFLAB app can turn them on again.",
+            ),
         }
         self._refresh_state()
         _configure_start_logging(self._settings)
         self._tabs.currentChanged.connect(self._update_help)
         self._update_help(self._tabs.currentIndex())
+        # Numbers are typed; stepping arrows only moved them one unit at a time.
+        for spin in self.findChildren(QAbstractSpinBox):
+            spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
 
     # region menu and lifecycle
     def _create_menu(self) -> None:
@@ -684,6 +1082,15 @@ class MainWindow(QMainWindow):
         load_action = QAction("Load settings profile…", self)
         load_action.triggered.connect(self._choose_settings_file)
         menu.addAction(load_action)
+
+        save_action = QAction("Save settings profile", self)
+        save_action.setShortcut(QKeySequence.Save)
+        save_action.triggered.connect(self._save_settings_profile)
+        menu.addAction(save_action)
+
+        save_as_action = QAction("Save settings profile as…", self)
+        save_as_action.triggered.connect(self._save_settings_profile_as)
+        menu.addAction(save_as_action)
 
         reload_action = QAction("Reload", self)
         reload_action.triggered.connect(lambda: self._load_settings(self._settings_path))
@@ -716,12 +1123,43 @@ class MainWindow(QMainWindow):
         if path:
             self._load_settings(Path(path))
 
+    def _save_settings_profile(self) -> None:
+        self._write_settings_profile(self._settings_path or default_profile_path())
+
+    def _save_settings_profile_as(self) -> None:
+        start = self._settings_path or default_profile_path()
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save settings profile",
+            str(start),
+            "YAML files (*.yaml *.yml)",
+        )
+        if path:
+            self._write_settings_profile(Path(path))
+
+    def _write_settings_profile(self, path: Path) -> None:
+        try:
+            settings = self.capture_widget.apply(
+                self.settings_widget.apply(self._current_settings())
+            )
+            write_profile(path, settings)
+        except Exception as exc:
+            QMessageBox.critical(self, "Settings", f"Failed to save settings profile: {exc}")
+            return
+        self._settings = settings
+        self._settings_path = path
+        self._profile_keys = set(PROFILE_KEYS)
+        self.statusBar().showMessage(f"Saved settings profile to {path}", 5000)
+        logging.getLogger(__name__).info("gui.settings_profile_saved path=%s", path)
+
     def _load_settings(self, path: Optional[Path]) -> None:
         try:
             settings = load_settings(str(path) if path else None)
+            profile_keys = read_profile_keys(path) if path else set()
         except Exception as exc:
             QMessageBox.critical(self, "Settings", f"Failed to load settings: {exc}")
             return
+        self._profile_keys = profile_keys
         resolved_state_dir = _resolve_state_directory(settings.state_directory)
         if resolved_state_dir != settings.state_directory:
             settings = settings.model_copy(update={"state_directory": resolved_state_dir})
@@ -730,6 +1168,7 @@ class MainWindow(QMainWindow):
         self._settings = settings
         self._state_store = create_state_store(settings.state_directory)
         self.settings_widget.populate(settings)
+        self.capture_widget.populate(settings)
         self.provisioning_widget.set_ble_password(settings.ble_password or "DWARF_12345678")
         self.statusBar().showMessage(
             f"Loaded settings from {path}" if path else "Loaded default environment settings",
@@ -743,9 +1182,67 @@ class MainWindow(QMainWindow):
             )
         return self._settings
 
+    def _handle_activity_record(self, message: str, created: float) -> None:
+        for entry in self.activity_translator.feed(message, created):
+            self.activity_console.append_entry(entry)
+        self._refresh_activity_status()
+
+    def _refresh_activity_status(self) -> None:
+        self.activity_status_label.setText(self.activity_translator.status.render())
+
+    def showEvent(self, event) -> None:  # type: ignore[override]
+        super().showEvent(event)
+        if not self._splitter_placed:
+            self._splitter_placed = True
+            QTimer.singleShot(0, self._place_splitter)
+
+    def _place_splitter(self) -> None:
+        """Put the divider right below the tallest tab page.
+
+        One divider is shared by all tabs. Qt over-estimates the minimum
+        height of wrapped labels (it measures them at a narrow width), which
+        left an empty band under the Capture tab; each page is measured at
+        its real width instead.
+        """
+
+        upper = self._measure_upper_area()
+        if upper is None:
+            return
+        total = max(self._splitter.height(), upper + 200)
+        self._splitter.setSizes([upper, total - upper])
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        super().resizeEvent(event)
+        if self._splitter_placed:
+            # A narrower window wraps the labels into more lines.
+            QTimer.singleShot(0, self._measure_upper_area)
+
+    def _measure_upper_area(self) -> int | None:
+        """Set each page's minimum height for its real width; return the tab area height."""
+
+        current = self._tabs.currentWidget()
+        if current is None:
+            return None
+        width = max(current.width(), 1)
+        needed = 0
+        for i in range(self._tabs.count()):
+            page = self._tabs.widget(i)
+            height = page.minimumSizeHint().height()
+            if page.hasHeightForWidth():
+                for_width = page.heightForWidth(width)
+                if for_width > 0:
+                    height = min(height, for_width)
+            # Overrides the over-estimate, so the divider can sit right there.
+            page.setMinimumHeight(height)
+            needed = max(needed, height)
+        chrome = max(self._tabs.height() - current.height(), 0)
+        return max(needed + chrome, 1)
+
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.log_handler.emitter.message.disconnect(self.log_console.append_message)
         logging.getLogger().removeHandler(self.log_handler)
+        self.activity_handler.emitter.record.disconnect(self._handle_activity_record)
+        logging.getLogger().removeHandler(self.activity_handler)
         if self.server_service.is_running():
             self.server_service.stop()
         super().closeEvent(event)
@@ -764,12 +1261,18 @@ class MainWindow(QMainWindow):
         current_settings = self._current_settings()
         updated_settings = current_settings
 
+        profile = self._profile_keys
         tz_name = state.timezone_name
-        if tz_name != updated_settings.timezone_name:
-            updated_settings = updated_settings.with_timezone_name(tz_name)
-        self.settings_widget.set_timezone_name(tz_name)
+        if "timezone_name" not in profile:
+            if tz_name != updated_settings.timezone_name:
+                updated_settings = updated_settings.with_timezone_name(tz_name)
+            self.settings_widget.set_timezone_name(tz_name)
 
-        if state.site_latitude is not None and state.site_longitude is not None:
+        if (
+            state.site_latitude is not None
+            and state.site_longitude is not None
+            and not {"site_latitude", "site_longitude"} & profile
+        ):
             if (
                 updated_settings.site_latitude != state.site_latitude
                 or updated_settings.site_longitude != state.site_longitude
@@ -784,7 +1287,7 @@ class MainWindow(QMainWindow):
                 state.site_latitude, state.site_longitude
             )
 
-        if state.device_model:
+        if state.device_model and "dwarf_device_model" not in profile:
             model = normalize_dwarf_device_model(state.device_model)
             client_id = _MODEL_DEFAULT_CLIENT_ID[model]
             if (
@@ -799,7 +1302,7 @@ class MainWindow(QMainWindow):
                 )
             self.settings_widget.set_device_model(model)
 
-        if state.sta_ip:
+        if state.sta_ip and "dwarf_ap_ip" not in profile:
             if updated_settings.dwarf_ap_ip != state.sta_ip:
                 updated_settings = updated_settings.model_copy(
                     update={"dwarf_ap_ip": state.sta_ip, "network_mode": "sta"}
@@ -943,6 +1446,8 @@ class MainWindow(QMainWindow):
 
     def _on_prestart_provision_success(self, _: object) -> None:
         self.provisioning_widget.show_status("Provisioning succeeded")
+        # A freshly provisioned STA address replaces the IP from the profile.
+        self._profile_keys.discard("dwarf_ap_ip")
         self._refresh_state()
         self._continue_start_after_provision()
 
@@ -1062,6 +1567,8 @@ class MainWindow(QMainWindow):
 
     def _on_provision_success(self) -> None:
         self.provisioning_widget.show_status("Provisioning succeeded")
+        # A freshly provisioned STA address replaces the IP from the profile.
+        self._profile_keys.discard("dwarf_ap_ip")
         self._refresh_state()
 
     def _on_provision_error(self, exc: Exception) -> None:
@@ -1145,6 +1652,13 @@ class MainWindow(QMainWindow):
                 "starting the server with calibration enabled.",
             )
             return
+        # Seed the Activity status before the connectivity preflight so its
+        # messages can name the DWARF and its IP.
+        self.activity_translator.configure(
+            model=normalize_dwarf_device_model(settings.dwarf_device_model),
+            ip=settings.dwarf_ap_ip,
+        )
+        self._refresh_activity_status()
         skip_preflight = self.settings_widget.skip_preflight_checkbox.isChecked()
         self._pending_start = (settings, skip_preflight)
         # Starting against an already reachable STA/AP address must not trigger
@@ -1153,7 +1667,7 @@ class MainWindow(QMainWindow):
 
     def _build_settings_for_server(self) -> Settings:
         base = self._current_settings()
-        override = self.settings_widget.apply(base)
+        override = self.capture_widget.apply(self.settings_widget.apply(base))
         entered_ip = self.settings_widget.dwarf_ip_edit.text().strip()
         ip_is_manual_override = bool(entered_ip and entered_ip != base.dwarf_ap_ip)
         store = self._state_store
@@ -1170,7 +1684,11 @@ class MainWindow(QMainWindow):
             if detected_mode in ("", "unknown"):
                 detected_mode = "sta" if state.sta_ip else "ap"
             override.network_mode = detected_mode
-            if state.sta_ip and not ip_is_manual_override:
+            if (
+                state.sta_ip
+                and not ip_is_manual_override
+                and "dwarf_ap_ip" not in self._profile_keys
+            ):
                 override.dwarf_ap_ip = state.sta_ip
                 self.settings_widget.dwarf_ip_edit.setText(state.sta_ip)
             needs_save = False
@@ -1197,6 +1715,11 @@ class MainWindow(QMainWindow):
         return override
 
     def _launch_server(self, settings: Settings) -> None:
+        self.activity_translator.configure(
+            model=normalize_dwarf_device_model(settings.dwarf_device_model),
+            ip=settings.dwarf_ap_ip,
+        )
+        self._refresh_activity_status()
         try:
             self.server_service.start(settings)
         except Exception as exc:
@@ -1215,6 +1738,10 @@ class MainWindow(QMainWindow):
     def _handle_server_status(self, status: ServerStatus) -> None:
         self._server_status_message = status.message
         self.server_widget.set_running(status.running, status.message)
+        if not status.running:
+            for entry in self.activity_translator.server_stopped(time.time()):
+                self.activity_console.append_entry(entry)
+            self._refresh_activity_status()
         if status.running:
             self.server_widget.set_master_lock_status(status.has_master_lock)
             self.server_widget.set_battery_status(status.battery_percent)
@@ -1234,17 +1761,121 @@ class MainWindow(QMainWindow):
     # endregion
 
 
+def _apply_field_style(app: QApplication) -> None:
+    """Give value fields a full visible border and a light shade.
+
+    Qt's Windows 11 style draws input fields with an almost invisible border and
+    only an underline; the classic Windows style draws a full frame. The shade
+    comes from the palette, so native drawing (spin box arrows, combo arrows)
+    is kept.
+    """
+
+    available = {name.lower() for name in QStyleFactory.keys()}
+    if "windowsvista" in available:
+        app.setStyle("windowsvista")
+    elif "fusion" in available:
+        app.setStyle("fusion")
+    palette = app.palette()
+    base = palette.color(QPalette.Base)
+    if base.lightness() > 128:  # light theme: shade fields slightly
+        palette.setColor(QPalette.Base, QColor("#eef3f8"))
+        app.setPalette(palette)
+        app.setStyleSheet(BUTTON_STYLE)
+
+
+# Buttons stand out from the shaded value fields: blue-grey fill, darker
+# border, and clear hover, pressed and disabled states.
+BUTTON_STYLE = """
+QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f4f8fc, stop:1 #d5e2ef);
+    border: 1px solid #6f8fae;
+    border-radius: 3px;
+    padding: 4px 12px;
+    color: #10283f;
+}
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #eaf3fc, stop:1 #bcd4ec);
+    border-color: #2f6ea5;
+}
+QPushButton:pressed {
+    background: #a9c6e3;
+    border-color: #2f6ea5;
+}
+QPushButton:focus {
+    border-color: #2f6ea5;
+}
+QPushButton:disabled {
+    background: #f0f0f0;
+    border-color: #c4c4c4;
+    color: #9a9a9a;
+}
+"""
+
+
+def _close_bootloader_splash() -> None:
+    """Close the PyInstaller splash shown while the .exe unpacks."""
+
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    try:
+        pyi_splash.close()
+    except Exception:  # pragma: no cover - only in the frozen build
+        pass
+
+
+def _acquire_single_instance_lock() -> QLockFile | None:
+    """Return the lock, or None if another copy of the program is running.
+
+    On a slow computer the program takes a while to appear, and a second
+    double-click started a second copy.
+    """
+
+    lock_dir = _resolve_state_directory(Path("var"))
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock = QLockFile(str(lock_dir / "dwarf-alpaca-gui.lock"))
+    lock.setStaleLockTime(0)
+    if lock.tryLock(100):
+        return lock
+    return None
+
+
 def main() -> None:
     import sys
 
     _configure_gui_structlog()
     app = QApplication(sys.argv)
+    _apply_field_style(app)
     icon = _load_app_icon()
     if not icon.isNull():
         app.setWindowIcon(icon)
+
+    lock = _acquire_single_instance_lock()
+    if lock is None:
+        _close_bootloader_splash()
+        QMessageBox.information(
+            None,
+            "DWARF Alpaca Control Center",
+            "DWARF Alpaca Control Center is already running.",
+        )
+        sys.exit(0)
+
+    splash: QSplashScreen | None = None
+    if not getattr(sys, "frozen", False) and SPLASH_PATH.exists():
+        # The frozen .exe shows the PyInstaller splash instead.
+        splash = QSplashScreen(QPixmap(str(SPLASH_PATH)))
+        splash.show()
+        app.processEvents()
+
     window = MainWindow(app_icon=icon if not icon.isNull() else None)
     window.show()
-    sys.exit(app.exec())
+    if splash is not None:
+        splash.finish(window)
+    _close_bootloader_splash()
+    exit_code = app.exec()
+    lock.unlock()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":
