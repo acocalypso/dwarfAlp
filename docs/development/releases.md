@@ -28,6 +28,7 @@ uv run pyinstaller `
   --windowed `
   --name DwarfAlpacaGUI `
   --icon "images\dwarfalplogo.ico" `
+  --splash "images\splash.png" `
   --add-data "images;images" `
   --add-data "var;var" `
   --collect-data "tzdata" `
@@ -36,8 +37,12 @@ uv run pyinstaller `
   "run_gui.py"
 ```
 
-The result is `dist/DwarfAlpacaGUI.exe`. `run_gui.py` and `images/` stay in their
-current locations because both the workflow and frozen-runtime asset resolution use
+The result is `dist/DwarfAlpacaGUI.exe`. `--splash` shows `images/splash.png` while
+the one-file executable unpacks (it needs Tcl/Tk, which the Windows Python builds
+include); the program closes it once the window is up. A second start while the
+program is running only shows "already running" (lock file in `var/`).
+
+`run_gui.py` and `images/` stay in their current locations because both the workflow and frozen-runtime asset resolution use
 them. The local `DwarfAlpacaGUI.spec` is generated/ignored and is not a clean-checkout
 build input.
 

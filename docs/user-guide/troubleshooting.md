@@ -1,6 +1,10 @@
 # Troubleshooting
 
-Start with the Control Center log and the newest file under `var/logs`. Redact the
+Start with the Control Center log and the newest file under `var/logs`. The log
+area has two tabs: **Activity** summarises what is happening in plain language (connection,
+exposures requested by NINA, frames delivered, GOTO, session end and deletion,
+errors) under a one-line status bar, and **Technical** is the full log, identical to the
+file under `var/logs`, which is what to attach to reports. Redact the
 items listed in [sensitive runtime state](configuration.md#sensitive-runtime-state)
 before sharing a report.
 
