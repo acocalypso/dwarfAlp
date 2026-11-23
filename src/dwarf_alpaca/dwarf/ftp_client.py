@@ -111,6 +111,39 @@ class DwarfFtpClient:
             await asyncio.sleep(self.poll_interval)
         return None
 
+    async def list_astro_raw_fits(self, directory: str) -> list[FtpPhotoEntry]:
+        """List the raw (non-stacked) FITS frames inside one astronomy session folder."""
+
+        return await asyncio.to_thread(self._list_astro_raw_fits_sync, directory)
+
+    def _list_astro_raw_fits_sync(self, directory: str) -> list[FtpPhotoEntry]:
+        def operation(ftp: FTP) -> list[FtpPhotoEntry]:
+            ftp.cwd(directory)
+            try:
+                names = ftp.nlst()
+            except error_perm:
+                names = []
+            entries: list[FtpPhotoEntry] = []
+            for raw_name in names:
+                name = raw_name.rsplit("/", 1)[-1]
+                lower = name.lower()
+                if not lower.endswith((".fits", ".fit")) or lower.startswith("stacked"):
+                    continue
+                path = f"{directory.rstrip('/')}/{name}"
+                timestamp = self._embedded_capture_timestamp(name)
+                if timestamp is None:
+                    timestamp = self._fetch_timestamp(ftp, name)
+                entries.append(
+                    FtpPhotoEntry(directory=directory, name=name, timestamp=timestamp, path=path)
+                )
+            entries.sort(key=lambda item: (item.timestamp, item.path))
+            return entries
+
+        return self._with_connection(operation)
+
+    async def download(self, path: str) -> bytes:
+        return await asyncio.to_thread(self._download_file_sync, path)
+
     def _get_latest_photo_entry_sync(
         self,
         camera: str,

@@ -404,3 +404,23 @@ def test_connect_does_not_trigger_calibration_when_hardware(monkeypatch):
     disconnect_resp = client.put("/api/v1/telescope/0/connected", json={"Connected": False})
     assert disconnect_resp.status_code == 200
     assert stub_session.acquired == 0
+
+
+@pytest.mark.parametrize(
+    ("model", "focal_m", "aperture_m"),
+    [("dwarf3", 0.150, 0.035), ("dwarf2", 0.100, 0.024), ("dwarfmini", 0.150, 0.030)],
+)
+def test_optics_follow_the_device_model(model, focal_m, aperture_m):
+    from dwarf_alpaca.device_profile import get_device_profile
+
+    profile = get_device_profile(model)
+    assert profile.focal_length_mm / 1000.0 == pytest.approx(focal_m)
+    assert profile.aperture_mm / 1000.0 == pytest.approx(aperture_m)
+
+
+def test_dwarf3_optics_reported_to_nina():
+    from dwarf_alpaca.device_profile import configure_device_profile
+
+    configure_device_profile(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    assert _value(client.get("/api/v1/telescope/0/focallength")) == pytest.approx(0.150)
+    assert _value(client.get("/api/v1/telescope/0/aperturediameter")) == pytest.approx(0.035)

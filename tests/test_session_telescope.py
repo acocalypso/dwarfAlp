@@ -51,7 +51,9 @@ def _stub_one_click_transport(session: DwarfSession) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
 async def test_explicit_calibration_uses_shared_v3_command(model: str) -> None:
-    session = DwarfSession(_settings(dwarf_device_model=model))
+    session = DwarfSession(
+        _settings(dwarf_device_model=model, autofocus_before_calibration=True)
+    )
     session.simulation = False
     calls: list[tuple[int, int]] = []
     requests: list[Any] = []
@@ -246,8 +248,8 @@ async def test_one_click_goto_preparation_matches_captured_app_sequence() -> Non
     ):
         calls.append((module_id, command_id, request))
         if command_id == 16402:
-            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=8)
-        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=8)
+            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=2)
+        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
 
     async def fake_send_and_check(
         self, module_id, command_id, request, **kwargs
@@ -261,7 +263,7 @@ async def test_one_click_goto_preparation_matches_captured_app_sequence() -> Non
     await session._prepare_one_click_goto_mode()
 
     assert [command for _, command, _ in calls] == [16402, 16404, 10050, 12036]
-    assert calls[0][2].mode == 8
+    assert calls[0][2].mode == 2
     assert calls[1][2].client_param.encode_type == 1
     assert calls[2][2].level == 1
     assert calls[3][2].level == 1
@@ -480,7 +482,8 @@ async def test_telescope_slew_retries_after_busy(monkeypatch):
     result = await session.telescope_slew_to_coordinates(1.0, 2.0)
 
     assert result == (1.0, 2.0)
-    assert sleep_calls == [0.2]
+    # A busy DWARF gets 2 s after stopping the previous GOTO before the retry.
+    assert sleep_calls == [2.0]
 
     goto_calls = [
         cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO
@@ -560,6 +563,7 @@ async def test_telescope_slew_raises_after_repeated_busy(monkeypatch):
 async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
     settings = _settings()
     settings.auto_calibrate_on_slew = True
+    settings.always_one_click_goto = False
     settings.calibration_valid_seconds = 60.0
     session = DwarfSession(settings)
     session.simulation = False
@@ -625,6 +629,7 @@ async def test_telescope_slew_refreshes_calibration_after_expiry(monkeypatch):
 async def test_telescope_slew_falls_back_when_firmware_requires_calibration():
     settings = _settings()
     settings.auto_calibrate_on_slew = True
+    settings.always_one_click_goto = False
     session = DwarfSession(settings)
     session.simulation = False
     session._last_calibration_time = time.time()
@@ -688,6 +693,7 @@ async def test_telescope_slew_falls_back_when_firmware_requires_calibration():
 async def test_telescope_slew_uses_configured_timeout(monkeypatch):
     settings = _settings()
     settings.goto_command_timeout_seconds = 42.5
+    settings.always_one_click_goto = False
     session = DwarfSession(settings)
     session.simulation = False
     session._last_calibration_time = time.time()
@@ -1002,3 +1008,209 @@ async def test_telescope_stop_axis_noop_when_not_active(monkeypatch):
     await session.telescope_stop_axis(0)
 
     assert captured == []
+
+
+@pytest.mark.asyncio
+async def test_slew_preparation_continues_when_autofocus_never_starts() -> None:
+    session = DwarfSession(
+        _settings(
+            dwarf_device_model="dwarf3",
+            autofocus_before_calibration=True,
+            calibration_autofocus_start_timeout_seconds=0.05,
+            calibration_autofocus_timeout_seconds=5.0,
+        )
+    )
+    session.simulation = False
+
+    async def fake_send_and_check(*_args, **_kwargs):
+        return object()  # plain acknowledgement, no autofocus notification follows
+
+    session._send_and_check = fake_send_and_check  # type: ignore[method-assign]
+
+    started = time.monotonic()
+    latitude, longitude = await session._prepare_calibration_autofocus()
+
+    assert time.monotonic() - started < 2.0
+    assert (latitude, longitude) == (48.1372, 11.5756)
+    assert session._has_recent_calibration_autofocus()
+
+
+@pytest.mark.asyncio
+async def test_autofocus_waits_for_completion_once_started() -> None:
+    session = DwarfSession(
+        _settings(
+            dwarf_device_model="dwarf3",
+            calibration_autofocus_start_timeout_seconds=1.0,
+            calibration_autofocus_timeout_seconds=5.0,
+        )
+    )
+    session.simulation = False
+
+    async def notify(state: int) -> None:
+        packet = WsPacket(
+            module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
+            cmd=protocol_pb2.DwarfCMD.CMD_NOTIFY_ASTRO_AUTO_FOCUS_STATE,
+            type=TYPE_NOTIFICATION,
+            data=AstroAutoFocusState(state=state).SerializeToString(),
+        )
+        await session._handle_notification(packet)
+
+    async def fake_send_and_check(*_args, **_kwargs):
+        async def progress() -> None:
+            await asyncio.sleep(0.01)
+            await notify(1)
+            await asyncio.sleep(0.05)
+            await notify(3)
+
+        asyncio.get_running_loop().create_task(progress())
+        return object()
+
+    session._send_and_check = fake_send_and_check  # type: ignore[method-assign]
+
+    await session._autofocus_before_calibration()
+
+    assert session._autofocus_completion_event.is_set()
+    assert session.get_calibration_status()["status"] == "autofocus completed"
+
+
+@pytest.mark.asyncio
+async def test_new_one_click_goto_releases_previous_pending_request() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+    released: list[tuple[int, int]] = []
+
+    def fake_cancel_pending(module_id, command_id, reason=None):
+        released.append((module_id, command_id))
+        return True
+
+    session._ws_client.cancel_pending = fake_cancel_pending  # type: ignore[method-assign]
+    never_answered: asyncio.Future = asyncio.get_running_loop().create_future()
+    old_task = asyncio.create_task(session._monitor_one_click_goto_response(never_answered))
+    session._one_click_response_task = old_task
+    await asyncio.sleep(0)
+
+    begun: list[int] = []
+
+    async def fake_begin_request(module_id, command_id, *_args, **_kwargs):
+        begun.append(command_id)
+        return asyncio.get_running_loop().create_future()
+
+    session._begin_request = fake_begin_request  # type: ignore[method-assign]
+
+    await session._start_one_click_goto_command(20.98, 44.33, "NGC 7000")
+
+    assert old_task.cancelled()
+    assert released == [
+        (
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+        )
+    ]
+    assert begun == [protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO]
+    session._one_click_response_task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_immediate_one_click_rejection_is_raised_for_retry() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+
+    async def fake_begin_request(*_args, **_kwargs):
+        future = asyncio.get_running_loop().create_future()
+        future.set_result(
+            astro_pb2.ResOneClickGoto(
+                step=10, code=protocol_pb2.CODE_ASTRO_FUNCTION_BUSY, all_end=True
+            )
+        )
+        return future
+
+    session._begin_request = fake_begin_request  # type: ignore[method-assign]
+
+    with pytest.raises(DwarfCommandError) as excinfo:
+        await session._start_one_click_goto_command(0.712, 41.269, "M31")
+
+    assert excinfo.value.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY
+    assert session._goto_pending is False
+    # Still marked active so that an abort sends "stop one-click GOTO" first.
+    assert session._one_click_goto_active is True
+
+
+@pytest.mark.asyncio
+async def test_stop_tracking_stops_one_click_goto() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+    session._one_click_goto_active = True
+    sent: list[int] = []
+
+    async def noop(*_args, **_kwargs):
+        return None
+
+    async def fake_send_and_check(module_id, command_id, request, **_kwargs):
+        sent.append(command_id)
+
+    session._ensure_ws = noop  # type: ignore[method-assign]
+    session._send_and_check = fake_send_and_check  # type: ignore[method-assign]
+
+    await session.telescope_stop_tracking()
+
+    assert sent == [protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO]
+    assert session._one_click_goto_active is False
+
+
+@pytest.mark.asyncio
+async def test_explicit_calibration_skips_autofocus_by_default() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+    calls: list[tuple[int, int]] = []
+
+    async def fake_send_and_check(
+        self, module_id, command_id, request, *, timeout=10.0, expected_responses=None
+    ):
+        calls.append((module_id, command_id))
+
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    await session.ensure_calibration()
+
+    assert calls == [
+        (
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_slew_after_calibration_still_uses_one_click_goto():
+    settings = _settings()
+    settings.auto_calibrate_on_slew = True
+    session = DwarfSession(settings)
+    session.simulation = False
+    session._last_calibration_time = time.time()
+    session._last_calibration_ip = settings.dwarf_ap_ip
+
+    async def noop(self, *args, **kwargs):
+        return None
+
+    session._ensure_ws = types.MethodType(noop, session)
+    actions: list[int] = []
+
+    async def fake_send_and_check(
+        self, module_id, command_id, request, *, timeout=10.0, expected_responses=None
+    ):
+        actions.append(command_id)
+        return None
+
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    async def fake_send_request(self, module_id, command_id, request, response_cls, **kwargs):
+        actions.append(command_id)
+        return response_cls()
+
+    session._send_request = types.MethodType(fake_send_request, session)
+    _stub_one_click_transport(session)
+
+    await session.telescope_slew_to_coordinates(9.93, 69.07)
+
+    assert protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO in actions
+    assert protocol_pb2.DwarfCMD.CMD_ASTRO_START_GOTO_DSO not in actions

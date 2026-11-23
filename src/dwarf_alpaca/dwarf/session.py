@@ -26,7 +26,7 @@ from websockets.exceptions import ConnectionClosed, ConnectionClosedOK
 from ..astronomy.target_names import resolve_nina_target_name
 from ..config.settings import Settings
 from ..device_profile import DeviceProfile, get_device_profile
-from ..proto import astro_pb2, protocol_pb2
+from ..proto import astro_pb2, protocol_pb2, rgb_pb2
 from ..proto.astro_pb2 import ReqGotoDSO, ReqStopGoto
 from ..proto.base_pb2 import CommonParam, ComResponse
 from ..proto.camera_pb2 import (
@@ -296,8 +296,8 @@ def _decode_v3_device_config_payload(raw: bytes) -> dict[str, Any]:
     return result
 
 
-FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "Duo-Band Filter"]
-FALLBACK_FILTER_LABELS_MINI = ["Astro", "Duo-Band"]
+FALLBACK_FILTER_LABELS = ["VIS", "Astro", "HO"]
+FALLBACK_FILTER_LABELS_MINI = ["Astro", "HO"]
 _MINI_CANONICAL_FILTER_LABELS = tuple(FALLBACK_FILTER_LABELS_MINI)
 
 _MAX_JOYSTICK_SPEED = 30.0
@@ -311,6 +311,13 @@ _CMD_PARAM_SET_EXPOSURE = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_EXPOSURE)
 _CMD_PARAM_SET_GAIN = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_GAIN)
 _CMD_PARAM_SET_GENERAL_INT = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_GENERAL_INT_PARAM)
 _V3_ASTRO_MODE_ID = 2
+# Firmware shooting-mode IDs (ResGetDeviceStateInfo.shooting_mode_and_techs on a
+# DWARF 3): 2 = DSO (stacking only); 8 = Sun, a child of 3 (Sun/Moon). Mode 8
+# captures 1920x1080 frames into DWARF_RAW_TELE_Sun_* folders, so deep-sky
+# captures must use mode 2 to get native-resolution FITS.
+_V3_DSO_SHOOTING_MODE = 2
+# How long to wait for an immediate rejection of a one-click GOTO (11013).
+_ONE_CLICK_EARLY_REJECT_SECONDS = 1.5
 _V3_ASTRO_CAPTURE_MODE_ID = 11
 _V3_PARAM_MODE_SHIFT = 56
 _V3_PARAM_MODE_VALUE_MASK = (1 << _V3_PARAM_MODE_SHIFT) - 1
@@ -410,6 +417,20 @@ class CaptureBusyError(RuntimeError):
 
 class CaptureConfigurationError(RuntimeError):
     """Raised when a requested capture setting cannot be proved applied."""
+
+
+@dataclass
+class _ContinuousAstroSession:
+    """One DWARF astronomy session reused for consecutive Alpaca exposures."""
+
+    key: tuple[Any, ...]
+    started_at: float
+    first_capture_id: str | None
+    folder: str | None = None
+    delivered: set[str] = field(default_factory=set)
+    frames_delivered: int = 0
+    frames_skipped: int = 0
+    last_activity: float = field(default_factory=time.monotonic)
 
 
 @dataclass(frozen=True)
@@ -559,6 +580,12 @@ class DwarfSession:
         self._astro_capture_ready_event.set()
         self._astro_capture_operation_state: int | None = None
         self._capture_start_response_task: asyncio.Task[None] | None = None
+        self._astro_cleanup_tasks: set[asyncio.Task[None]] = set()
+        self._continuous: _ContinuousAstroSession | None = None
+        self._continuous_watchdog: asyncio.Task[None] | None = None
+        self._device_frame_count = 1
+        self._last_continuous_folder: str | None = None
+        self._astro_cleanup_lock = asyncio.Lock()
         self._capture_stop_response_task: asyncio.Task[None] | None = None
         self._ws_bootstrapped = False
         self.camera_state = CameraState()
@@ -617,6 +644,9 @@ class DwarfSession:
         self._calibration_task = None  # type: asyncio.Task[None] | None
         self._calibration_result_event = asyncio.Event()
         self._autofocus_completion_event = asyncio.Event()
+        self._autofocus_started_event = asyncio.Event()
+        self._background_go_live_task: asyncio.Task | None = None
+        self._frames_left_task: asyncio.Task | None = None
         self._calibration_autofocus_time: float | None = None
         self._calibration_autofocus_ip: str | None = None
         self._calibration_status = "unknown"
@@ -747,8 +777,8 @@ class DwarfSession:
             return resolved
         lowered = resolved.strip().lower().replace("_", " ")
         lowered = " ".join(part for part in lowered.split() if part)
-        if "duo" in lowered and "band" in lowered:
-            return "Duo-Band"
+        if ("duo" in lowered and "band" in lowered) or lowered in {"ho", "ho filter"}:
+            return "HO"
         if lowered in {"astro", "astro filter"}:
             return "Astro"
         return resolved
@@ -761,7 +791,7 @@ class DwarfSession:
             lowered = " ".join(part for part in lowered.split() if part)
             if not lowered:
                 continue
-            if "duo" in lowered and "band" in lowered:
+            if ("duo" in lowered and "band" in lowered) or lowered in {"ho", "ho filter"}:
                 canonical.add("duoband")
             if lowered in {"dark", "dark filter", "astro", "astro filter"}:
                 canonical.add("dark")
@@ -1024,8 +1054,52 @@ class DwarfSession:
                     payload_len=self._v3_device_config_bytes,
                     parsed=parsed,
                 )
+                await self._apply_light_preferences(response)
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.debug("dwarf.system.v3_device_config_failed", error=str(exc))
+
+    async def _apply_light_preferences(self, response: Any) -> None:
+        """Turn the ring light and battery indicator off if the settings ask.
+
+        Only lights the DWARF reports as on are switched, so reconnecting does
+        not send the commands again.
+        """
+
+        device_state = getattr(response, "device_state_info", None)
+        lights = (
+            (
+                self.settings.ring_light_off,
+                "ring_light",
+                getattr(getattr(device_state, "rgb_state", None), "state", 1),
+                protocol_pb2.DwarfCMD.CMD_RGB_POWER_CLOSE_RGB,
+                rgb_pb2.ReqCloseRgb(),
+            ),
+            (
+                self.settings.battery_indicator_off,
+                "battery_indicator",
+                getattr(getattr(device_state, "power_ind_state", None), "state", 1),
+                protocol_pb2.DwarfCMD.CMD_RGB_POWER_POWERIND_OFF,
+                rgb_pb2.ReqClosePowerInd(),
+            ),
+        )
+        for wanted, name, state, command_id, request in lights:
+            if not wanted or int(state) == 0:
+                continue
+            try:
+                await self._send_and_check(
+                    protocol_pb2.ModuleId.MODULE_RGB_POWER,
+                    command_id,
+                    request,
+                    timeout=5.0,
+                )
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.warning(
+                    "dwarf.lights.off_failed",
+                    light=name,
+                    error=str(exc) or type(exc).__name__,
+                )
+            else:
+                logger.info("dwarf.lights.off", light=name)
 
     async def _enter_v3_astro_mode(self) -> None:
         """Put a V3 device into the Deep Sky workflow before applying astro parameters."""
@@ -1033,7 +1107,7 @@ class DwarfSession:
         if self.simulation or not self._uses_v3_protocol():
             return
 
-        mode_switch = ReqSwitchShootingMode(mode=8)
+        mode_switch = ReqSwitchShootingMode(mode=_V3_DSO_SHOOTING_MODE)
         mode_response = await self._send_request(
             _MODULE_DEVICE_CONFIG,
             _CMD_TASK_SWITCH_SHOOTING_MODE,
@@ -1043,7 +1117,7 @@ class DwarfSession:
         )
         mode_code = int(getattr(mode_response, "code", protocol_pb2.OK))
         mode = int(getattr(mode_response, "shooting_mode_id", 0))
-        if mode_code != protocol_pb2.OK or mode != 8:
+        if mode_code != protocol_pb2.OK or mode != _V3_DSO_SHOOTING_MODE:
             raise CaptureConfigurationError(
                 f"{self.profile.display_name} did not select astronomy mode "
                 f"(code {mode_code}, mode {mode})"
@@ -1517,7 +1591,7 @@ class DwarfSession:
             await self._apply_v3_capture_runtime_parameters(
                 state.duration,
                 int(requested_gain),
-                max(1, int(state.requested_frame_count)),
+                max(1, int(self._device_frame_count or state.requested_frame_count or 1)),
                 mode_id=self._v3_capture_param_mode_id,
             )
             logger.info(
@@ -1639,6 +1713,7 @@ class DwarfSession:
             return
         state_value = int(message.state)
         state_name = {1: "running", 3: "completed"}.get(state_value, "unknown")
+        self._autofocus_started_event.set()
         if state_value == 1:
             self._calibration_status = "autofocusing"
             self._calibration_detail = "Astronomical autofocus is running"
@@ -2469,6 +2544,17 @@ class DwarfSession:
                 await self._http_client.aclose()
 
     async def shutdown(self) -> None:
+        if self._continuous is not None and not self.simulation:
+            with contextlib.suppress(Exception):
+                await self._end_continuous_session(reason="shutdown")
+        cleanup_tasks = list(self._astro_cleanup_tasks)
+        if cleanup_tasks:
+            # Let queued deletions finish briefly; anything left stays on the device.
+            await asyncio.wait(cleanup_tasks, timeout=10.0)
+            for task in cleanup_tasks:
+                if not task.done():
+                    task.cancel()
+                    logger.warning("dwarf.camera.astro_cleanup_cancelled_on_shutdown")
         if self.camera_state.capture_task and not self.camera_state.capture_task.done():
             self.camera_state.capture_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -2556,10 +2642,20 @@ class DwarfSession:
             self._record_goto(ra_hours, dec_degrees)
             return ra_hours, dec_degrees
 
+        if self._continuous is not None:
+            await self._end_continuous_session(reason="telescope_slew")
         await self._ensure_ws()
+        if self._astro_capture_needs_ready_wait():
+            # The DWARF answers a GOTO with "function busy" while it is still
+            # closing the previous capture session (this takes ~30-70 s).
+            logger.info(
+                "dwarf.telescope.goto.waiting_for_capture_stop",
+                state=self._astro_capture_operation_state,
+            )
+            await self._wait_for_astro_capture_ready()
         await self._halt_manual_motion()
-        use_one_click_goto = (
-            self.settings.auto_calibrate_on_slew and not self._has_recent_calibration()
+        use_one_click_goto = self.settings.auto_calibrate_on_slew and (
+            self.settings.always_one_click_goto or not self._has_recent_calibration()
         )
         if use_one_click_goto:
             await self._prepare_calibration_autofocus()
@@ -2614,8 +2710,24 @@ class DwarfSession:
                 code=pending_error.code,
                 one_click=use_one_click_goto,
             )
-            await self.telescope_abort_slew()
-            await asyncio.sleep(0.2)
+            # Stop whatever the DWARF is still doing (typically tracking the
+            # previous one-click GOTO target) before trying again.
+            with contextlib.suppress(DwarfCommandError, asyncio.TimeoutError):
+                await self.telescope_abort_slew()
+            if pending_error.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
+                # Sky test 2026-11-15: after a RAW stacking session the DWARF 3
+                # kept answering "busy" even once tracking was stopped, and only
+                # a power cycle cleared it. The app returns to live view (11010)
+                # after a stack; do the same before retrying.
+                logger.info("dwarf.telescope.goto.busy_go_live")
+                await self._astro_go_live()
+                # Record the whole-device state (exclusive tasks per subsystem)
+                # so the next log shows what the DWARF still considers busy.
+                with contextlib.suppress(Exception):
+                    await self._query_astro_capture_operation_state()
+            await asyncio.sleep(
+                2.0 if pending_error.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY else 0.2
+            )
             await self._halt_manual_motion()
             if use_one_click_goto:
                 await self._start_one_click_goto_command(
@@ -2631,6 +2743,8 @@ class DwarfSession:
 
         clamped_rate = max(min(rate, _MAX_JOYSTICK_SPEED), -_MAX_JOYSTICK_SPEED)
         manual_motion = abs(clamped_rate) >= 1e-6
+        if manual_motion and self._continuous is not None and not self.simulation:
+            await self._end_continuous_session(reason="telescope_move_axis")
         if self.simulation:
             self._manual_axis_rates[axis] = 0.0 if abs(clamped_rate) < 1e-6 else clamped_rate
             return
@@ -2824,6 +2938,10 @@ class DwarfSession:
         self._drop_goto_record()
 
     def _has_recent_goto(self) -> bool:
+        if self._last_goto_target is not None:
+            # A completed GOTO stays valid while the DWARF tracks it: the
+            # record is dropped on a new slew, an abort or tracking off.
+            return True
         max_age_value = self.settings.goto_valid_seconds
         max_age = float(max_age_value) if max_age_value is not None else 0.0
         if max_age <= 0.0:
@@ -2909,6 +3027,7 @@ class DwarfSession:
         )
         deadline = time.monotonic() + timeout
         self._autofocus_completion_event.clear()
+        self._autofocus_started_event.clear()
         self._calibration_status = "autofocusing"
         self._calibration_detail = "Astronomical autofocus is starting"
         request = ReqAstroAutoFocus(mode=1)
@@ -2936,6 +3055,28 @@ class DwarfSession:
             response, (AstroAutoFocusState, AstroAutoFocusFastState)
         ) and int(response.state) == 3
         if response is not None and not completed_in_response:
+            # DWARF 3 has been seen acknowledging the command and then sending
+            # no autofocus notification at all. Detect that early instead of
+            # holding the caller (for example a NINA slew) for the full timeout.
+            start_timeout = float(
+                getattr(self.settings, "calibration_autofocus_start_timeout_seconds", 0.0)
+                or 0.0
+            )
+            if start_timeout > 0.0 and not self._autofocus_completion_event.is_set():
+                remaining = max(0.0, deadline - time.monotonic())
+                try:
+                    await asyncio.wait_for(
+                        self._autofocus_started_event.wait(),
+                        timeout=min(start_timeout, remaining),
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "dwarf.focus.autofocus.before_calibration.not_started",
+                        waited_seconds=round(min(start_timeout, remaining), 1),
+                    )
+                    raise asyncio.TimeoutError(
+                        "the DWARF acknowledged autofocus but never started it"
+                    ) from None
             remaining = max(0.0, deadline - time.monotonic())
             await asyncio.wait_for(
                 self._autofocus_completion_event.wait(), timeout=remaining
@@ -2954,7 +3095,20 @@ class DwarfSession:
     async def _prepare_calibration_autofocus(self) -> tuple[float, float]:
         latitude, longitude = self._require_observer_location()
         if not self._has_recent_calibration_autofocus():
-            await self._autofocus_before_calibration()
+            if self.settings.autofocus_before_calibration:
+                try:
+                    await self._autofocus_before_calibration()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    # Autofocus only improves the plate solve of the DWARF's own
+                    # calibration; a missing or failed autofocus must not block
+                    # the GOTO that the client asked for.
+                    logger.warning(
+                        "dwarf.focus.autofocus.before_calibration.skipped",
+                        error=str(exc) or type(exc).__name__,
+                        error_type=type(exc).__name__,
+                    )
             self._calibration_autofocus_time = time.time()
             self._calibration_autofocus_ip = self.settings.dwarf_ap_ip
         self._calibration_status = "awaiting target"
@@ -2974,7 +3128,7 @@ class DwarfSession:
     async def _prepare_one_click_goto_mode(self) -> None:
         """Mirror the app's V3 mode/camera setup immediately before command 11013."""
 
-        mode_switch = ReqSwitchShootingMode(mode=8)
+        mode_switch = ReqSwitchShootingMode(mode=_V3_DSO_SHOOTING_MODE)
         response = await self._send_request(
             _MODULE_DEVICE_CONFIG,
             _CMD_TASK_SWITCH_SHOOTING_MODE,
@@ -2984,7 +3138,7 @@ class DwarfSession:
         )
         code = int(getattr(response, "code", protocol_pb2.OK))
         mode = int(getattr(response, "shooting_mode_id", 0))
-        if code != protocol_pb2.OK or mode != 8:
+        if code != protocol_pb2.OK or mode != _V3_DSO_SHOOTING_MODE:
             raise CaptureConfigurationError(
                 f"{self.profile.display_name} did not select astronomy mode "
                 f"(code {code}, mode {mode})"
@@ -3041,7 +3195,8 @@ class DwarfSession:
                 )
                 raise
             try:
-                await self._autofocus_before_calibration()
+                if self.settings.autofocus_before_calibration:
+                    await self._autofocus_before_calibration()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -3189,6 +3344,11 @@ class DwarfSession:
             shooting_mode=2,
             goto_only=False,
         )
+        # The DWARF 3 does not always answer command 11013 once the GOTO has
+        # finished and tracking is running, which left the request pending and
+        # made every later GOTO fail with "already pending". A new GOTO
+        # supersedes the previous one, so drop its outstanding response first.
+        await self._release_previous_one_click_request()
         try:
             response_future = await self._begin_request(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
@@ -3206,6 +3366,37 @@ class DwarfSession:
             }:
                 self._one_click_goto_active = False
             raise
+        # The DWARF rejects a one-click GOTO it cannot run (for example
+        # "function busy") within milliseconds. Surface that to the caller so
+        # the normal retry path runs, instead of reporting a started slew.
+        early_response = None
+        try:
+            early_response = await asyncio.wait_for(
+                asyncio.shield(response_future), timeout=_ONE_CLICK_EARLY_REJECT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            early_response = None
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            early_response = None
+        if early_response is not None:
+            early_code = int(getattr(early_response, "code", protocol_pb2.OK))
+            if early_code != protocol_pb2.OK:
+                error = DwarfCommandError(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+                    early_code,
+                )
+                self._calibration_status = "failed"
+                self._calibration_detail = str(error)
+                self._finish_calibration_trace(outcome="failed", error=error)
+                logger.warning(
+                    "dwarf.telescope.goto.one_click.rejected",
+                    code=early_code,
+                    target_name=target_name,
+                )
+                raise error
         self._record_goto(ra_hours, dec_degrees, kind=_GOTO_KIND_DSO)
         self._mark_goto_pending(kind=_GOTO_KIND_DSO, target_name=target_name)
         self._one_click_goto_active = True
@@ -3215,6 +3406,24 @@ class DwarfSession:
         self._one_click_response_task = asyncio.create_task(
             self._monitor_one_click_goto_response(response_future)
         )
+
+    async def _release_previous_one_click_request(self) -> None:
+        old_task = self._one_click_response_task
+        self._one_click_response_task = None
+        if old_task is not None and not old_task.done():
+            old_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await old_task
+        released = False
+        with contextlib.suppress(Exception):
+            released = bool(
+                self._ws_client.cancel_pending(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+                )
+            )
+        if released:
+            logger.info("dwarf.telescope.goto.one_click.previous_request_released")
 
     async def _monitor_one_click_goto_response(
         self, response_future: asyncio.Future[Message]
@@ -3312,18 +3521,57 @@ class DwarfSession:
         request = (
             astro_pb2.ReqStopOneClickGoto() if one_click else ReqStopGoto()
         )
-        await self._send_and_check(
-            protocol_pb2.ModuleId.MODULE_ASTRO,
-            (
-                protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO
-                if one_click
-                else protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO
-            ),
-            request,
-        )
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                (
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO
+                    if one_click
+                    else protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO
+                ),
+                request,
+            )
+        except (DwarfCommandError, asyncio.TimeoutError) as exc:
+            # Sky test 2026-11-19: the stop got no answer while the DWARF was
+            # closing a capture session, and the 500 left NINA's slew state
+            # out of step. Nothing is moving to stop in that case.
+            logger.warning(
+                "dwarf.telescope.abort_slew.stop_not_confirmed",
+                one_click=one_click,
+                error=str(exc) or type(exc).__name__,
+                error_type=type(exc).__name__,
+            )
         for axis in (0, 1):
             with contextlib.suppress(Exception):
                 await self.telescope_stop_axis(axis, ensure_ws=False)
+
+    async def telescope_stop_tracking(self) -> None:
+        """Stop the DWARF following its target (NINA "Tracking off").
+
+        The DWARF tracks after a one-click GOTO until told otherwise; ending
+        the capture session and the one-click GOTO is what the app does when
+        an observation ends.
+        """
+
+        if self.simulation:
+            return
+        if self._continuous is not None:
+            await self._end_continuous_session(reason="tracking_stopped")
+        await self._ensure_ws()
+        await self._release_previous_one_click_request()
+        self._one_click_goto_active = False
+        self._clear_goto(reason="tracking_stopped")
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO,
+                astro_pb2.ReqStopOneClickGoto(),
+            )
+        except (DwarfCommandError, asyncio.TimeoutError) as exc:
+            # Nothing was being tracked: the DWARF may refuse the stop.
+            logger.info("dwarf.telescope.tracking.stop_ignored", error=str(exc))
+            return
+        logger.info("dwarf.telescope.tracking.stopped")
 
     # --- Camera --------------------------------------------------------------------
 
@@ -3393,6 +3641,8 @@ class DwarfSession:
         self.camera_state.start_time = None
         if self.simulation:
             return
+        if self._continuous is not None:
+            await self._end_continuous_session(reason="camera_disconnect")
         if self._uses_v3_protocol():
             # The V3 app captures do not send the legacy camera command 10001;
             # it leaves shared mode/stream ownership to the global task manager.
@@ -3463,9 +3713,133 @@ class DwarfSession:
                 "DWARF mini dark frames use the dedicated calibration workflow; "
                 "image delivery to NINA has not yet been hardware-verified"
             )
+        continuous_wanted = self._continuous_session_wanted(light, mini_profile)
+        reuse_continuous = False
         if not self.simulation:
+            if continuous_wanted:
+                reuse_continuous = self._continuous_can_reuse(duration, light)
+            if not reuse_continuous and self._continuous is not None:
+                await self._end_continuous_session(reason="settings_changed_or_not_running")
             await self._ensure_ws()
+            if not reuse_continuous and self._astro_capture_needs_ready_wait():
+                # The DWARF is still closing the previous session (~70 s on a
+                # DWARF 3 in DSO mode). Answer StartExposure at once and start in
+                # the background: blocking here made NINA time out, resend
+                # StartExposure several times, get a 409 and abort the exposure.
+                self._defer_start_until_ready(
+                    duration,
+                    light,
+                    continue_without_darks=continue_without_darks,
+                    mini_profile=mini_profile,
+                    continuous_wanted=continuous_wanted,
+                )
+                return
+        await self._camera_start_exposure_ready(
+            duration,
+            light,
+            continue_without_darks=continue_without_darks,
+            mini_profile=mini_profile,
+            continuous_wanted=continuous_wanted,
+            reuse_continuous=reuse_continuous,
+        )
+
+    def _astro_capture_needs_ready_wait(self) -> bool:
+        if not self._uses_v3_protocol():
+            return False
+        current = self._astro_capture_operation_state
+        return current is not None and current not in {
+            _OperationState.IDLE,
+            _OperationState.STOPPED,
+        }
+
+    def _defer_start_until_ready(
+        self,
+        duration: float,
+        light: bool,
+        *,
+        continue_without_darks: bool | None,
+        mini_profile: bool,
+        continuous_wanted: bool,
+    ) -> None:
+        state = self.camera_state
+        pending_id = uuid.uuid4().hex
+        state.capture_id = pending_id
+        state.capture_phase = CapturePhase.CONFIGURING
+        state.capture_start_monotonic = time.monotonic()
+        state.duration = duration
+        state.light = light
+        state.start_time = time.time()
+        state.last_end_time = None
+        state.last_error = None
+        state.image = None
+        logger.info(
+            "dwarf.camera.start_deferred_until_ready",
+            capture_id=pending_id,
+            device_state=self._astro_capture_operation_state,
+        )
+        state.capture_task = asyncio.create_task(
+            self._deferred_start(
+                pending_id,
+                duration,
+                light,
+                continue_without_darks=continue_without_darks,
+                mini_profile=mini_profile,
+                continuous_wanted=continuous_wanted,
+            )
+        )
+
+    async def _deferred_start(
+        self,
+        pending_id: str,
+        duration: float,
+        light: bool,
+        *,
+        continue_without_darks: bool | None,
+        mini_profile: bool,
+        continuous_wanted: bool,
+    ) -> None:
+        state = self.camera_state
+        try:
             await self._wait_for_astro_capture_ready()
+            if state.capture_id != pending_id:
+                return  # aborted while waiting
+            await self._camera_start_exposure_ready(
+                duration,
+                light,
+                continue_without_darks=continue_without_darks,
+                mini_profile=mini_profile,
+                continuous_wanted=continuous_wanted,
+                reuse_continuous=False,
+            )
+            logger.info("dwarf.camera.deferred_start_dispatched", pending_id=pending_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "dwarf.camera.deferred_start_failed",
+                pending_id=pending_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            if state.capture_id is not None and state.capture_phase != CapturePhase.READY:
+                state.capture_phase = CapturePhase.FAILED
+                state.last_error = f"deferred_start_failed: {exc}"
+                state.start_time = None
+                state.last_end_time = time.time()
+
+    async def _camera_start_exposure_ready(
+        self,
+        duration: float,
+        light: bool,
+        *,
+        continue_without_darks: bool | None,
+        mini_profile: bool,
+        continuous_wanted: bool,
+        reuse_continuous: bool,
+    ) -> None:
+        """Start an exposure once the DWARF can accept a new capture."""
+
+        state = self.camera_state
         state.capture_id = uuid.uuid4().hex
         capture_id = state.capture_id
         state.capture_phase = CapturePhase.CONFIGURING
@@ -3501,6 +3875,16 @@ class DwarfSession:
         state.capture_mode = self._resolve_mini_capture_mode() if mini_profile else "astro"
         frames_to_capture = max(1, int(state.requested_frame_count or 1))
         state.requested_frame_count = frames_to_capture
+        if reuse_continuous:
+            self._begin_continuous_frame(state)
+            return
+        start_continuous = continuous_wanted and not self.simulation
+        device_frames = (
+            max(2, int(self.settings.continuous_astro_max_frames))
+            if start_continuous
+            else frames_to_capture
+        )
+        self._device_frame_count = device_frames
         if self.simulation:
             await self._simulate_capture(state)
             state.capture_task = None
@@ -3605,7 +3989,7 @@ class DwarfSession:
                 ignored=True,
             )
 
-        await self._configure_astro_capture(frames=frames_to_capture, binning=(bin_x, bin_y))
+        await self._configure_astro_capture(frames=device_frames, binning=(bin_x, bin_y))
         state.capture_phase = CapturePhase.STARTING
         await self._refresh_capture_baseline(capture_kind=state.capture_mode)
 
@@ -3632,7 +4016,7 @@ class DwarfSession:
                     await self._apply_v3_capture_runtime_parameters(
                         duration,
                         int(requested_gain),
-                        frames_to_capture,
+                        device_frames,
                     )
                 except Exception as exc:
                     # 11005 is already running at this point. Never turn a
@@ -3684,13 +4068,26 @@ class DwarfSession:
 
         state.last_error = None
         state.capture_phase = CapturePhase.EXPOSING
+        if start_continuous:
+            self._continuous = _ContinuousAstroSession(
+                key=self._continuous_key(duration, light),
+                started_at=float(state.start_time or time.time()),
+                first_capture_id=state.capture_id,
+            )
+            self._ensure_continuous_watchdog()
+            logger.info(
+                "dwarf.camera.continuous_session_started",
+                capture_id=state.capture_id,
+                key=self._continuous.key,
+                device_frames=device_frames,
+            )
         logger.info(
             "dwarf.camera.astro_capture_started",
             duration=duration,
             light=light,
             dark_ready=dark_ready,
             goto_target=self._last_goto_target,
-            frames=frames_to_capture,
+            frames=device_frames,
             binning=(bin_x, bin_y),
         )
         state.capture_task = asyncio.create_task(self._fetch_capture(state))
@@ -3706,7 +4103,20 @@ class DwarfSession:
             with contextlib.suppress(asyncio.CancelledError):
                 await state.capture_task
         if not self.simulation:
-            await self._stop_astro_capture(strict=True)
+            if self._continuous is not None:
+                await self._end_continuous_session(reason="abort", strict=True)
+            else:
+                await self._stop_astro_capture(strict=True)
+        if state.capture_id is not None:
+            # Sky test 2026-11-19: NINA sent StartExposure one second after
+            # AbortExposure, while the DWARF was still closing the session
+            # (~50 s). That exposure owns the camera state now; resetting it
+            # here left the new exposure waiting forever.
+            logger.info(
+                "dwarf.camera.abort_superseded_by_new_exposure",
+                capture_id=state.capture_id,
+            )
+            return
         state.capture_task = None
         state.start_time = None
         state.image = None
@@ -3773,6 +4183,13 @@ class DwarfSession:
             presets=[{"exposure": preset.exposure_s, "gain": preset.gain} for preset in presets],
         )
         return presets
+
+    async def _nearest_v3_astro_preset(self, duration: float, gain: int) -> V3AstroPreset:
+        presets = await self._get_v3_astro_presets()
+        return min(
+            presets,
+            key=lambda preset: (abs(preset.exposure_s - duration), abs(preset.gain - gain)),
+        )
 
     async def _select_v3_astro_preset(self, duration: float) -> V3AstroPreset:
         presets = await self._get_v3_astro_presets()
@@ -3874,12 +4291,17 @@ class DwarfSession:
             )
 
         gain_values = gain_param.get("values")
-        if isinstance(gain_values, list) and gain not in {
-            int(value) for value in gain_values if isinstance(value, (int, float))
-        }:
-            raise CaptureConfigurationError(
-                f"Gain {gain} is not supported by the active V3 astronomy mode"
+        allowed_gains = sorted(
+            {int(value) for value in gain_values if isinstance(value, (int, float))}
+        ) if isinstance(gain_values, list) else []
+        if allowed_gains and gain not in allowed_gains:
+            # The DWARF offers gain in steps of 10 (40-240); NINA lets the user
+            # type any value. Use the nearest one instead of refusing.
+            nearest = min(allowed_gains, key=lambda value: (abs(value - gain), value))
+            logger.warning(
+                "dwarf.camera.gain_rounded", requested=gain, used=nearest
             )
+            gain = nearest
         return (
             int(exposure_param.get("paramId", _V3_ASTRO_EXPOSURE_PARAM_ID)),
             match[1],
@@ -4034,7 +4456,39 @@ class DwarfSession:
             timeout=8.0,
         )
         code = int(getattr(response, "code", protocol_pb2.OK))
+        if code != protocol_pb2.OK and self._v3_live_parameters_supported:
+            # Firmware V1.5.5.1 (DWARF 3) answers -3 when the exposure/gain
+            # pair is not one of its own astro presets (10 s / gain 60 was
+            # refused; 15 s / 60 and 30 s / 60 were accepted). V1.5.4.1
+            # accepted any pair. Load the nearest preset unchanged; the live
+            # exposure and gain writes applied after 11041 then set the
+            # values NINA asked for.
+            preset = await self._nearest_v3_astro_preset(duration, int(gain))
+            logger.warning(
+                "dwarf.camera.v3_astro_quick_set_preset_fallback",
+                rejected_info_id=request.info_id,
+                code=code,
+                preset_info_id="|".join(preset.pipe_parts),
+                exposure=duration,
+                gain=gain,
+            )
+            request = astro_pb2.ReqSetQuickSet(info_id="|".join(preset.pipe_parts))
+            response = await self._send_request(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET,
+                request,
+                astro_pb2.ResSetQuickSet,
+                timeout=8.0,
+            )
+            code = int(getattr(response, "code", protocol_pb2.OK))
         if code != protocol_pb2.OK:
+            logger.warning(
+                "dwarf.camera.v3_astro_quick_set_rejected",
+                info_id=request.info_id,
+                code=code,
+                exposure=duration,
+                gain=gain,
+            )
             raise CaptureConfigurationError(
                 f"{self.profile.display_name} rejected astronomy quick-set parameters "
                 f"with code {code}"
@@ -4859,6 +5313,8 @@ class DwarfSession:
             ):
                 return state.filter_name
             if not self.simulation:
+                if self._continuous is not None:
+                    await self._end_continuous_session(reason="filter_change")
                 await self._ensure_ws()
             await self._apply_filter_option(position, option)
             return option.label
@@ -5446,6 +5902,12 @@ class DwarfSession:
                 command_id=command_id,
                 protocol_minimum="2.5",
             )
+            # Sky test 2026-11-22: the DWARF does not always answer 11050. A
+            # request left pending by an earlier, cancelled capture made every
+            # later "continue without dark" fail with "already pending", so no
+            # exposure without a matching dark frame could start again.
+            if self._ws_client.cancel_pending(protocol_pb2.ModuleId.MODULE_ASTRO, command_id):
+                logger.info("dwarf.camera.astro_capture_continue_stale_released")
             future = await self._begin_request(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 command_id,
@@ -5555,6 +6017,12 @@ class DwarfSession:
                 code=code,
             )
         except asyncio.CancelledError:
+            # Do not leave the request waiting for an answer that will never
+            # be read; the next capture would find it "already pending".
+            self._ws_client.cancel_pending(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                pending_command_id,
+            )
             raise
         except asyncio.TimeoutError:
             self._ws_client.cancel_pending(
@@ -5889,11 +6357,15 @@ class DwarfSession:
             return None
         return value
 
-    async def _wait_for_astro_capture_ready(self, *, timeout: float = 75.0) -> None:
+    async def _wait_for_astro_capture_ready(self, *, timeout: float | None = None) -> None:
         """Do not start while firmware is finalizing the preceding stack."""
 
         if not self._uses_v3_protocol():
             return
+        if timeout is None:
+            timeout = float(
+                getattr(self.settings, "astro_capture_ready_timeout_seconds", 150.0)
+            )
         current = self._astro_capture_operation_state
         if current is None or current in {_OperationState.IDLE, _OperationState.STOPPED}:
             return
@@ -6387,7 +6859,389 @@ class DwarfSession:
         state.last_end_time = state.image_timestamp
         state.start_time = None
 
+    # region continuous astronomy session
+    _CONTINUOUS_CLOCK_TOLERANCE_SECONDS = 10.0
+
+    def _continuous_session_wanted(self, light: bool, mini_profile: bool) -> bool:
+        # An astro capture is always a stacking session on the device; a
+        # one-frame session behaves like a continuous one that is closed after
+        # the first frame, so light frames always use the continuous session.
+        # Tested on DWARF 3; DWARF 2 and mini share the code but are untested.
+        # Dark frames and the mini's photo mode keep the single-frame path.
+        if not getattr(self.settings, "continuous_astro_session", True):
+            return False
+        if not light or not self._uses_v3_protocol():
+            return False
+        if mini_profile and self._resolve_mini_capture_mode() != "astro":
+            return False
+        return int(self.camera_state.requested_frame_count or 1) == 1
+
+    def _continuous_key(self, duration: float, light: bool) -> tuple[Any, ...]:
+        state = self.camera_state
+        bin_x, bin_y = state.requested_bin or (1, 1)
+        return (
+            round(float(duration), 6),
+            state.requested_gain,
+            state.filter_index,
+            (int(bin_x), int(bin_y)),
+            bool(light),
+        )
+
+    def _continuous_can_reuse(self, duration: float, light: bool) -> bool:
+        cont = self._continuous
+        if cont is None or cont.folder is None:
+            return False
+        if cont.key != self._continuous_key(duration, light):
+            return False
+        if self._astro_capture_operation_state != _OperationState.RUNNING:
+            return False
+        budget = max(2, int(self.settings.continuous_astro_max_frames))
+        return cont.frames_delivered + cont.frames_skipped < budget - 1
+
+    def _begin_continuous_frame(self, state: CameraState) -> None:
+        cont = self._continuous
+        assert cont is not None
+        cont.last_activity = time.monotonic()
+        state.capture_mode = "astro"
+        state.applied_duration = state.duration
+        state.reported_duration = state.duration
+        state.applied_gain_value = state.requested_gain
+        state.applied_filter_name = state.filter_name or None
+        state.applied_bin = state.requested_bin
+        state.applied_frame_count = 1
+        state.capture_phase = CapturePhase.EXPOSING
+        logger.info(
+            "dwarf.camera.continuous_frame_requested",
+            capture_id=state.capture_id,
+            frames_delivered=cont.frames_delivered,
+            frames_skipped=cont.frames_skipped,
+            folder=cont.folder,
+        )
+        state.capture_task = asyncio.create_task(self._fetch_continuous_frame(state, cont))
+
+    _FAILED_FRAME_PREFIX = "failed_"
+
+    @classmethod
+    def _continuous_frame_key(cls, entry: FtpPhotoEntry) -> str:
+        """Identity of a raw frame that survives the firmware's ``failed_`` rename.
+
+        When the DWARF cannot stack a frame (few stars, trailing, lens cap on) it
+        renames ``30s40_..._29C.fits`` to ``failed_30s40_..._29C.fits`` a few
+        seconds after writing it. Both names are the same exposure.
+        """
+
+        name = entry.name
+        if name.lower().startswith(cls._FAILED_FRAME_PREFIX):
+            name = name[len(cls._FAILED_FRAME_PREFIX) :]
+        return f"{entry.directory.rstrip('/')}/{name}"
+
+    @classmethod
+    def _is_failed_stack_frame(cls, entry: FtpPhotoEntry) -> bool:
+        return entry.name.lower().startswith(cls._FAILED_FRAME_PREFIX)
+
+    @staticmethod
+    def _select_continuous_frame(
+        entries: list[FtpPhotoEntry],
+        *,
+        delivered: set[str],
+        duration: float,
+        valid_after: float,
+        clock_tolerance: float = 10.0,
+    ) -> FtpPhotoEntry | None:
+        """Pick the next frame to hand to the client: the oldest not yet delivered.
+
+        ``delivered`` holds frame keys (see ``_continuous_frame_key``).
+        ``entry.timestamp`` is the time the DWARF wrote the frame (end of the
+        exposure). Frames that started before the session (or before anything
+        that invalidated it) are never used. Frames are always delivered in
+        order, none is skipped: when the Wi-Fi download is slower than the
+        exposures the client falls behind the DWARF, and frames it never asks
+        for stay on the DWARF (reported when the session ends).
+        """
+
+        # One candidate per exposure: if both the original and the ``failed_``
+        # name are listed (rename in progress), keep the renamed one.
+        by_key: dict[str, FtpPhotoEntry] = {}
+        for entry in entries:
+            key = DwarfSession._continuous_frame_key(entry)
+            if key in delivered:
+                continue
+            if entry.timestamp - duration < valid_after - clock_tolerance:
+                continue
+            current = by_key.get(key)
+            if current is None or DwarfSession._is_failed_stack_frame(entry):
+                by_key[key] = entry
+        candidates = sorted(by_key.values(), key=lambda item: (item.timestamp, item.path))
+        return candidates[0] if candidates else None
+
+    async def _download_continuous_frame(self, entry: FtpPhotoEntry) -> np.ndarray | None:
+        # The FTP listing can show a FITS while the firmware is still writing it,
+        # so a decode failure is retried briefly instead of failing the exposure.
+        for attempt in range(1, 5):
+            path = entry.path
+            if attempt % 2 == 0 and not self._is_failed_stack_frame(entry):
+                # The firmware may have renamed the frame to failed_* meanwhile.
+                path = f"{entry.directory.rstrip('/')}/{self._FAILED_FRAME_PREFIX}{entry.name}"
+            try:
+                content = await self._ftp_client.download(path)
+                return self._decode_capture_content(path, content)
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.info(
+                    "dwarf.camera.continuous_frame_retry",
+                    path=entry.path,
+                    attempt=attempt,
+                    error=str(exc),
+                )
+                await asyncio.sleep(1.0)
+        return None
+
+    async def _fetch_continuous_frame(
+        self, state: CameraState, cont: _ContinuousAstroSession
+    ) -> None:
+        capture_id = state.capture_id
+        first = cont.folder is None
+        duration = float(state.duration)
+        requested_at = cont.started_at if first else float(state.start_time or time.time())
+        timeout = duration * 2.0 + (150.0 if first else 90.0)
+        deadline = time.monotonic() + timeout
+        poll_interval = max(0.2, float(self.settings.ftp_poll_interval_seconds))
+        stopped_polls = 0
+        state.capture_phase = CapturePhase.TRANSFERRING
+        while True:
+            if self._continuous is not cont or state.capture_id != capture_id:
+                if state.capture_id == capture_id:
+                    state.capture_phase = CapturePhase.FAILED
+                    state.last_error = "continuous_session_ended"
+                    state.start_time = None
+                    state.last_end_time = time.time()
+                return
+            entries: list[FtpPhotoEntry] = []
+            try:
+                if cont.folder is None:
+                    latest = await self._ftp_client.get_latest_photo_entry(capture_kind="astro")
+                    if latest is not None and self._is_new_continuous_folder(
+                        latest, cont.started_at
+                    ):
+                        cont.folder = latest.directory
+                        logger.info(
+                            "dwarf.camera.continuous_session_folder",
+                            folder=cont.folder,
+                            capture_id=capture_id,
+                        )
+                if cont.folder is not None:
+                    entries = await self._ftp_client.list_astro_raw_fits(cont.folder)
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.warning(
+                    "dwarf.camera.continuous_list_failed",
+                    folder=cont.folder,
+                    error=str(exc),
+                )
+            chosen = self._select_continuous_frame(
+                entries,
+                delivered=cont.delivered,
+                duration=duration,
+                valid_after=cont.started_at,
+                clock_tolerance=self._CONTINUOUS_CLOCK_TOLERANCE_SECONDS,
+            )
+            if chosen is not None:
+                frame = await self._download_continuous_frame(chosen)
+                if self._continuous is not cont or state.capture_id != capture_id:
+                    continue
+                if frame is not None:
+                    cont.delivered.add(self._continuous_frame_key(chosen))
+                    cont.frames_delivered += 1
+                    cont.last_activity = time.monotonic()
+                    self._store_frame(state, frame, chosen.timestamp)
+                    state.retrieved_file_path = chosen.path
+                    state.last_ftp_entry = chosen
+                    state.pending_ftp_baseline = chosen
+                    state.applied_frame_count = 1
+                    state.capture_phase = CapturePhase.READY
+                    logger.info(
+                        "dwarf.camera.continuous_frame_delivered",
+                        capture_id=capture_id,
+                        path=chosen.path,
+                        frame_end=chosen.timestamp,
+                        requested_at=requested_at,
+                        frames_delivered=cont.frames_delivered,
+                        frames_skipped=cont.frames_skipped,
+                        stacking_failed=self._is_failed_stack_frame(chosen),
+                    )
+                    return
+                cont.delivered.add(self._continuous_frame_key(chosen))
+                cont.frames_skipped += 1
+                logger.warning("dwarf.camera.continuous_frame_unreadable", path=chosen.path)
+                continue
+            if self._astro_capture_operation_state in {
+                _OperationState.IDLE,
+                _OperationState.STOPPED,
+            }:
+                stopped_polls += 1
+            else:
+                stopped_polls = 0
+            if stopped_polls >= 3 or time.monotonic() >= deadline:
+                break
+            await asyncio.sleep(poll_interval)
+
+        reason = "device_stopped" if stopped_polls >= 3 else "frame_timeout"
+        logger.warning(
+            "dwarf.camera.continuous_frame_failed",
+            capture_id=capture_id,
+            reason=reason,
+            folder=cont.folder,
+            timeout=timeout,
+        )
+        if state.capture_id == capture_id:
+            state.capture_phase = CapturePhase.FAILED
+            state.last_error = f"continuous_{reason}"
+            state.start_time = None
+            state.last_end_time = time.time()
+        if self._continuous is cont:
+            await self._end_continuous_session(reason=reason)
+
+    def _is_new_continuous_folder(self, entry: FtpPhotoEntry, started_at: float) -> bool:
+        """Accept only a session folder created by the capture we just started."""
+
+        if entry.directory == self._last_continuous_folder:
+            return False
+        folder_name = entry.directory.rstrip("/").rsplit("/", 1)[-1]
+        if not folder_name.startswith("DWARF_RAW_"):
+            return False
+        folder_started = DwarfFtpClient._embedded_capture_timestamp(folder_name)
+        if folder_started is None:
+            return DwarfFtpClient._is_current_capture(entry, started_at - 5.0)
+        return folder_started >= started_at - self._CONTINUOUS_CLOCK_TOLERANCE_SECONDS
+
+    def _ensure_continuous_watchdog(self) -> None:
+        task = self._continuous_watchdog
+        if task is None or task.done():
+            self._continuous_watchdog = asyncio.create_task(self._continuous_watchdog_loop())
+
+    async def _continuous_watchdog_loop(self) -> None:
+        idle = max(10.0, float(self.settings.continuous_astro_idle_timeout_seconds))
+        while True:
+            await asyncio.sleep(min(5.0, idle / 2.0))
+            cont = self._continuous
+            if cont is None:
+                return
+            task = self.camera_state.capture_task
+            if task is not None and not task.done():
+                cont.last_activity = time.monotonic()
+                continue
+            if cont.folder is not None and self._astro_capture_operation_state in {
+                _OperationState.IDLE,
+                _OperationState.STOPPED,
+            }:
+                await self._end_continuous_session(reason="device_stopped")
+                return
+            if time.monotonic() - cont.last_activity >= idle:
+                await self._end_continuous_session(reason="idle_timeout")
+                return
+
+    async def _go_live_when_capture_stopped(self) -> None:
+        try:
+            await self._wait_for_astro_capture_ready()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
+        if self._continuous is not None:
+            return  # a new session already started and handled live view itself
+        logger.info("dwarf.camera.go_live_after_session")
+        await self._astro_go_live()
+
+    async def _end_continuous_session(self, *, reason: str, strict: bool = False) -> None:
+        """Stop the shared DWARF session and queue its folder for cleanup."""
+
+        cont = self._continuous
+        if cont is None:
+            return
+        self._continuous = None
+        self._device_frame_count = 1
+        if cont.folder:
+            self._last_continuous_folder = cont.folder
+        watchdog = self._continuous_watchdog
+        self._continuous_watchdog = None
+        if watchdog is not None and not watchdog.done() and watchdog is not asyncio.current_task():
+            watchdog.cancel()
+        running = self._astro_capture_operation_state == _OperationState.RUNNING
+        logger.info(
+            "dwarf.camera.continuous_session_ended",
+            reason=reason,
+            folder=cont.folder,
+            frames_delivered=cont.frames_delivered,
+            frames_skipped=cont.frames_skipped,
+            device_running=running,
+        )
+        go_live_task: asyncio.Task | None = None
+        if running or strict:
+            await self._stop_astro_capture(strict=strict)
+            # The single-frame path returns to live view after each capture;
+            # do the same once the DWARF has finished closing the session.
+            if not self.simulation:
+                go_live_task = asyncio.create_task(self._go_live_when_capture_stopped())
+                self._background_go_live_task = go_live_task
+        if cont.folder and not self.simulation:
+            self._frames_left_task = asyncio.create_task(
+                self._report_frames_left_on_device(
+                    cont, wait_for_stop=running or strict, after=go_live_task
+                )
+            )
+        if cont.folder:
+            folder_name = cont.folder.rstrip("/").rsplit("/", 1)[-1]
+            if folder_name.startswith("DWARF_RAW_"):
+                self._schedule_astro_folder_cleanup(folder_name, capture_id=cont.first_capture_id)
+
+    async def _report_frames_left_on_device(
+        self,
+        cont: _ContinuousAstroSession,
+        *,
+        wait_for_stop: bool,
+        after: asyncio.Task | None = None,
+    ) -> None:
+        """Warn when the DWARF took frames the client never asked for.
+
+        Only reported when the session folder listing shows them, i.e. when it
+        is certain they exist on the DWARF. ``after`` is the return-to-live-view
+        task, which already waits for the capture to stop.
+        """
+
+        try:
+            if after is not None:
+                await asyncio.wait({after})
+            elif wait_for_stop:
+                await self._wait_for_astro_capture_ready()
+            entries = await self._ftp_client.list_astro_raw_fits(cont.folder or "")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
+        keys = {self._continuous_frame_key(entry) for entry in entries}
+        left = len(keys - cont.delivered)
+        if left <= 0:
+            return
+        logger.warning(
+            "dwarf.camera.continuous_frames_left",
+            folder=cont.folder,
+            frames_left=left,
+            frames_delivered=cont.frames_delivered,
+            will_be_deleted=bool(
+                getattr(self.settings, "delete_astro_session_after_download", False)
+            ),
+        )
+
+    # endregion
+
     async def _fetch_capture(self, state: CameraState) -> None:
+        cont = self._continuous
+        if (
+            cont is not None
+            and not self.simulation
+            and state.capture_mode == "astro"
+            and cont.first_capture_id == state.capture_id
+        ):
+            await self._fetch_continuous_frame(state, cont)
+            return
         state.capture_phase = CapturePhase.PROCESSING
         astro_mode = state.capture_mode == "astro"
         image_captured = state.image is not None
@@ -6465,6 +7319,161 @@ class DwarfSession:
         if astro_mode and image_captured:
             await self._astro_go_live()
         state.capture_phase = CapturePhase.READY if image_captured else CapturePhase.FAILED
+        if astro_mode and image_captured and not self.simulation:
+            self._schedule_astro_session_cleanup(state)
+
+    @staticmethod
+    def _astro_session_folder(path: str | None) -> str | None:
+        """Return the DWARF_RAW_* session folder name of a downloaded FITS path."""
+
+        if not isinstance(path, str) or not path.strip():
+            return None
+        parts = [part for part in path.strip().replace("\\", "/").split("/") if part]
+        if len(parts) < 2:
+            return None
+        folder = parts[-2]
+        if not folder.startswith("DWARF_RAW_"):
+            return None
+        return folder
+
+    @classmethod
+    def _album_entry_matches_folder(cls, entry: dict[str, Any], folder: str) -> bool:
+        src_dir = cls._album_astro_src_dir(entry)
+        if not src_dir:
+            return False
+        parts = [part for part in src_dir.replace("\\", "/").split("/") if part]
+        return bool(parts) and parts[-1] == folder
+
+    def _schedule_astro_session_cleanup(self, state: CameraState) -> None:
+        if not getattr(self.settings, "delete_astro_session_after_download", False):
+            return
+        folder = self._astro_session_folder(state.retrieved_file_path)
+        if folder is None:
+            logger.warning(
+                "dwarf.camera.astro_cleanup_skipped",
+                capture_id=state.capture_id,
+                reason="no_dwarf_raw_folder",
+                path=state.retrieved_file_path,
+            )
+            return
+        self._schedule_astro_folder_cleanup(folder, capture_id=state.capture_id)
+
+    def _schedule_astro_folder_cleanup(self, folder: str, *, capture_id: Any = None) -> None:
+        if not getattr(self.settings, "delete_astro_session_after_download", False):
+            return
+        task = asyncio.create_task(self._delete_astro_session(folder, capture_id=capture_id))
+        self._astro_cleanup_tasks.add(task)
+        task.add_done_callback(self._astro_cleanup_tasks.discard)
+
+    async def _find_album_astro_entry(self, folder: str) -> dict[str, Any] | None:
+        entries = await self._http_client.list_album_media_infos(
+            media_type=4, page_index=0, page_size=10
+        )
+        matches = [entry for entry in entries if self._album_entry_matches_folder(entry, folder)]
+        if len(matches) != 1:
+            if len(matches) > 1:
+                logger.warning(
+                    "dwarf.camera.astro_cleanup_ambiguous",
+                    folder=folder,
+                    matches=len(matches),
+                )
+            return None
+        return matches[0]
+
+    async def _delete_astro_session(self, folder: str, *, capture_id: Any = None) -> None:
+        """Delete one downloaded capture session from the DWARF album.
+
+        Only the album entry whose srcDir is exactly the folder of the FITS that was
+        just downloaded is deleted. Any doubt (no match, several matches, missing
+        fields) skips the deletion and logs why.
+        """
+
+        timeout = float(
+            getattr(self.settings, "delete_astro_session_timeout_seconds", 90.0)
+        )
+        async with self._astro_cleanup_lock:
+            # The album entry and stacked products appear only after the firmware
+            # finalizes the stopped session.
+            await asyncio.sleep(3.0)
+            deadline = time.monotonic() + max(timeout, 5.0)
+            entry: dict[str, Any] | None = None
+            while time.monotonic() < deadline:
+                try:
+                    entry = await self._find_album_astro_entry(folder)
+                except Exception as exc:  # pragma: no cover - hardware dependent
+                    logger.warning(
+                        "dwarf.camera.astro_cleanup_list_failed",
+                        folder=folder,
+                        error=str(exc),
+                    )
+                    entry = None
+                if entry is not None:
+                    break
+                await asyncio.sleep(3.0)
+            if entry is None:
+                logger.warning(
+                    "dwarf.camera.astro_cleanup_skipped",
+                    capture_id=capture_id,
+                    folder=folder,
+                    reason="album_entry_not_found",
+                )
+                return
+
+            file_name = entry.get("fileName")
+            file_path = entry.get("filePath")
+            if not isinstance(file_name, str) or not file_name:
+                file_name = None
+            if not isinstance(file_path, str) or not file_path:
+                file_path = None
+            if file_name is None or file_path is None:
+                logger.warning(
+                    "dwarf.camera.astro_cleanup_skipped",
+                    capture_id=capture_id,
+                    folder=folder,
+                    reason="album_entry_incomplete",
+                    keys=sorted(entry.keys()),
+                )
+                return
+            try:
+                media_type = int(entry.get("mediaType", 4))
+            except (TypeError, ValueError):
+                media_type = 4
+            try:
+                sub_type = int(entry.get("subType", 0))
+            except (TypeError, ValueError):
+                sub_type = 0
+            item = {
+                "mediaType": media_type,
+                "fileName": file_name,
+                "subType": sub_type,
+                "filePath": file_path,
+            }
+            try:
+                response = await self._http_client.delete_album_media([item])
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.warning(
+                    "dwarf.camera.astro_cleanup_failed",
+                    capture_id=capture_id,
+                    folder=folder,
+                    item=item,
+                    error=str(exc),
+                )
+                return
+
+            still_present: bool | None = None
+            try:
+                still_present = await self._find_album_astro_entry(folder) is not None
+            except Exception:  # pragma: no cover - hardware dependent
+                still_present = None
+            log = logger.info if still_present is False else logger.warning
+            log(
+                "dwarf.camera.astro_cleanup_deleted",
+                capture_id=capture_id,
+                folder=folder,
+                item=item,
+                response=response,
+                still_present=still_present,
+            )
 
     async def _attempt_ftp_capture(self, state: CameraState) -> bool:
         baseline = state.pending_ftp_baseline
@@ -6848,6 +7857,8 @@ class DwarfSession:
         if delta == 0:
             state.is_moving = False
             return
+        if self._continuous is not None and not self.simulation:
+            await self._end_continuous_session(reason="focuser_move")
 
         direction = 1 if delta > 0 else -1
         command_direction = self._focus_command_direction(delta)

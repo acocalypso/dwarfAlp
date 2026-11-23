@@ -44,7 +44,7 @@ def test_filterwheel_names_for_mini_fallback():
     assert resp.status_code == 200
     names = _value(resp)
     assert isinstance(names, list)
-    assert names == ["Astro", "Duo-Band"]
+    assert names == ["Astro", "HO"]
 
 
 def test_filterwheel_names_remap_legacy_labels_for_mini():
@@ -55,7 +55,7 @@ def test_filterwheel_names_remap_legacy_labels_for_mini():
 
     resp = mini_client.get("/api/v1/filterwheel/0/names")
     assert resp.status_code == 200
-    assert _value(resp) == ["Astro", "Duo-Band"]
+    assert _value(resp) == ["Astro", "HO"]
 
 
 def test_filterwheel_connect_for_mini_tolerates_initial_timeout(monkeypatch: pytest.MonkeyPatch):

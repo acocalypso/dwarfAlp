@@ -96,7 +96,7 @@ async def test_mini_filter_labels_are_mapped_from_firmware_aliases() -> None:
     session._filter_options = None
 
     labels = await session.get_filter_labels()
-    assert labels == ["Astro", "Duo-Band"]
+    assert labels == ["Astro", "HO"]
 
 
 @pytest.mark.asyncio
@@ -121,7 +121,7 @@ async def test_ensure_default_filter_uses_dwarf3_v3_capture_index(
 
     await session._ensure_default_filter("VIS")
 
-    assert session.camera_state.filter_name == "VIS Filter"
+    assert session.camera_state.filter_name == "VIS"
     assert session.camera_state.filter_index == 0
     assert calls == [(16703, 0)]
 
@@ -135,7 +135,7 @@ async def test_mini_filter_options_use_astro_start_ir_index() -> None:
 
     options = await session._get_filter_options()
 
-    assert [opt.label for opt in options] == ["Astro", "Duo-Band"]
+    assert [opt.label for opt in options] == ["Astro", "HO"]
     assert [opt.index for opt in options] == [1, 2]
     assert all(opt.controllable for opt in options)
     assert all(
@@ -151,9 +151,9 @@ async def test_dwarf3_filter_options_use_model_specific_v3_indices() -> None:
     options = await session._get_filter_options()
 
     assert [entry.label for entry in options] == [
-        "VIS Filter",
-        "Astro Filter",
-        "Duo-Band Filter",
+        "VIS",
+        "Astro",
+        "HO",
     ]
     assert [entry.index for entry in options] == [0, 1, 2]
     assert all(entry.controllable for entry in options)
@@ -179,8 +179,8 @@ async def test_dwarf3_filter_selection_uses_v3_adjust_command() -> None:
     await session._apply_filter_option(1, options[1])
 
     assert calls == [(16703, 0x20100000000000D, 1)]
-    assert session.camera_state.filter_name == "Astro Filter"
-    assert session.camera_state.applied_filter_name == "Astro Filter"
+    assert session.camera_state.filter_name == "Astro"
+    assert session.camera_state.applied_filter_name == "Astro"
 
 
 @pytest.mark.asyncio
@@ -192,14 +192,14 @@ async def test_apply_filter_option_remembers_mini_ir_index_for_next_capture() ->
         parameter={"__control": "astro_capture_ir_index"},
         mode_index=0,
         index=2,
-        label="Duo-Band",
+        label="HO",
         continue_value=None,
         controllable=True,
     )
 
     await session._apply_filter_option(1, filter_option)
 
-    assert session.camera_state.filter_name == "Duo-Band"
+    assert session.camera_state.filter_name == "HO"
     assert session.camera_state.filter_index == 1
     assert session.camera_state.applied_filter_name is None
 
@@ -213,7 +213,7 @@ async def test_mini_filter_options_do_not_advertise_dark_as_normal_position() ->
 
     options = await session._get_filter_options()
 
-    assert [opt.label for opt in options] == ["Astro", "Duo-Band"]
+    assert [opt.label for opt in options] == ["Astro", "HO"]
     assert all(opt.controllable for opt in options)
     assert "Dark" not in [opt.label for opt in options]
 
@@ -332,7 +332,7 @@ async def test_mini_filter_options_ignore_unverified_http_aliases() -> None:
 
     options = await session._get_filter_options()
 
-    assert [entry.label for entry in options] == ["Astro", "Duo-Band"]
+    assert [entry.label for entry in options] == ["Astro", "HO"]
     assert [entry.index for entry in options] == [1, 2]
 
 

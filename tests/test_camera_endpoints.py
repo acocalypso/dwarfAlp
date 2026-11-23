@@ -183,14 +183,12 @@ def test_camera_gain_and_offset_controls():
     assert resp.status_code == 200
     gain_max = _value(resp)
     assert isinstance(gain_max, int)
-    assert gain_max == 200
+    assert gain_max == 240
     assert gain_max >= gain_min
 
     resp = client.get("/api/v1/camera/0/gains")
     assert resp.status_code == 200
-    gains_list = _value(resp)
-    assert isinstance(gains_list, list) and all(isinstance(v, int) for v in gains_list)
-    assert gains_list[-1] == 200
+    assert resp.json()["ErrorNumber"] == 0x400  # value mode only (ASCOM)
 
     resp = client.get("/api/v1/camera/0/gain")
     assert resp.status_code == 200
@@ -227,7 +225,7 @@ def test_camera_gain_and_offset_controls():
     assert offset_max >= offset_min
 
     resp = client.put("/api/v1/camera/0/gain", json={"Gain": gain_max + 1})
-    assert resp.status_code == 400
+    assert resp.status_code == 200 and resp.json()["ErrorNumber"] == 0x401
 
     resp = client.put("/api/v1/camera/0/offset", json={"Offset": -1})
     assert resp.status_code == 400
@@ -355,3 +353,33 @@ def test_camera_temperature_reflects_session_state():
     session.camera_state.temperature_c = None
     camera_state.ccd_temperature = 25.0
     camera_state.heatsink_temperature = 25.0
+
+
+def test_imagearray_supports_alpaca_imagebytes():
+    import struct
+
+    _connect_camera()
+    session = asyncio.run(get_session())
+    image = np.arange(12, dtype=np.uint16).reshape(3, 4)
+    session.camera_state.image = image
+    session.camera_state.capture_phase = CapturePhase.READY
+
+    resp = client.get(
+        "/api/v1/camera/0/imagearray?ClientTransactionID=5",
+        headers={"Accept": "application/imagebytes"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/imagebytes")
+    header = struct.unpack("<iiIIiiiiiii", resp.content[:44])
+    assert header[0] == 1 and header[1] == 0 and header[2] == 5
+    assert header[4] == 44 and header[5] == 2 and header[6] == 2
+    # ASCOM [x, y]: Dim1 is the width (4 columns), Dim2 the height (3 rows).
+    assert header[7:] == (2, 4, 3, 0)
+    data = np.frombuffer(resp.content[44:], dtype="<i4").reshape(4, 3)
+    assert np.array_equal(data, image.T)
+
+    json_resp = client.get("/api/v1/camera/0/imagearray")
+    assert json_resp.json()["Dimensions"] == [4, 3]
+    assert json_resp.json()["Value"] == image.T.tolist()
+    session.camera_state.image = None
