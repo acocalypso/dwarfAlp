@@ -1,5 +1,11 @@
 # Investigation journal
 
+## 2026-11-26
+
+- Promoted the Draco observations to the [public research reference](../site/draco.html)
+  after comparing the 3.4.1 and 3.4.3 APK resources and checking the 3.4.1 model and
+  workflow code. Draco firmware and device behavior remain unverified.
+
 ## 2026-08-31
 
 - Proved an end-to-end raw acquisition path by streaming the 32 KiB environment

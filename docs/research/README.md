@@ -21,6 +21,8 @@ dwarfAlp. It is deliberately separate from installation and NINA guidance.
   comparisons, response codes, and unresolved protocol elements
 - [APK analysis](../apk-analysis/README.md) — Android architecture, complete API
   inventory, reconstructed workflows, transport use, and evidence index
+- [Draco research](../site/draco.html) — camera settings, workflow evidence, and
+  Standard and SHO edition differences
 - [Firmware analysis](../firmware/README.md) — platform, boot, services, camera,
   motors, astronomy, security, hardware, and reproducibility
 - [Engineering audit](engineering-audit.md) — historical implementation and evidence

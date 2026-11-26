@@ -33,6 +33,7 @@ is the shortest project overview.
 - [Research and evidence guide](research/README.md)
 - [DWARF protocol reference](protocol/README.md)
 - [APK analysis](apk-analysis/README.md)
+- [Draco research](site/draco.html)
 - [Firmware analysis](firmware/README.md)
 - [Engineering audit](research/engineering-audit.md)
 - [Historical integration plan](research/integration-plan.md)

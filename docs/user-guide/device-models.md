@@ -32,12 +32,10 @@ the nearest step.
 
 Shorter exposures (down to 1/10000 s) exist outside the astro mode.
 
-**DRACO** is not supported yet: its protocol has not been seen. The app lists two
-versions: DRACO with Astro and HO, and DRACO (SHO) with Astro, HO, SO and SHO.
-Both offer astro exposures of 30, 45, 60, 90, 120, 180, 240, 300 and 500 s and gain
-0, 2, 5, 10, 20, 30 and 40–240 in steps of 10. The SHO "filter" is probably two
-captures, one with HO and one with SO, combined afterwards; a NINA sequence would
-then use HO and SO as two filters.
+**Draco Standard and SHO Edition** have no dwarfAlp device profile. The
+[Draco research reference](../site/draco.html) records the filters, exposures, and
+gain observed in the November app UI alongside the versioned APK evidence and
+DWARFLAB specifications. Draco firmware and NINA interoperability remain unverified.
 
 Physical verification is evidence from particular devices and firmware versions,
 not a compatibility guarantee. Automated tests exercise every profile using mocks

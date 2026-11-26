@@ -35,8 +35,7 @@ firmware-analysis/ghidra-projects/
 # retained locally only. Commit hashes, inventories, and redacted metadata.
 firmware/*.zip
 
-# Keep model-specific DRACO reverse-engineering notes local until they are
-# intentionally reviewed and published.
+# Historical local note. Curated Draco findings live in docs/site/draco.html.
 docs/apk-analysis/DRACO_LOCAL.md
 
 # Personal GUI settings profile (IP, location)

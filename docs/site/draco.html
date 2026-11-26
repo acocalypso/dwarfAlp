@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Draco camera settings, device identifiers, and DWARFLAB app evidence." />
+    <title>Draco research · DwarfAlp API Observatory</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="nav shell" aria-label="Primary navigation">
+        <a class="brand" href="index.html">DwarfAlp <b>API Observatory</b></a>
+        <div class="nav-links">
+          <a href="#apk">APK parameters</a>
+          <a href="#app-settings">App settings</a>
+          <a href="#workflows">Workflows</a>
+          <a href="#evidence">Evidence</a>
+        </div>
+      </nav>
+      <div class="shell">
+        <h1>Draco research</h1>
+        <p class="lede">DWARFLAB Android app evidence and vendor specifications for the Draco Standard and SHO editions. DwarfAlp has no Draco device profile, and this project has no Draco hardware verification.</p>
+      </div>
+    </header>
+    <main class="shell">
+      <section class="panel" id="apk">
+        <h2>APK camera parameters</h2>
+        <p>DWARFLAB 3.4.1 declares <code>DeviceType.DRACO</code> with model ID <code>6</code>. This ID identifies the app model. Draco’s response envelope and firmware protocol version remain unverified.</p>
+        <p>The base APKs for 3.4.1 and 3.4.3 contain the following model-6 entries in <code>assets/params_range.json</code>. Exposure limits refer to a sparse lookup table.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Parameter</th><th scope="col">Tele (camera 0)</th><th scope="col">Wide (camera 1)</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Normal exposure</th><td>1–300 s (codes 120–174)</td><td>1–90 s (codes 120–163)</td></tr>
+              <tr><th scope="row">Default exposure</th><td>15 s (code 156)</td><td>15 s (code 156)</td></tr>
+              <tr><th scope="row">Dark-frame exposure</th><td>1/10000–300 s (codes 0–174)</td><td>Same codes as normal exposure</td></tr>
+              <tr><th scope="row">Gain, normal and dark</th><td>0, 2, 5, then 10–240 in steps of 10. Default 60.</td><td>Same as tele</td></tr>
+              <tr><th scope="row">Normal filters</th><td><code>ASTRO</code> (1, default), <code>DUO_BAND</code> (2)</td><td>No model-6 wide filter entry in this resource</td></tr>
+              <tr><th scope="row">Dark-frame count</th><td>1–999 in steps of 1. Default 10.</td><td>Same as tele</td></tr>
+              <tr><th scope="row">Resolution indices in 3.4.1</th><td>0 (default), 1</td><td>1 (default)</td></tr>
+              <tr><th scope="row">Resolution indices in 3.4.3</th><td>3 (default), 4</td><td>3 (default), 4</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The resolution indices describe app configuration. Their mapping to Draco FITS output remains unverified.</p>
+      </section>
+      <section class="panel" id="app-settings">
+        <h2>November 2026 app settings and vendor specifications</h2>
+        <p>The project’s 23 November 2026 app UI notes record Astro and HO for Standard, and Astro, HO, SO, and SHO for SHO Edition. Both lists showed 30, 45, 60, 90, 120, 180, 240, 300, and 500 s, with the gain steps above. The notes leave the app build unspecified. The 500 s choice is a UI observation only. DWARFLAB advertises 300 s single-frame exposures, and the two inspected APK tables stop at 300 s tele. <a href="https://www.dwarflab.com/us/products/draco-smart-telescope">DWARFLAB product specifications</a></p>
+        <p>DWARFLAB lists an Astro filter, a dark position, and Hα + O III (HO) for both editions. Standard has a built-in ND solar filter. SHO Edition adds S II + O III (SO) and uses an external ND solar filter. DWARFLAB describes SHO as a combination of data captured through the two dual-band filters. The command and filter index mapping for the newer choices remains unverified. <a href="https://help.dwarflab.com/docs/draco?locale=en&amp;webview=true">DWARFLAB Draco guide</a></p>
+        <p>DWARFLAB specifies a 90 mm aperture and 340 mm physical focal length for the tele camera, approximately 12 MP deep-sky output with 2×2 binning, a separate wide camera, and a monochrome OS04C1B guide camera. <a href="https://www.dwarflab.com/us/products/draco-smart-telescope">DWARFLAB product specifications</a> · <a href="https://help.dwarflab.com/docs/draco?locale=en&amp;webview=true">DWARFLAB Draco guide</a></p>
+      </section>
+      <section class="panel" id="workflows">
+        <h2>Model-specific app workflows in 3.4.1</h2>
+        <ul>
+          <li><strong>Imaging controls.</strong> <code>DeviceType</code> exposes wide focus, solar ND switching, lens defog, automatic cooling, horizontal calibration, and Alt-Az deep-sky mosaic for the Draco model. The generic ND switch gate does not encode the edition-specific hardware.</li>
+          <li><strong>Preview geometry.</strong> The Draco <code>CameraInfo</code> presets in <code>DeviceType</code> use 1920 × 1080 for both cameras, with fields of view of 1.872° × 1.055° for tele and 70.1° × 43.2° for wide. These are historical app presets. Draco FITS dimensions and fields of view need measurement.</li>
+          <li><strong>EQ alignment.</strong> The capture UI has Draco-specific safety and guiding status handling. <code>CaptureViewModel</code> retains the optional calibration choice for Draco when starting EQ solving. <code>DracoEqModeStatePolicy</code> keeps a running-solve event from replacing app state 4, 5, 6, 7, or 9.</li>
+          <li><strong>Atlas schedules.</strong> <code>ScheduleDetailFragment</code> lists Draco among the plan models. For Draco atlas tasks with <code>mosaicType=1</code>, <code>ScheduleTaskRotationPolicy</code> uses the Draco mapping in <code>MosaicFovInfo</code>. It clamps the angle to −90°…90°, wraps negative values by adding 360°, and encodes the result in hundredths of a degree. A missing frame uses zero. Schedule upload, execution, and rotation on Draco firmware remain unverified.</li>
+        </ul>
+      </section>
+      <section class="panel" id="evidence">
+        <h2>Evidence and open questions</h2>
+        <p>Both base APKs are from the local <code>com.convergence.dwarflab</code> split bundles. The model and workflow findings are from 3.4.1 DEX analysis. The parameter comparison reads the JSON member directly from each base APK.</p>
+        <ul>
+          <li>3.4.1 base APK SHA-256 <code style="overflow-wrap: anywhere">1e4f676a35ebe6f9d8cb7b3fb4720346c45c41fc41b7e7807151b0080c5de294</code></li>
+          <li>3.4.3 base APK SHA-256 <code style="overflow-wrap: anywhere">98f45d1f80e51923e812c5ec431e097e9f5b63ea29f95df52a0c05f7dd4cdd4f</code></li>
+        </ul>
+        <p>The workspace firmware releases cover DWARF 3 and Mini. Draco firmware, device-reported ranges, physical filter positions, command acceptance, FITS output, and end-to-end DwarfAlp and NINA interoperability remain open.</p>
+      </section>
+    </main>
+  </body>
+</html>

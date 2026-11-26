@@ -61,6 +61,7 @@ timestamp, not proof of the application source-build time.
 - [Complete WebSocket command/error registry](websocket-code-registry.md)
 - [Capture workflows](capture-workflows.md)
 - [Compatibility and gap analysis](model-compatibility.md)
+- [Draco app and protocol research](../site/draco.html)
 - [Evidence index](evidence-index.md)
 - [Unknowns and capture plan](unknowns.md)
 - [Final investigation report](final-report.md)

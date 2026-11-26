@@ -16,6 +16,11 @@
 
 ## Gap analysis
 
+DWARFLAB 3.4.1 declares Draco as model ID 6. The
+[Draco research reference](../site/draco.html) covers app parameters and
+model-specific workflows. Firmware behavior and dwarfAlp compatibility remain
+unverified.
+
 | Finding | APK/capture behavior | Previous repository behavior | Required change | Status |
 |---|---|---|---|---|
 | Mini appeared seven times in NINA | one physical session was represented by multiple Alpaca identities/discovery responses | device enumeration/discovery handling was too broad | stable unique IDs and one management entry per Alpaca device type | implemented in prior Mini work, regression-tested |
