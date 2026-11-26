@@ -5,10 +5,10 @@ import argparse
 import datetime
 import hashlib
 import json
-from pathlib import Path
 import urllib.parse
 import urllib.request
 import zipfile
+from pathlib import Path
 
 
 def main():

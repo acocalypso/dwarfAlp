@@ -334,7 +334,7 @@ def test_profile_ip_wins_over_remembered_sta_ip(qapp, tmp_path):
 
 
 def test_activity_and_technical_log_tabs(qapp):
-    from dwarf_alpaca.gui.activity import ActivityEntry, WARN
+    from dwarf_alpaca.gui.activity import WARN, ActivityEntry
 
     window = MainWindow()
     try:
