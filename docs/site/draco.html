@@ -14,6 +14,7 @@
         <a class="brand" href="index.html">DwarfAlp <b>API Observatory</b></a>
         <div class="nav-links">
           <a href="#latest-update">Latest update</a>
+          <a href="#websocket-audit">WebSocket audit</a>
           <a href="#apk">APK parameters</a>
           <a href="#app-settings">App settings</a>
           <a href="#workflows">Workflows</a>
@@ -59,6 +60,32 @@
         </div>
         <p>The 500 s value is now corroborated by the newer APK. Its acceptance and delivered exposure time on Draco are still open. The November UI notes give a broader gain range than the 3.4.6 tele resource. The device-reported range remains unverified.</p>
         <p>The 3.4.6 APK contains a dedicated flat-frame UI, registers <code>11051</code> as <code>CMD_ASTRO_CHECK_FLAT_FRAME</code>, and retains calibration type <code>FLAT=2</code>. The existing calibration capture request (<code>11045</code>, <code>ReqCaptureCaliFrame</code>) serializes the calibration type and optionally sends boolean <code>dark_hdr</code> as protobuf field 9, which is absent from dwarfAlp's current schema. Dark is calibration type 0 with filter value 3 in the dark-frame request defaults. Capture acceptance and the resulting files need hardware evidence.</p>
+      </section>
+      <section class="panel" id="websocket-audit">
+        <h2>WebSocket command audit</h2>
+        <p>The 3.4.6 build 807 APK declares 369 <code>WsCmd</code> entries and 368 distinct numeric IDs. The two panorama upload symbols still share ID <code>15245</code>. The earlier registries have 356 entries in 3.4.1 and 365 in 3.4.3. All earlier names and IDs are preserved. The 13 IDs below are missing from dwarfAlp’s current <code>DwarfCMD</code> protobuf enum.</p>
+        <p>The audit matches all declared enum fields against the DEX static initializer and the ordered enum values array in APKs 3.4.3 and 3.4.6. It compares those results with the published 3.4.1 inventory. App-wide registration alone leaves model and firmware support open. <a href="ws-commands-3.4.6.json">Complete 3.4.6 registry and comparisons (JSON)</a></p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">ID</th><th scope="col">APK symbol</th><th scope="col">Comparison</th></tr></thead>
+            <tbody>
+              <tr><td>11051</td><td><code>CMD_ASTRO_CHECK_FLAT_FRAME</code></td><td>Added after 3.4.3</td></tr>
+              <tr><td>15309</td><td><code>CMD_NOTIFY_CAMERA_STATE</code></td><td>Added after 3.4.3</td></tr>
+              <tr><td>15310</td><td><code>CMD_NOTIFY_ASTRO_LENS_RAISE_STATE</code></td><td>Added after 3.4.3</td></tr>
+              <tr><td>15312</td><td><code>CMD_NOTIFY_STATE_ASTRO_GUIDE</code></td><td>Added after 3.4.3</td></tr>
+              <tr><td>13506</td><td><code>CMD_RGB_POWER_SET_BRIGHTNESS</code></td><td>Already present in 3.4.3</td></tr>
+              <tr><td>15306</td><td><code>CMD_NOTIFY_ANTI_TANGLE_STATE</code></td><td>Already present in 3.4.3</td></tr>
+              <tr><td>15307</td><td><code>CMD_NOTIFY_POWER_SOUND_STATE</code></td><td>Already present in 3.4.3</td></tr>
+              <tr><td>15308</td><td><code>CMD_NOTIFY_SHOOTING_DO_NOT_DISTURB_STATE</code></td><td>Already present in 3.4.3</td></tr>
+              <tr><td>15860</td><td><code>CMD_FACTORY_TEST_GET_CAMERA_AND_FOCUS_INFO</code></td><td>Already present in 3.4.3</td></tr>
+              <tr><td>17003</td><td><code>CMD_DEVICE_ANTI_TANGLE</code></td><td>Already present in 3.4.3</td></tr>
+              <tr><td>17004</td><td><code>CMD_DEVICE_SET_POWER_SOUND</code></td><td>Already present in 3.4.3</td></tr>
+              <tr><td>17005</td><td><code>CMD_DEVICE_GET_POWER_SOUND</code></td><td>Already present in 3.4.3</td></tr>
+              <tr><td>17006</td><td><code>CMD_DEVICE_SHOOTING_DO_NOT_DISTURB</code></td><td>Already present in 3.4.3</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The flat-frame check uses <code>AstroProto.ReqCheckFlatFrame</code> and <code>AstroProto.ResCheckFlatFrame</code>. The three newer notification handlers use <code>NotifyProto.CameraState</code> (15309), <code>NotifyProto.AstroLensRaiseState</code> (15310), and <code>NotifyProto.AstroGuideState</code> (15312). Existing ID <code>11045</code> gains the optional <code>dark_hdr</code> field discussed above, outside the new-ID count.</p>
       </section>
       <section class="panel" id="apk">
         <h2>Historical APK camera parameters</h2>

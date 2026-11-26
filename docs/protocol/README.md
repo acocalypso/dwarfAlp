@@ -12,6 +12,9 @@ uv run python scripts/generate_protos.py --check
 Evidence and confidence for reverse-engineered V3 additions are recorded in
 [the APK analysis](../apk-analysis/README.md), with the full application
 registry in [api-inventory.json](../apk-analysis/api-inventory.json).
+The [Android 3.4.6 WebSocket audit](../site/draco.html#websocket-audit) compares
+all command IDs with 3.4.3 and the published 3.4.1 baseline. Its
+[versioned registry](../site/ws-commands-3.4.6.json) includes all 369 enum entries.
 
 The firmware alignment audit is documented in
 [firmware-comparison.md](firmware-comparison.md). Transport/framing details are
