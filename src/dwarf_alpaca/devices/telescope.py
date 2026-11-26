@@ -11,6 +11,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from .. import __version__
+from ..device_profile import get_active_device_profile
 from ..dwarf.session import get_session
 from ..dwarf.ws_client import DwarfCommandError
 from ..proto import protocol_pb2
@@ -172,6 +173,10 @@ async def put_connected(
             session.simulation = simulation_override
         state.using_simulation = session.is_simulated
     state.connected = value
+    logger.info(
+        "alpaca.telescope.connected" if value else "alpaca.telescope.disconnected",
+        simulated=session.is_simulated,
+    )
     return alpaca_response()
 
 
@@ -328,13 +333,15 @@ def get_alignment_mode():
 
 @router.get("/aperturearea")
 def get_aperture_area():
-    # Approximate 70mm aperture (m^2)
-    return alpaca_response(value=0.0038)
+    radius_m = get_active_device_profile().aperture_mm / 2000.0
+    return alpaca_response(value=math.pi * radius_m * radius_m)
 
 
 @router.get("/aperturediameter")
 def get_aperture_diameter():
-    return alpaca_response(value=0.07)
+    # ASCOM reports optics in metres. The values used to be fixed at 70 mm
+    # and 400 mm, which matched no DWARF.
+    return alpaca_response(value=get_active_device_profile().aperture_mm / 1000.0)
 
 
 @router.get("/driverinfo")
@@ -354,7 +361,7 @@ def get_equatorial_system():
 
 @router.get("/focallength")
 def get_focal_length():
-    return alpaca_response(value=0.4)
+    return alpaca_response(value=get_active_device_profile().focal_length_mm / 1000.0)
 
 
 @router.get("/siteelevation")
@@ -379,9 +386,11 @@ async def slew_to_coordinates_async(
     Declination_query: float | None = Query(None, alias="Declination", ge=-90.0, le=90.0),
 ):
     if not state.connected:
+        logger.warning("alpaca.telescope.slew_rejected", reason="telescope not connected")
         raise HTTPException(status_code=400, detail="Telescope not connected")
     ra = await resolve_parameter(request, "RightAscension", float, RightAscension_query)
     dec = await resolve_parameter(request, "Declination", float, Declination_query)
+    logger.info("alpaca.telescope.slew_request", ra_hours=ra, dec_degrees=dec)
 
     ra_converted_from_degrees = False
     if not 0.0 <= ra <= 24.0:
@@ -403,6 +412,7 @@ async def slew_to_coordinates_async(
     state.target_ra = ra
     state.target_dec = dec
     state.slewing = True
+    state.tracking = True  # the DWARF tracks the target after a GOTO
     state.last_command_time = time.time()
     if session.is_simulated:
         state.right_ascension_rate = (ra - state.right_ascension) / 2.0
@@ -437,6 +447,7 @@ async def slew_to_coordinates_async(
                 detail = (
                     f"DWARF command {exc.module_id}:{exc.command_id} failed with code {exc.code}"
                 )
+            logger.warning("alpaca.telescope.slew_failed", detail=detail)
             raise HTTPException(status_code=502, detail=detail) from exc
         except asyncio.TimeoutError as exc:
             state.slewing = False
@@ -444,10 +455,27 @@ async def slew_to_coordinates_async(
             state.declination_rate = 0.0
             state.target_ra = None
             state.target_dec = None
+            logger.warning(
+                "alpaca.telescope.slew_failed",
+                detail="timed out waiting for the DWARF to acknowledge the GOTO",
+            )
             raise HTTPException(
                 status_code=504,
                 detail="Timed out while waiting for DWARF to acknowledge the GoTo command.",
             ) from exc
+        except HTTPException:
+            raise
+        except Exception as exc:
+            # Leave the driver in a consistent state; otherwise Slewing stays
+            # True and NINA keeps waiting for a slew that never started.
+            state.slewing = False
+            state.right_ascension_rate = 0.0
+            state.declination_rate = 0.0
+            state.target_ra = None
+            state.target_dec = None
+            detail = str(exc) or type(exc).__name__
+            logger.warning("alpaca.telescope.slew_failed", detail=detail)
+            raise HTTPException(status_code=500, detail=f"GoTo failed: {detail}") from exc
 
         state.right_ascension_rate = 0.0
         state.declination_rate = 0.0
@@ -462,13 +490,15 @@ async def slew_to_coordinates_async(
 @router.put("/abortslew")
 async def abort_slew():
     session = await get_session()
-    if not session.is_simulated:
-        await session.telescope_abort_slew()
+    # Cancel the pending slew first: one still waiting for the DWARF to close
+    # a capture session must never start once NINA has aborted it.
     if state.slew_task and not state.slew_task.done():
         state.slew_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await state.slew_task
     state.slew_task = None
+    if not session.is_simulated:
+        await session.telescope_abort_slew()
     state.slewing = False
     state.right_ascension_rate = 0.0
     state.declination_rate = 0.0
@@ -487,7 +517,17 @@ async def set_tracking(
     Tracking_query: bool | None = Query(None, alias="Tracking"),
 ):
     tracking = await resolve_parameter(request, "Tracking", bool, Tracking_query)
+    was_tracking = state.tracking
     state.tracking = tracking
+    logger.info("alpaca.telescope.tracking_set", tracking=tracking)
+    if not tracking and was_tracking:
+        # NINA's "Set Tracking: Stopped" and end-of-sequence "Stop tracking"
+        # must really stop the DWARF following the target.
+        session = await get_session()
+        try:
+            await session.telescope_stop_tracking()
+        except Exception as exc:
+            logger.warning("alpaca.telescope.tracking_stop_failed", error=str(exc))
     return alpaca_response()
 
 

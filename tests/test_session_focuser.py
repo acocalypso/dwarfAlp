@@ -89,13 +89,13 @@ async def test_focuser_connect_initializes_position_from_v3_for_all_models(model
 async def test_v3_camera_param_notification_is_not_treated_as_filter_readback() -> None:
     session = DwarfSession(Settings(dwarf_device_model="dwarfmini", force_simulation=True))
     session._filter_options = [
-        FilterOption(parameter={"id": 13}, mode_index=0, index=0, label="Duo-Band"),
+        FilterOption(parameter={"id": 13}, mode_index=0, index=0, label="HO"),
         FilterOption(parameter={"id": 13}, mode_index=0, index=1, label="Dark"),
         FilterOption(
             parameter={"__control": "astro_capture_ir_index"},
             mode_index=0,
             index=2,
-            label="Duo-Band",
+            label="HO",
         ),
     ]
 

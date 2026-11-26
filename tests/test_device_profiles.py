@@ -68,5 +68,5 @@ def test_mini_camera_limits_match_hardware_reported_astro_presets():
     assert camera.min_exposure_s == 1.0
     assert camera.max_exposure_s == 180.0
     assert camera.min_gain_db == 40.0
-    assert camera.max_gain_db == 100.0
+    assert camera.max_gain_db == 240.0
     assert camera.max_binning == 1

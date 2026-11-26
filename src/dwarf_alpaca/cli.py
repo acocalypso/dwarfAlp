@@ -194,7 +194,9 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO)
 
-    parser = argparse.ArgumentParser(description="dwarfAlp ASCOM Alpaca server")
+    parser = argparse.ArgumentParser(
+        prog="dwarf-alpaca", description="dwarfAlp ASCOM Alpaca server"
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command")
 

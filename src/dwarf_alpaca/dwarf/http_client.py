@@ -124,6 +124,19 @@ class DwarfHttpClient:
         normalized = normalized.lstrip("/")
         return f"/{normalized}"
 
+    async def delete_album_media(self, datas: list[dict[str, Any]]) -> dict[str, Any]:
+        """Delete album media through ``POST /album/delete`` (destructive).
+
+        Each item carries ``mediaType``, ``fileName``, ``subType`` and ``filePath``
+        as returned by ``/album/list/mediaInfos``. Deleting an astronomy entry
+        removes the whole session folder on the device.
+        """
+
+        if not datas:
+            raise ValueError("datas must not be empty")
+        response = await self.post_json("/album/delete", {"datas": datas})
+        return response if isinstance(response, dict) else {"data": response}
+
     async def list_album_media_infos(
         self,
         media_type: int = 1,

@@ -53,6 +53,22 @@ class Settings(BaseSettings):
     camera_gain_command_timeout_seconds: float = 2.0
     camera_disconnect_timeout_seconds: float = 5.0
     go_live_before_exposure: bool = True
+    # Destructive and opt-in: after an astronomy FITS has been downloaded, delete
+    # that capture's whole session (raw FITS, stacked FITS, previews) from the
+    # DWARF album through POST /album/delete.
+    delete_astro_session_after_download: bool = False
+    delete_astro_session_timeout_seconds: float = 180.0
+    # Opt-in: keep one DWARF astronomy session running for a whole NINA sequence
+    # and hand each new raw FITS to the next StartExposure, instead of opening and
+    # closing a DWARF session per frame (closing takes ~70 s in DSO mode).
+    # DWARF 3 light frames always use a continuous session; False is only a
+    # diagnostic fallback to the original one-session-per-frame path (CLI/env).
+    continuous_astro_session: bool = True
+    continuous_astro_max_frames: int = 999
+    continuous_astro_idle_timeout_seconds: float = 120.0
+    # How long a new capture waits for the DWARF to finish closing the previous
+    # session (DWARF 3 DSO mode needs about 70 s).
+    astro_capture_ready_timeout_seconds: float = 150.0
     go_live_timeout_seconds: float = 5.0
     # Capture strategy for DWARF mini: "astro" (FITS/live-stacking flow) or "photo" (single JPG flow).
     dwarf_mini_capture_mode: str = "astro"
@@ -66,10 +82,25 @@ class Settings(BaseSettings):
     dark_check_timeout_seconds: float = 5.0
     goto_valid_seconds: float = 300.0
     calibration_valid_seconds: float = 900.0
+    # Astro autofocus before the DWARF calibrates (GOTO or calibration after
+    # start). Off by default: DWARF 3 firmware V1.5.4.1 acknowledges the command
+    # but never starts autofocus, which cost 20 s on every GOTO.
+    autofocus_before_calibration: bool = False
     calibration_autofocus_timeout_seconds: float = 120.0
+    calibration_autofocus_start_timeout_seconds: float = 20.0
     calibration_timeout_seconds: float = 300.0
     calibration_wait_for_slew_seconds: float = 420.0
     auto_calibrate_on_slew: bool = True
+    # Use the one-click GOTO (11013) for every slew, also after a calibration.
+    # Sky test 2026-11-19 (DWARF 3 firmware V1.5.4.1, EQ mode): after dwarfAlp
+    # calibrated, the plain GOTO (11002) was accepted but the DWARF never moved.
+    # The one-click GOTO skips calibration when the DWARF is already calibrated.
+    always_one_click_goto: bool = True
+    # Turn the DWARF's lights off when dwarfAlp connects (they stay off; the
+    # DWARFLAB app can turn them on again). 13501 ring light, 13504 battery
+    # indicator.
+    ring_light_off: bool = False
+    battery_indicator_off: bool = False
     calibrate_after_server_start: bool = False
     focuser_target_tolerance_steps: int = 5
 

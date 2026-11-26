@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
+import struct
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -9,6 +11,7 @@ from datetime import datetime, timezone
 import numpy as np
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from websockets.exceptions import ConnectionClosed
 
 from .. import __version__
@@ -383,7 +386,21 @@ async def set_gain(request: Request, Gain: int | None = Query(None, alias="Gain"
     _sync_state_to_profile()
     value = await resolve_parameter(request, "Gain", int, Gain)
     if value < state.gain_min or value > state.gain_max:
-        raise HTTPException(status_code=400, detail="Gain out of range")
+        logger.warning(
+            "alpaca.camera.gain_rejected",
+            requested=value,
+            minimum=state.gain_min,
+            maximum=state.gain_max,
+        )
+        # Report an Alpaca InvalidValue (0x401) with HTTP 200 instead of an HTTP
+        # 400. Clients such as NINA treat any other failure as "gain not
+        # settable" and permanently grey out the gain control until reconnect.
+        return alpaca_response(
+            error_number=0x401,
+            error_message=(
+                f"Gain {value} out of range ({state.gain_min}-{state.gain_max})"
+            ),
+        )
     state.gain = value
     return alpaca_response()
 
@@ -550,7 +567,11 @@ async def put_connected(
                     await session.camera_disconnect()
                 finally:
                     await session.release("camera")
+                logger.info("alpaca.camera.disconnected")
+        was_connected = state.connected
         state.connected = runtime.connected
+        if value and state.connected and not was_connected:
+            logger.info("alpaca.camera.connected")
         return alpaca_response()
 
 
@@ -730,6 +751,7 @@ async def start_exposure(
                 status_code=409, detail="A capture is already in progress."
             ) from exc
         if isinstance(exc, CaptureConfigurationError):
+            logger.warning("alpaca.camera.start_rejected", error=str(exc))
             session.camera_state.capture_phase = CapturePhase.FAILED
             session.camera_state.start_time = None
             session.camera_state.last_error = f"configuration:{exc}"
@@ -786,6 +808,22 @@ async def get_percent_completed():
     return alpaca_response(value=max(0, min(99, int(100 * elapsed / total))))
 
 
+def _to_ascom_order(image: np.ndarray) -> np.ndarray:
+    """Reorder a (rows, columns) image into ASCOM's [x, y] layout.
+
+    ASCOM defines ImageArray as [NumX, NumY]: the first dimension is the
+    width and y changes fastest. Images are decoded as numpy (height, width);
+    sending them unchanged made NINA save a 3856x2180 frame as 2180x3856,
+    mirrored across the diagonal.
+    """
+
+    if image.ndim == 2:
+        return np.ascontiguousarray(image.T)
+    if image.ndim == 3:
+        return np.ascontiguousarray(image.transpose(1, 0, 2))
+    return image
+
+
 @router.get("/imagebytes")
 async def get_image_bytes():
     session = await get_session()
@@ -793,8 +831,9 @@ async def get_image_bytes():
     if image is None:
         raise HTTPException(status_code=400, detail="Image not ready")
     processed_image, type_code = _resolve_image_array(image)
+    processed_image = await asyncio.to_thread(_to_ascom_order, processed_image)
     bytes_data = processed_image.tobytes()
-    height, width = processed_image.shape[:2]
+    width, height = processed_image.shape[:2]
     runtime = session.camera_state
     # The dimensions reported by device-state command 16405 describe the live
     # preview stream (commonly 1920x1080), while frame_width/frame_height
@@ -817,8 +856,8 @@ async def get_image_bytes():
         "TransmissionElementType": type_code,
         "TransmissionElementTypeName": _IMAGE_TYPE_NAMES.get(type_code, "Unknown"),
         "Rank": processed_image.ndim,
-        "Dim1": height,
-        "Dim2": width,
+        "Dim1": width,
+        "Dim2": height,
         "BayerOffsetX": 0,
         "BayerOffsetY": 0,
         "BayerPattern": "RGGB",
@@ -830,34 +869,90 @@ async def get_image_bytes():
     return alpaca_response(value={"ImageBytes": encoded, **metadata})
 
 
-@router.get("/imagearray")
-async def get_image_array():
+_IMAGEBYTES_MEDIA_TYPE = "application/imagebytes"
+_IMAGEBYTES_HEADER = struct.Struct("<iiIIiiiiiii")  # 44 bytes, Alpaca metadata v1
+def _wants_imagebytes(request: Request) -> bool:
+    accept = request.headers.get("accept", "")
+    return _IMAGEBYTES_MEDIA_TYPE in accept.lower()
+
+
+def _encode_imagebytes(
+    processed_image: np.ndarray,
+    type_code: int,
+    client_transaction_id: int,
+    server_transaction_id: int,
+) -> bytes:
+    """Encode an image as an Alpaca ImageBytes payload (binary, no JSON).
+
+    The element order and dimensions match the JSON ImageArray response exactly
+    (ASCOM [x, y]: Dim1 = width, y fastest), so clients see the same image.
+    Data travels in its declared element type: NINA has had trouble when the
+    transmission type differs from the image element type.
+    """
+
+    processed_image = _to_ascom_order(processed_image)
+    data = np.ascontiguousarray(
+        processed_image, dtype=processed_image.dtype.newbyteorder("<")
+    )
+    dims = list(processed_image.shape) + [0] * (3 - processed_image.ndim)
+    header = _IMAGEBYTES_HEADER.pack(
+        1,  # MetadataVersion
+        0,  # ErrorNumber
+        client_transaction_id,
+        server_transaction_id,
+        _IMAGEBYTES_HEADER.size,  # DataStart
+        type_code,
+        type_code,  # TransmissionElementType
+        processed_image.ndim,
+        dims[0],
+        dims[1],
+        dims[2],
+    )
+    return header + data.tobytes()
+
+
+def _encode_image_json(envelope: dict, processed_image: np.ndarray, type_code: int) -> bytes:
+    processed_image = _to_ascom_order(processed_image)
+    payload = dict(envelope)
+    payload["Type"] = type_code
+    payload["Rank"] = processed_image.ndim
+    payload["Dimensions"] = list(processed_image.shape)
+    payload["TypeName"] = _IMAGE_TYPE_NAMES.get(type_code, "Unknown")
+    payload["Value"] = processed_image.tolist()
+    return json.dumps(payload, separators=(",", ":")).encode()
+
+
+async def _image_array_response(request: Request) -> Response:
     session = await get_session()
     image = await session.camera_readout()
     if image is None:
         raise HTTPException(status_code=400, detail="Image not ready")
     processed_image, type_code = _resolve_image_array(image)
-    payload = alpaca_response(value=processed_image.tolist())
-    payload["Type"] = type_code
-    payload["Rank"] = processed_image.ndim
-    payload["Dimensions"] = list(processed_image.shape)
-    payload["TypeName"] = _IMAGE_TYPE_NAMES.get(type_code, "Unknown")
-    return payload
+    envelope = alpaca_response()
+    # Large frames (a DWARF 3 FITS is 3856x2180) must never be serialised on the
+    # event loop: doing so blocked every other Alpaca request for ~13 s and NINA
+    # treated the camera as disconnected.
+    if _wants_imagebytes(request):
+        body = await asyncio.to_thread(
+            _encode_imagebytes,
+            processed_image,
+            type_code,
+            int(envelope.get("ClientTransactionID", 0)),
+            int(envelope.get("ServerTransactionID", 0)),
+        )
+        return Response(content=body, media_type=_IMAGEBYTES_MEDIA_TYPE)
+    body = await asyncio.to_thread(_encode_image_json, envelope, processed_image, type_code)
+    return Response(content=body, media_type="application/json")
+
+
+@router.get("/imagearray")
+async def get_image_array(request: Request):
+    return await _image_array_response(request)
 
 
 @router.get("/imagearrayvariant")
-async def get_image_array_variant():
-    session = await get_session()
-    image = await session.camera_readout()
-    if image is None:
-        raise HTTPException(status_code=400, detail="Image not ready")
-    processed_image, type_code = _resolve_image_array(image)
-    payload = alpaca_response(value=processed_image.tolist())
-    payload["Type"] = type_code
-    payload["Rank"] = processed_image.ndim
-    payload["Dimensions"] = list(processed_image.shape)
-    payload["TypeName"] = _IMAGE_TYPE_NAMES.get(type_code, "Unknown")
-    return payload
+async def get_image_array_variant(request: Request):
+    return await _image_array_response(request)
 
 
 @router.get("/numx")
@@ -964,13 +1059,24 @@ async def set_bin_y(request: Request, BinY: int | None = Query(None, alias="BinY
     return alpaca_response()
 
 
+# ASCOM/Alpaca: Gain works either in "GAIN VALUE" mode (GainMin/GainMax) or in
+# "GAINS INDEX" mode (Gains list, Gain = index). Both must not be active at the
+# same time. This driver uses value mode, so Gains must report NotImplemented
+# (0x400); otherwise clients such as NINA mix the two modes and lock the gain.
+_NOT_IMPLEMENTED = 0x400
+
+
 @router.get("/cameragains")
 def get_camera_gains():
-    _sync_state_to_profile()
-    return alpaca_response(value=_gain_steps())
+    return alpaca_response(
+        error_number=_NOT_IMPLEMENTED,
+        error_message="Gains is not implemented: gain uses GainMin/GainMax value mode",
+    )
 
 
 @router.get("/gains")
 def get_available_gains():
-    _sync_state_to_profile()
-    return alpaca_response(value=_gain_steps())
+    return alpaca_response(
+        error_number=_NOT_IMPLEMENTED,
+        error_message="Gains is not implemented: gain uses GainMin/GainMax value mode",
+    )

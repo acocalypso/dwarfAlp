@@ -38,3 +38,6 @@ firmware/*.zip
 # Keep model-specific DRACO reverse-engineering notes local until they are
 # intentionally reviewed and published.
 docs/apk-analysis/DRACO_LOCAL.md
+
+# Personal GUI settings profile (IP, location)
+dwarf-alpaca.yaml
