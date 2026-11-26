@@ -1,7 +1,9 @@
 # Generates dwarfAlp-test-plan-3.json, a N.I.N.A. advanced-sequencer test plan for dwarfAlp.
 # Run from this folder: python make_test_plan.py
 # (Earlier plans 1 and 2 are kept as written by previous versions of this script.)
-import json, itertools
+import itertools
+import json
+
 ids = itertools.count(1)
 NS = "NINA.Sequencer"
 COLL_ITEM = "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel"
@@ -13,13 +15,16 @@ def container(cls, name, parent, items=(), conditions=(), extra=None):
     c = {"$id": cid, "$type": f"{NS}.Container.{cls}, {NS}",
          "Strategy": {"$type": f"{NS}.Container.ExecutionStrategy.SequentialStrategy, {NS}"},
          "Name": name}
-    if extra: c.update(extra)
+    if extra:
+        c.update(extra)
     c["Conditions"] = {"$id": str(next(ids)), "$type": COLL_COND, "$values": [f(cid) for f in conditions]}
     c["IsExpanded"] = True
     c["Items"] = {"$id": str(next(ids)), "$type": COLL_ITEM, "$values": [f(cid) for f in items if f]}
     c["Triggers"] = {"$id": str(next(ids)), "$type": COLL_TRIG, "$values": []}
-    if parent: c["Parent"] = {"$ref": parent}
-    c["ErrorBehavior"] = 0; c["Attempts"] = 1
+    if parent:
+        c["Parent"] = {"$ref": parent}
+    c["ErrorBehavior"] = 0
+    c["Attempts"] = 1
     return c
 
 def C(cls, name, items=(), conditions=(), extra=None):
@@ -29,7 +34,9 @@ def item(typ, **props):
     def f(parent):
         d = {"$id": str(next(ids)), "$type": f"{NS}.{typ}, {NS}"}
         d.update(props)
-        d["Parent"] = {"$ref": parent}; d["ErrorBehavior"] = 0; d["Attempts"] = 1
+        d["Parent"] = {"$ref": parent}
+        d["ErrorBehavior"] = 0
+        d["Attempts"] = 1
         return d
     return f
 
@@ -130,6 +137,8 @@ end = C("EndAreaContainer", "End", items=[
 ])
 root["Items"] = {"$id": str(next(ids)), "$type": COLL_ITEM, "$values": [start(root_id), targets(root_id), end(root_id)]}
 root["Triggers"] = {"$id": str(next(ids)), "$type": COLL_TRIG, "$values": []}
-root["Parent"] = None; root["ErrorBehavior"] = 0; root["Attempts"] = 1
+root["Parent"] = None
+root["ErrorBehavior"] = 0
+root["Attempts"] = 1
 json.dump(root, open("dwarfAlp-test-plan-3.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 print("ok")
