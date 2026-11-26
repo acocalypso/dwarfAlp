@@ -13,6 +13,7 @@
       <nav class="nav shell" aria-label="Primary navigation">
         <a class="brand" href="index.html">DwarfAlp <b>API Observatory</b></a>
         <div class="nav-links">
+          <a href="#latest-update">Latest update</a>
           <a href="#apk">APK parameters</a>
           <a href="#app-settings">App settings</a>
           <a href="#workflows">Workflows</a>
@@ -25,8 +26,42 @@
       </div>
     </header>
     <main class="shell">
+      <section class="panel" id="latest-update">
+        <h2>November 2026 OTA and Android update</h2>
+        <p>On 26 November 2026 the production OTA service offered Draco application firmware <strong>1.1.0.134</strong> for model 6 when the request reported system build <strong>20261111a</strong>. With the system rollback index unset (0), the service offered 20261111a first and identified 1.1.0.134 as the target application version. An up-to-date 1.1.0.134 request returned no package. The application update record was last updated on 25 November. The public release notes still list Draco firmware 1.1.0.96 and mobile app 3.4.5. <a href="https://www.dwarflab.com/us/pages/dwarflab-app-firmware-download">DWARFLAB Download Center</a></p>
+        <p>The 1.1.0.134 OTA notes announce flat-frame capture, a 2:1 default SHO imaging ratio, and a fix for dark-frame captures that stalled during saving. The notes give no ordering for the two components of the ratio. The earlier 1.1.0.96 notes describe guide-status notifications, stacked PNG and FITS exports, automatic dark frames and HDR controls, SHO edge cropping, and fixes for field derotation, scheduling, and stacking. <a href="https://api-front.dwarflabapp.com/api-front/v1/version/firmware/up-version-ex?deviceId=6&amp;firmwareVer=1.1.0.96&amp;appOs=1&amp;appVer=3.4.6&amp;appRollbackIndex=0&amp;sysRollbackIndex=2026111100">Production OTA metadata</a> · <a href="https://www.dwarflab.com/us/pages/dwarflab-app-firmware-download">DWARFLAB Download Center</a></p>
+        <h3>Firmware packages</h3>
+        <p>Both downloads are 7-Zip containers with format-7 manifests. The app manifest identifies a full production OTA and declares system 20261111a with rollback index 2026111100 as a prerequisite. Each package includes a certificate and RSA-PSS/SHA-256 manifest signature. The two signatures verified using the bundled certificate, and the contained encrypted metadata and payload matched their signed sizes and SHA-256 hashes. Package sizes and MD5 also matched the API response. This checks the downloaded artifacts and their internal signatures. Device trust and installation behavior remain unverified.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Package</th><th scope="col">Bytes</th><th scope="col">SHA-256</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Draco application 1.1.0.134</th><td>516,795,744</td><td><code style="overflow-wrap: anywhere">50d143bade0bae2153a8b1dcacb6204ca9f523f69a3284afc7e897c739a57d8c</code></td></tr>
+              <tr><th scope="row">Draco system 20261111a</th><td>670,201,774</td><td><code style="overflow-wrap: anywhere">2d72649ba876367dd25c18204d5ff3025560366f30058160a5d09bcc165b7d62</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The packages encrypt the metadata and firmware payload. Their inspection reached the archive, signed manifest, and encrypted members. Firmware-side command handlers and on-device behavior remain unverified.</p>
+        <h3>Android 3.4.6 build 807</h3>
+        <p>The Android APK served by the DWARFLAB Help Center on 26 November identified itself as <code>com.convergence.dwarflab</code> 3.4.6 build 807. Its v2 APK signature verified, with the same signer certificate fingerprint recorded for 3.4.1. APK SHA-256 <code style="overflow-wrap: anywhere">fc5c954e5d76d4b533ed896b02b06b855ac97d33d4e2e98fc944b10d949a02f7</code>. <a href="https://help.dwarflab.com/docs/Office-App-Download?locale=zh">DWARFLAB Android download instructions</a></p>
+        <p>The APK's <code>DeviceType</code> enum uses model ID 6 for both <code>DRACO</code> (hardware version 0) and <code>DRACO_SHO</code> (hardware version 1). The exposure and gain values come from <code>assets/params_range.json</code>. <code>FilterType</code> supplies the names for the resource's numeric filter values.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Parameter</th><th scope="col">Tele (camera 0)</th><th scope="col">Wide (camera 1)</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Normal and dark-frame exposure</th><td>30, 45, 60, 90, 120, 180, 240, 300, and 500 s. Default 30 s (code 159). 500 s uses code 177.</td><td>1–90 s using the sparse lookup. Default 15 s (code 156).</td></tr>
+              <tr><th scope="row">Normal and dark-frame gain</th><td>90–160 in steps of 10. Default 90.</td><td>0, 2, 5, then 10–240 in steps of 10. Default 60.</td></tr>
+              <tr><th scope="row">Normal filter values</th><td>Standard lists Astro (1) and HO (2). SHO Edition adds SO (4) and SHO (5). Both default to Astro.</td><td>No model-6 wide filter row</td></tr>
+              <tr><th scope="row">Resolution indices</th><td>3 (default), 4</td><td>3 (default), 4</td></tr>
+              <tr><th scope="row">Dark-frame count</th><td>1–999. Default 10.</td><td>1–999. Default 10.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The 500 s value is now corroborated by the newer APK. Its acceptance and delivered exposure time on Draco are still open. The November UI notes give a broader gain range than the 3.4.6 tele resource. The device-reported range remains unverified.</p>
+        <p>The 3.4.6 APK contains a dedicated flat-frame UI, registers <code>11051</code> as <code>CMD_ASTRO_CHECK_FLAT_FRAME</code>, and retains calibration type <code>FLAT=2</code>. The existing calibration capture request (<code>11045</code>, <code>ReqCaptureCaliFrame</code>) serializes the calibration type and optionally sends boolean <code>dark_hdr</code> as protobuf field 9, which is absent from dwarfAlp's current schema. Dark is calibration type 0 with filter value 3 in the dark-frame request defaults. Capture acceptance and the resulting files need hardware evidence.</p>
+      </section>
       <section class="panel" id="apk">
-        <h2>APK camera parameters</h2>
+        <h2>Historical APK camera parameters</h2>
         <p>DWARFLAB 3.4.1 declares <code>DeviceType.DRACO</code> with model ID <code>6</code>. This ID identifies the app model. Draco’s response envelope and firmware protocol version remain unverified.</p>
         <p>The base APKs for 3.4.1 and 3.4.3 contain the following model-6 entries in <code>assets/params_range.json</code>. Exposure limits refer to a sparse lookup table.</p>
         <div class="table-wrap">
@@ -48,8 +83,8 @@
       </section>
       <section class="panel" id="app-settings">
         <h2>November 2026 app settings and vendor specifications</h2>
-        <p>The project’s 23 November 2026 app UI notes record Astro and HO for Standard, and Astro, HO, SO, and SHO for SHO Edition. Both lists showed 30, 45, 60, 90, 120, 180, 240, 300, and 500 s, with the gain steps above. The notes leave the app build unspecified. The 500 s choice is a UI observation only. DWARFLAB advertises 300 s single-frame exposures, and the two inspected APK tables stop at 300 s tele. <a href="https://www.dwarflab.com/us/products/draco-smart-telescope">DWARFLAB product specifications</a></p>
-        <p>DWARFLAB lists an Astro filter, a dark position, and Hα + O III (HO) for both editions. Standard has a built-in ND solar filter. SHO Edition adds S II + O III (SO) and uses an external ND solar filter. DWARFLAB describes SHO as a combination of data captured through the two dual-band filters. The command and filter index mapping for the newer choices remains unverified. <a href="https://help.dwarflab.com/docs/draco?locale=en&amp;webview=true">DWARFLAB Draco guide</a></p>
+        <p>The project’s 23 November 2026 app UI notes record Astro and HO for Standard, and Astro, HO, SO, and SHO for SHO Edition. Both lists showed 30, 45, 60, 90, 120, 180, 240, 300, and 500 s, with gain 0, 2, 5, then 10–240 in steps of 10. The notes leave the app build unspecified. DWARFLAB advertises 300 s single-frame exposures. <a href="https://www.dwarflab.com/us/products/draco-smart-telescope">DWARFLAB product specifications</a></p>
+        <p>DWARFLAB lists an Astro filter, a dark position, and Hα + O III (HO) for both editions. Standard has a built-in ND solar filter. SHO Edition adds S II + O III (SO) and uses an external ND solar filter. DWARFLAB describes SHO as a combination of data captured through the two dual-band filters. The APK values above describe logical app choices. Physical positions and firmware acceptance remain unverified. <a href="https://help.dwarflab.com/docs/draco?locale=en&amp;webview=true">DWARFLAB Draco guide</a></p>
         <p>DWARFLAB specifies a 90 mm aperture and 340 mm physical focal length for the tele camera, approximately 12 MP deep-sky output with 2×2 binning, a separate wide camera, and a monochrome OS04C1B guide camera. <a href="https://www.dwarflab.com/us/products/draco-smart-telescope">DWARFLAB product specifications</a> · <a href="https://help.dwarflab.com/docs/draco?locale=en&amp;webview=true">DWARFLAB Draco guide</a></p>
       </section>
       <section class="panel" id="workflows">
@@ -63,12 +98,12 @@
       </section>
       <section class="panel" id="evidence">
         <h2>Evidence and open questions</h2>
-        <p>Both base APKs are from the local <code>com.convergence.dwarflab</code> split bundles. The model and workflow findings are from 3.4.1 DEX analysis. The parameter comparison reads the JSON member directly from each base APK.</p>
+        <p>The historical base APKs are from local <code>com.convergence.dwarflab</code> split bundles. The historical workflow findings come from 3.4.1 DEX analysis. The camera parameter comparisons read the JSON member directly from each APK. The 3.4.6 code evidence comes from <code>DeviceType</code>, <code>FilterType</code>, <code>WsCmd</code>, <code>WsStartCaptureCaliFrameReq</code>, and <code>AstroProto.ReqCaptureCaliFrame</code>. The APK identity is recorded in REA evidence <code style="overflow-wrap: anywhere">ev_699447fa727e759ad4f6a6b57e6e4191f541b82dd3cd6b3dee752e0c4ecd1c2a</code>.</p>
         <ul>
           <li>3.4.1 base APK SHA-256 <code style="overflow-wrap: anywhere">1e4f676a35ebe6f9d8cb7b3fb4720346c45c41fc41b7e7807151b0080c5de294</code></li>
           <li>3.4.3 base APK SHA-256 <code style="overflow-wrap: anywhere">98f45d1f80e51923e812c5ec431e097e9f5b63ea29f95df52a0c05f7dd4cdd4f</code></li>
         </ul>
-        <p>The workspace firmware releases cover DWARF 3 and Mini. Draco firmware, device-reported ranges, physical filter positions, command acceptance, FITS output, and end-to-end DwarfAlp and NINA interoperability remain open.</p>
+        <p>The latest workspace acquisition adds the Draco OTA packages described above. Device-reported ranges, physical filter positions, command acceptance, FITS output, and end-to-end DwarfAlp and NINA interoperability remain open.</p>
       </section>
     </main>
   </body>

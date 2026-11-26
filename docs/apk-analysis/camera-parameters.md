@@ -90,8 +90,9 @@ resolution, count, camera, calibration type, filter, and scene together.
 
 ## Evidence
 
-- [Draco research](../site/draco.html) compares the two local APK versions, newer
-  app settings, and vendor specifications.
+- [Draco research](../site/draco.html#latest-update) documents the 3.4.6 APK
+  changes, including tele exposure code 177 (500 s) and edition-specific filter
+  choices, alongside the historical tables.
 - APK: DWARFLAB 3.4.1 APKS, `assets/params_range.json`
 - Decompiled enums: `DeviceType`, `FilterType`
 - Decompiled requests: `WsStartCaptureRawLiveStackingReq`,

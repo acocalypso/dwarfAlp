@@ -2,6 +2,12 @@
 
 ## 2026-11-26
 
+- Acquired Draco application OTA 1.1.0.134 and prerequisite system OTA
+  20261111a. Verified the downloaded sizes, hashes, and manifest signatures
+  against the bundled certificate. Compared DWARFLAB Android 3.4.6 build 807
+  against the earlier camera parameter tables. The
+  [Draco release analysis](../site/draco.html#latest-update) records the
+  findings and the scope of the encrypted packages.
 - Promoted the Draco observations to the [public research reference](../site/draco.html)
   after comparing the 3.4.1 and 3.4.3 APK resources and checking the 3.4.1 model and
   workflow code. Draco firmware and device behavior remain unverified.
